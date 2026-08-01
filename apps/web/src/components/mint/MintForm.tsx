@@ -2,11 +2,15 @@
 
 import { useState, useCallback } from 'react';
 import { HiOutlineSparkles, HiOutlineShieldCheck } from 'react-icons/hi';
-import type { MintFormState, NftAttribute, RoyaltyConfig as RoyaltyConfigType } from '@bezamint/shared';
+import type {
+  MintFormState,
+  NftAttribute,
+  RoyaltyConfig as RoyaltyConfigType,
+} from '@bezamint/shared';
 import { useWallet } from '@/context';
 import { useToast } from '@/context';
 import { useTransaction } from '@/hooks/useTransaction';
-import { mintNft, signAndSubmit, uploadMetadataToIpfs } from '@/services';
+import { mintNft, signAndSubmit, uploadMetadataToIpfs, checkBalance } from '@/services';
 import AttributeEditor from './AttributeEditor';
 import ImagePreview from './ImagePreview';
 import CollectionSelector from './CollectionSelector';
@@ -52,7 +56,8 @@ export default function MintForm() {
     if (!form.name.trim()) newErrors.name = 'Name is required';
     if (form.name.length > 128) newErrors.name = 'Name must be 128 characters or fewer';
     if (!form.imageUri.trim()) newErrors.imageUri = 'Image URI is required';
-    if (form.description.length > 2000) newErrors.description = 'Description must be 2000 characters or fewer';
+    if (form.description.length > 2000)
+      newErrors.description = 'Description must be 2000 characters or fewer';
 
     // Validate royalty recipients
     if (form.royalties) {
@@ -73,6 +78,23 @@ export default function MintForm() {
     }
 
     if (!validate()) return;
+
+    // Pre-flight balance check
+    try {
+      const balanceCheck = await checkBalance(address!);
+      if (!balanceCheck.sufficient) {
+        showError(
+          `Insufficient XLM balance. You have ${balanceCheck.balance} XLM, but need at least ${balanceCheck.minimumRequired} XLM.`,
+        );
+        return;
+      }
+    } catch (err: any) {
+      if (err?.message?.includes('Insufficient')) {
+        showError(err.message);
+        return;
+      }
+      // Other balance check errors are non-fatal; proceed
+    }
 
     try {
       await tx.execute(async (onStatus) => {
@@ -108,8 +130,16 @@ export default function MintForm() {
       });
 
       showSuccess('NFT minted successfully!');
-    } catch {
-      // Error already handled by useTransaction hook and displayed via TransactionStatus
+    } catch (err: any) {
+      const message = err?.message || '';
+      if (
+        message.includes('cancelled') ||
+        message.includes('rejected') ||
+        message.includes('user')
+      ) {
+        showError('Transaction was cancelled.');
+      }
+      // Other errors already handled by useTransaction hook
     }
   };
 
@@ -176,7 +206,9 @@ export default function MintForm() {
                 className={`input-field resize-none ${errors.description ? 'border-red-500/50' : ''}`}
               />
               <div className="flex justify-between">
-                {errors.description && <p className="text-xs text-red-400 mt-1">{errors.description}</p>}
+                {errors.description && (
+                  <p className="text-xs text-red-400 mt-1">{errors.description}</p>
+                )}
                 <span className="text-xs text-gray-500 ml-auto mt-1">
                   {form.description.length}/2000
                 </span>
