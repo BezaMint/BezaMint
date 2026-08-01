@@ -1,5 +1,10 @@
 import { xdr, Address, scValToNative } from '@stellar/stellar-sdk';
-import { buildContractTransaction, simulateTransaction, submitSignedTransaction, waitForTransaction } from './stellar';
+import {
+  buildContractTransaction,
+  simulateTransaction,
+  submitSignedTransaction,
+  waitForTransaction,
+} from './stellar';
 
 // ─────────────────────── Contract IDs ───────────────────────
 
@@ -45,7 +50,7 @@ export async function getTotalSupply(sourceAddress: string): Promise<number> {
 
 export async function getOwnerOf(sourceAddress: string, tokenId: number): Promise<string | null> {
   try {
-  const tokenScVal = xdr.ScVal.scvU64(new xdr.Uint64(tokenId));
+    const tokenScVal = xdr.ScVal.scvU64(new xdr.Uint64(tokenId));
     const result = await simulateTransaction(sourceAddress, CONTRACT_IDS.nft, 'owner_of', [
       tokenScVal,
     ]);
@@ -108,15 +113,32 @@ export async function signAndSubmit(
   onStatus?: (status: string) => void,
 ): Promise<{ txHash: string; result: any }> {
   if (!isFreighterInstalled()) {
-    throw new Error('Freighter wallet is not installed. Please install the Freighter browser extension.');
+    throw new Error(
+      'Freighter wallet is not installed. Please install the Freighter browser extension.',
+    );
   }
 
   const freighter = (window as any).stellar;
 
   onStatus?.('signing');
-  const signedXdr = await freighter.signTransaction(txXdr, {
-    networkPassphrase: 'Test SDF Network ; September 2015',
-  });
+  let signedXdr: string;
+  try {
+    signedXdr = await freighter.signTransaction(txXdr, {
+      networkPassphrase: 'Test SDF Network ; September 2015',
+    });
+  } catch (err: any) {
+    // Handle user-cancelled signing gracefully
+    const message = err?.message || '';
+    if (
+      message.includes('cancelled') ||
+      message.includes('rejected') ||
+      message.includes('denied') ||
+      message.includes('user')
+    ) {
+      throw new Error('Transaction was cancelled by user.');
+    }
+    throw new Error(`Signing failed: ${message || 'Unknown error'}`);
+  }
 
   onStatus?.('submitting');
   const submitResult = await submitSignedTransaction(signedXdr);
