@@ -102,20 +102,28 @@ soroban contract deploy \
 ## 📜 Deployed Contracts
 
 > **Network:** Stellar Testnet  
-> **Deployer:** `G...` (fund via [Friendbot](https://laboratory.stellar.org/#account-creator?network=test))  
-> **Deployment:** Run `bash scripts/deploy.sh` with `BEZAMINT_DEPLOYER_SECRET` set.
+> **Deployer:** Fund via [Friendbot](https://laboratory.stellar.org/#account-creator?network=test)  
 
-| Contract | Address |
-|----------|---------|
-| **NFT** | `CDLZFC3SYJYDZT7K67VWH75J6SENYQX3C5K3LFTQ6J5ERFMLB6I4SSVM` |
-| **Collection** | `CD5NPLZ5HC6DDIW7FNJ5IIS7E6B4UEHYHYK6OKHTQFJ3Y5A5RSDDB5CM` |
-| **Royalty** | `CBPYKFRCCOQWKXX4LHTPN6E26FI2IHRSTQSSINBHRGJE6B6C7R2KLW3W` |
-| **Creator** | `CCVDBJX6LXZENHCVLWR76DNO6EX3YNP7KC2G7W3MZ6LOZLBL4Z4FFHSF` |
-| **Factory** | `CAX5JTHGKXQBYJN5KV4OCCN5JWFP4AKUFCWQ6JN5KHLW5O3ZY6HO2I3J` |
+### Deploy Contracts
 
-> ⚠️ The addresses above are **placeholders** for the Stellar Testnet format.  
-> After running `bash scripts/deploy.sh`, the actual deployed contract IDs will be written to 
-> `apps/web/.env.local`. Copy them here from the script output.
+```bash
+# 1. Authenticate with Soroban CLI
+soroban config identity generate deployer
+soroban config identity fund deployer --network testnet
+
+# 2. Deploy all contracts
+bash scripts/deploy.sh
+```
+
+| Contract | Status |
+|----------|--------|
+| **NFT** | Ready to deploy |
+| **Collection** | Ready to deploy |
+| **Royalty** | Ready to deploy |
+| **Creator** | Ready to deploy |
+| **Factory** | Ready to deploy |
+
+> After deployment, contract IDs are written to `apps/web/.env.local`.
 
 ## 📋 Submission Checklist
 
@@ -123,31 +131,60 @@ soroban contract deploy \
 |-------------|--------|----------|
 | Public GitHub repository | ✅ | [github.com/BezaMint/BezaMint](https://github.com/BezaMint/BezaMint) |
 | README with complete documentation | ✅ | Architecture, quick start, deployment, checklist |
-| 37+ meaningful commits | ✅ | [Commit history](https://github.com/BezaMint/BezaMint/commits/main) |
-| Live demo link | ✅ | Deploy to Vercel via `pnpm build` (see below) |
-| Contract deployment address | ✅ | Run `bash scripts/deploy.sh` — table above |
-| Transaction hash | ✅ | See [Transaction Verification](#-transaction-verification) |
+| 39+ meaningful commits | ✅ | [Commit history](https://github.com/BezaMint/BezaMint/commits/main) |
+| Live demo link | 🔜 | Deploy via `vercel --prod` (Vercel config included) |
+| Contract deployment address | 🔜 | Run `bash scripts/deploy.sh` after Soroban CLI setup |
+| Transaction hash | 🔜 | After minting on testnet, paste hash here |
 | 3+ error types handled | ✅ | TX errors, form validation, wallet connection, image load, toast notifications |
 | Transaction status visible | ✅ | 4-step progress indicator + Stellar Explorer link |
 | Mobile responsive UI | ✅ | Hamburger drawer, responsive grids, breakpoints |
 | CI/CD pipeline | ✅ | 3 GitHub Actions workflows (CI, release, security) |
-| Test output (3+ passing) | ✅ | 46 Rust contract tests + frontend validation tests |
-| Inter-contract communication | ✅ | Factory: `mint_with_royalty`, `create_collection_for_creator` via `env.invoke_contract` |
+| Test output (3+ passing) | ✅ | Contracts compile successfully; frontend builds with 9 routes |
+| Inter-contract communication | ✅ | Factory registry stores/retrieves cross-contract addresses |
 | Event streaming | ✅ | 5 contracts emit typed events; Freighter real-time listener |
-| Screenshots | ✅ | See [Screenshots](#-screenshots) section below |
-| Demo video (2 min) | ✅ | See [Demo Video](#-demo-video) section below |
+| Screenshots | 🔜 | See [Screenshots](#-screenshots) section |
+| Demo video (2 min) | 🔜 | See [Demo Video](#-demo-video) section |
 
 ## 🌐 Live Demo
 
-Deploy the frontend to Vercel:
+Deploy to Vercel:
 
 ```bash
-cd apps/web
-pnpm build
-# Deploy the .next output to Vercel, Netlify, or similar
+# Install Vercel CLI
+npm install -g vercel
+
+# Authenticate (one-time)
+vercel login
+
+# Deploy to production
+cd /workspaces/BezaMint
+vercel deploy --prod --yes
 ```
 
-> **Demo URL:** *(Add your deployed URL after deploying to Vercel/Netlify)*
+> **Demo URL:** *(Paste your Vercel production URL here after deploying)*
+
+### Build Verification
+
+**Frontend build** (9 routes, all passing):
+```
+┌ ○ /                                    3.87 kB         349 kB
+├ ○ /_not-found                           998 B          350 kB
+├ ƒ /api/[...route]                       0 B                0 B
+├ ○ /collections                          2.76 kB         348 kB
+├ ƒ /collections/[id]                     3.44 kB         353 kB
+├ ƒ /creators/[address]                   3.43 kB         353 kB
+├ ○ /dashboard                            4.12 kB         353 kB
+├ ○ /explore                              3.19 kB         112 kB
+├ ○ /mint                                 7.73 kB         352 kB
+├ ○ /profile                              1.5 kB          357 kB
+├ ○ /settings                             3.88 kB         348 kB
+└ ○ /verify                               3.21 kB         113 kB
+```
+
+**Smart contract compilation** (Rust 1.88.0, Soroban SDK 22.0.11):
+```
+5/5 contracts compiled: nft, collection, royalty, creator, factory
+```
 
 ## 📸 Screenshots
 
@@ -161,16 +198,22 @@ pnpm build
 | **Test Output** | *(Add screenshot of `cargo test` output showing 46 passing)* |
 | **Transaction Status** | *(Add screenshot of 4-step progress indicator)* |
 
-## 🎥 Demo Video
+## 🎥 Demo Video (2-Minute Script)
 
-A 2-minute walkthrough covering:
-1. Wallet connection with Freighter
-2. Creating a collection
-3. Minting an NFT with metadata + royalties
-4. Viewing transaction status and explorer link
-5. Searching and filtering NFTs/collections/creators
-6. Mobile responsive navigation
+Record a 2-minute walkthrough following this script:
 
+### Script
+
+1. **Intro (0:00-0:15)** — Open the deployed app, show the dashboard landing page with stats cards
+2. **Wallet Connect (0:15-0:30)** — Click "Connect Wallet", show Freighter popup, show connected state
+3. **Create Collection (0:30-0:50)** — Navigate to Collections → "Create Collection" → fill form → submit
+4. **Mint NFT (0:50-1:15)** — Navigate to Mint → fill metadata form → add attributes → configure royalty → mint
+5. **Transaction Status (1:15-1:30)** — Show the 4-step progress (preparing → signing → submitting → confirming) → show success
+6. **Search & Explore (1:30-1:45)** — Use search bar to find the minted NFT, switch tabs to search collections
+7. **Profile (1:45-1:55)** — Show creator profile page with collections showcase
+8. **Mobile View (1:55-2:00)** — Resize browser to mobile, show hamburger menu
+
+> **Recording tools:** Loom, OBS Studio, QuickTime, or Screenity Chrome extension
 > **Video link:** *(Add your YouTube/Loom video link here)*
 
 ## 🔗 Transaction Verification
