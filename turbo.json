@@ -23,7 +23,6 @@
       "dependsOn": ["^build"]
     },
     "test": {
-      "dependsOn": ["build"],
       "inputs": ["src/**", "test/**", "tests/**"],
       "outputs": ["coverage/**"]
     },
