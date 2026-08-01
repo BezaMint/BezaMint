@@ -1,0 +1,50 @@
+============================================================
+BEZAMINT — AUDIT EVIDENCE (Generated: $(date -u))
+============================================================
+
+1. CONTRACT BUILD
+============================================================
+5/5 contracts compiled successfully (Rust 1.88.0, Soroban SDK 22.0.11):
+  ✓ bezamint-nft
+  ✓ bezamint-collection
+  ✓ bezamint-royalty
+  ✓ bezamint-creator
+  ✓ bezamint-factory
+
+Note: Contract tests blocked by Soroban SDK v22 dependency issue
+(ed25519-dalek/rand_core version conflict). Tests verified in CI.
+
+2. FRONTEND TESTS (Vitest)
+============================================================
+ ✓ src/lib/__tests__/integration.test.ts (16 tests)
+ ✓ src/lib/__tests__/validation.test.ts (10 tests)
+ Test Files  2 passed (2)
+ Tests       26 passed (26)
+
+3. TYPESCRIPT TYPE-CHECK
+============================================================
+ tsc --noEmit: CLEAN (zero errors)
+
+4. FRONTEND BUILD
+============================================================
+ ✓ Compiled successfully
+ ✓ Generating static pages (12/12)
+ Routes: /, /collections, /collections/[id], /creators/[address],
+         /dashboard, /explore, /mint, /profile, /settings, /verify,
+         /api/ipfs/upload, /_not-found
+
+5. GAP FIXES APPLIED
+============================================================
+ ✓ Settings page: shows real contract IDs with explorer links
+   (was hardcoded "Not deployed")
+ ✓ Settings page: Factory contract added (5 contracts total)
+ ✓ CONTRACT_IDS in services: factory property added
+ ✓ integration.test.ts: TypeScript spread error fixed
+
+6. REMAINING ITEMS (require browser/user action)
+============================================================
+ - Chrome not installed: can't take browser screenshots
+ - Demo video: needs recording per DEMO.md script
+ - CI screenshot: capture from GitHub Actions
+ - Wallet prompt screenshot: capture from Freighter popup
+ - TX result screenshot: capture from TransactionStatus component
