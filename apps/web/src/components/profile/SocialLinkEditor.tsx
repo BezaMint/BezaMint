@@ -1,19 +1,8 @@
 'use client';
 
-import { HiOutlinePlus, HiOutlineTrash, HiOutlineGlobe } from 'react-icons/hi';
-import { FaXTwitter, FaDiscord, FaGithub, FaYoutube, FaInstagram, FaTelegram } from 'react-icons/fa6';
-import type { SocialLink, SocialPlatform } from '@bezamint/shared';
-
-const PLATFORMS: { value: SocialPlatform; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { value: 'twitter', label: 'X (Twitter)', icon: FaXTwitter },
-  { value: 'discord', label: 'Discord', icon: FaDiscord },
-  { value: 'github', label: 'GitHub', icon: FaGithub },
-  { value: 'youtube', label: 'YouTube', icon: FaYoutube },
-  { value: 'instagram', label: 'Instagram', icon: FaInstagram },
-  { value: 'telegram', label: 'Telegram', icon: FaTelegram },
-  { value: 'website', label: 'Website', icon: HiOutlineGlobe },
-  { value: 'other', label: 'Other', icon: HiOutlineGlobe },
-];
+import { HiOutlinePlus, HiOutlineTrash } from 'react-icons/hi';
+import type { SocialLink } from '@bezamint/shared';
+import { SOCIAL_PLATFORMS, getPlatformIcon } from '@/lib/socialPlatforms';
 
 interface SocialLinkEditorProps {
   links: SocialLink[];
@@ -46,8 +35,7 @@ export default function SocialLinkEditor({ links, onChange, maxLinks = 8 }: Soci
       </div>
 
       {links.map((link, idx) => {
-        const platform = PLATFORMS.find((p) => p.value === link.platform);
-        const Icon = platform?.icon || HiOutlineGlobe;
+        const Icon = getPlatformIcon(link.platform);
 
         return (
           <div key={idx} className="flex items-center gap-2 p-2 rounded-xl bg-bezamint-muted/30 border border-bezamint-border">
@@ -57,7 +45,7 @@ export default function SocialLinkEditor({ links, onChange, maxLinks = 8 }: Soci
                 onChange={(e) => updateLink(idx, 'platform', e.target.value)}
                 className="input-field text-sm py-2 pl-8 pr-6 w-36 appearance-none bg-bezamint-muted"
               >
-                {PLATFORMS.map((p) => (
+                {SOCIAL_PLATFORMS.map((p) => (
                   <option key={p.value} value={p.value}>{p.label}</option>
                 ))}
               </select>
