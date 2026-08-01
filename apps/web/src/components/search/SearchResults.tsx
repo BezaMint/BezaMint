@@ -4,11 +4,9 @@ import { useState, useMemo } from 'react';
 import SearchBar from './SearchBar';
 import SearchFilters from './SearchFilters';
 import SearchResultCard from './SearchResultCard';
-import { COLLECTION_LIMITS } from '@bezamint/shared/constants';
-
 const CATEGORIES = [
   { value: 'all', label: 'All' },
-  ...COLLECTION_LIMITS.categoryOptions.map((c: string) => ({
+  ...[ 'art', 'music', 'gaming', 'sports', 'photography', 'brand', 'membership', 'ticketing', 'real_estate', 'other' ].map((c: string) => ({
     value: c,
     label: c.charAt(0).toUpperCase() + c.slice(1).replace('_', ' '),
   })),

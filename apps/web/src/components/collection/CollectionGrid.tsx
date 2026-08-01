@@ -21,9 +21,7 @@ interface CollectionGridProps {
   isConnected: boolean;
 }
 
-import { COLLECTION_LIMITS } from '@bezamint/shared/constants';
-
-const CATEGORY_FILTERS = ['all', ...COLLECTION_LIMITS.categoryOptions];
+const CATEGORY_FILTERS = ['all', 'art', 'music', 'gaming', 'sports', 'photography', 'brand', 'membership', 'ticketing', 'real_estate', 'other'];
 
 export default function CollectionGrid({ collections, onCreateClick, isConnected }: CollectionGridProps) {
   const [search, setSearch] = useState('');
