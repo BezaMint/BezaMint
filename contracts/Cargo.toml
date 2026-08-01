@@ -1,0 +1,32 @@
+[workspace]
+resolver = "2"
+members = [
+  "nft",
+  "collection",
+  "royalty",
+  "creator",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+repository = "https://github.com/your-org/bezamint"
+
+[workspace.dependencies]
+soroban-sdk = "22.0.0"
+soroban-token-sdk = "22.0.0"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true
+codegen-units = 1
+panic = "abort"
+
+[profile.release-with-logs]
+inherits = "release"
+strip = false
+lto = false
+debug = true
+codegen-units = 16
