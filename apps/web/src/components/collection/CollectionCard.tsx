@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { HiOutlinePhotograph, HiOutlineClock, HiOutlineLockClosed } from 'react-icons/hi';
 
@@ -24,6 +25,7 @@ export default function CollectionCard({
   createdAt,
   tags = [],
 }: CollectionCardProps) {
+  const [imgError, setImgError] = useState(false);
   return (
     <Link
       href={`/collections/${id}`}
@@ -33,9 +35,10 @@ export default function CollectionCard({
     >
       {/* Image */}
       <div className="aspect-square rounded-xl bg-bezamint-muted/50 border border-bezamint-border overflow-hidden mb-4">
-        {imageUri ? (
+        {imageUri && !imgError ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={imageUri} alt={name}
+            onError={() => setImgError(true)}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">

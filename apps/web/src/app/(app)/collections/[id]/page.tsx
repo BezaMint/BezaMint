@@ -14,7 +14,7 @@ import {
   HiOutlineTag,
 } from 'react-icons/hi';
 import { CollectionForm } from '@/components/collection';
-import type { CollectionFormState } from '@bezamint/shared';
+import type { CollectionFormState, CollectionCategory } from '@bezamint/shared';
 
 // Mock data
 const MOCK_COLLECTION = {
@@ -71,6 +71,7 @@ export default function CollectionDetailPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
           <div className="card max-w-lg w-full max-h-[90vh] overflow-y-auto animate-fade-in">
             <CollectionForm
+              key={String(isEditing)}
               onSubmit={handleEdit}
               onCancel={() => setIsEditing(false)}
               initialData={{
@@ -78,7 +79,7 @@ export default function CollectionDetailPage() {
                 description: collection.description,
                 imageUri: collection.imageUri,
                 externalUrl: collection.externalUrl,
-                category: collection.category as any,
+                category: collection.category as CollectionCategory,
                 tags: collection.tags,
               }}
             />

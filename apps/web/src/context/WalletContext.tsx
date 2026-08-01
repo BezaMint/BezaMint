@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { isFreighterInstalled } from '@/lib/freighter';
 
 // ─────────────────────── Types ───────────────────────
 
@@ -35,17 +36,15 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     error: null,
   });
 
-  const isFreighterInstalled = useCallback((): boolean => {
-    return typeof window !== 'undefined' && !!(window as any).stellar?.isConnected;
-  }, []);
+
 
   const connect = useCallback(async () => {
     setState((s) => ({ ...s, connectionState: 'connecting', error: null }));
 
     try {
-      if (!isFreighterInstalled()) {
-        throw new Error('Freighter wallet is not installed. Please install the Freighter browser extension.');
-      }
+    if (!isFreighterInstalled()) {
+      throw new Error('Freighter wallet is not installed. Please install the Freighter browser extension.');
+    }
 
       const freighter = (window as any).stellar;
       const hasAccess = await freighter.requestAccess();

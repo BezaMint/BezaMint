@@ -99,9 +99,9 @@ export async function getTotalCreators(sourceAddress: string): Promise<number> {
 
 // ─────────────────────── Transaction Flow ───────────────────────
 
-const isFreighterInstalled = (): boolean => {
-  return typeof window !== 'undefined' && !!(window as any).stellar?.isConnected;
-};
+import { isFreighterInstalled } from '@/lib/freighter';
+
+// ─────────────────────── Transaction Flow ───────────────────────
 
 export async function signAndSubmit(
   txXdr: string,
