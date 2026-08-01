@@ -11,10 +11,7 @@ export async function POST(request: NextRequest) {
     const metadata = await request.json();
 
     if (!metadata.name) {
-      return NextResponse.json(
-        { error: 'Metadata must include a name field' },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: 'Metadata must include a name field' }, { status: 400 });
     }
 
     // Graceful fallback when Pinata is not configured
@@ -48,11 +45,9 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    const file = new File(
-      [JSON.stringify(nftMetadata)],
-      `nft-${Date.now()}.json`,
-      { type: 'application/json' },
-    );
+    const file = new File([JSON.stringify(nftMetadata)], `nft-${Date.now()}.json`, {
+      type: 'application/json',
+    });
 
     const result = await pinata.upload.public.file(file);
 
@@ -70,9 +65,7 @@ export async function POST(request: NextRequest) {
     // Return proper error status so callers can detect failure
     return NextResponse.json(
       {
-        error: process.env.NODE_ENV === 'development'
-          ? error.message
-          : 'IPFS upload failed',
+        error: process.env.NODE_ENV === 'development' ? error.message : 'IPFS upload failed',
         cid: null,
         ipfsUri: null,
         fallback: false,

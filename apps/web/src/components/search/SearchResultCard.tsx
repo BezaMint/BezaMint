@@ -1,7 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { HiOutlinePhotograph, HiOutlineCollection, HiOutlineUser, HiOutlineBadgeCheck } from 'react-icons/hi';
+import {
+  HiOutlinePhotograph,
+  HiOutlineCollection,
+  HiOutlineUser,
+  HiOutlineBadgeCheck,
+} from 'react-icons/hi';
 
 interface SearchResultProps {
   type: 'nft' | 'collection' | 'creator';
@@ -23,7 +28,11 @@ export default function SearchResultCard({
   isVerified = false,
 }: SearchResultProps) {
   const Icon =
-    type === 'nft' ? HiOutlinePhotograph : type === 'collection' ? HiOutlineCollection : HiOutlineUser;
+    type === 'nft'
+      ? HiOutlinePhotograph
+      : type === 'collection'
+        ? HiOutlineCollection
+        : HiOutlineUser;
 
   return (
     <Link
@@ -53,13 +62,23 @@ export default function SearchResultCard({
         {tags.length > 0 && (
           <div className="flex gap-1 mt-1.5">
             {tags.slice(0, 3).map((t) => (
-              <span key={t} className="text-xs px-1.5 py-0.5 rounded bg-bezamint-muted/30 text-gray-500">{t}</span>
+              <span
+                key={t}
+                className="text-xs px-1.5 py-0.5 rounded bg-bezamint-muted/30 text-gray-500"
+              >
+                {t}
+              </span>
             ))}
           </div>
         )}
       </div>
 
-      <svg className="w-4 h-4 text-gray-600 group-hover:text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg
+        className="w-4 h-4 text-gray-600 group-hover:text-gray-400 flex-shrink-0"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
       </svg>
     </Link>

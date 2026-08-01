@@ -49,7 +49,9 @@ export function useTransaction() {
    */
   const execute = useCallback(
     async (
-      executeFn: (onStatus: (status: MintStatus) => void) => Promise<{ txHash: string; tokenId?: number }>,
+      executeFn: (
+        onStatus: (status: MintStatus) => void,
+      ) => Promise<{ txHash: string; tokenId?: number }>,
     ) => {
       setStatus('preparing');
       setState((s) => ({ ...s, error: null }));

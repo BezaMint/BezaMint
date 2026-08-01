@@ -1,6 +1,7 @@
 # BezaMint — Demo Video Script (2:00)
 
 ## Recording Setup
+
 - **URL:** https://web-kappa-lac-27.vercel.app
 - **Tool:** Loom, OBS Studio, QuickTime, or Screenity Chrome Extension
 - **Resolution:** 1080p (1920×1080)
@@ -17,6 +18,7 @@
 **Narration:** "Welcome to BezaMint — a comprehensive NFT creation and digital asset management platform built on the Stellar network using Soroban smart contracts. BezaMint empowers creators to mint NFTs, manage collections, configure royalties, and verify ownership — all on-chain."
 
 **What to show:**
+
 - BezaMint logo with green gradient
 - "Create, Organize, Share" feature cards
 - Scroll to show the full landing page
@@ -30,6 +32,7 @@
 **Narration:** "First, let's connect our Freighter wallet. The platform supports persistent sessions — your wallet automatically reconnects when you return."
 
 **What to show:**
+
 - Dashboard stats cards (Total NFTs, Collections, Royalty Earnings, Creators)
 - Click "Connect Wallet" button in the header
 - Freighter popup appears — approve the connection
@@ -43,6 +46,7 @@
 **Narration:** "With your wallet connected, you can send testnet XLM directly from the header. Let's send a quick transaction to demonstrate."
 
 **What to show:**
+
 - Click the paper airplane "Send XLM" icon in the header
 - The Send XLM modal appears with destination, amount, and memo fields
 - Fill in a testnet address and amount
@@ -61,6 +65,7 @@
 **Narration:** "Now let's organize our NFTs into collections. BezaMint supports collections with customizable categories, tags, and metadata."
 
 **What to show:**
+
 - Collections page with grid view
 - Click "New" button to open the Create Collection modal
 - Fill in: name, description, select category, add tags
@@ -77,6 +82,7 @@
 **Narration:** "Time to create our first NFT. The minting form includes metadata fields, attributes, collection assignment, and royalty configuration."
 
 **What to show:**
+
 - Mint form with all fields visible
 - Fill in:
   - Name: "BezaMint Genesis #001"
@@ -94,6 +100,7 @@
 **Narration:** "Watch the transaction flow through its 4-step lifecycle — preparing, signing with Freighter, submitting to the Stellar network, and waiting for final confirmation."
 
 **What to show:**
+
 - The 4-step progress indicator animates:
   - Step 1: Preparing transaction (pulsing)
   - Step 2: Signing with Freighter (spinner)
@@ -112,6 +119,7 @@
 **Narration:** "The powerful search lets you find NFTs, collections, and creators. Switch between tabs to filter by type, and use categories for precise filtering."
 
 **What to show:**
+
 - Search bar with "/" keyboard shortcut
 - Tabs: All Results, NFTs, Collections, Creators
 - Category filter pills
@@ -122,6 +130,7 @@
 **Narration:** "Ownership verification confirms any NFT's on-chain record directly from the Stellar blockchain."
 
 **What to show:**
+
 - Enter a token ID
 - Click "Verify"
 - Show the result with owner address and "Verified on-chain" status
@@ -135,6 +144,7 @@
 **Narration:** "Creator profiles showcase your work — display name, bio, avatar, social links, and collection statistics."
 
 **What to show:**
+
 - Creator profile page with banner, avatar, bio
 - Social links (Twitter, GitHub, Website)
 - Collections and NFTs created statistics
@@ -144,6 +154,7 @@
 **Narration:** "The settings page shows your wallet address, network configuration, and deployed contract addresses."
 
 **What to show:**
+
 - Wallet address and network info
 - Deployed contract addresses (NFT, Collection, Royalty, Creator, Factory)
 - Network: Stellar Testnet with green connected indicator
@@ -157,6 +168,7 @@
 **Narration:** "BezaMint is fully responsive. On mobile, the sidebar becomes a hamburger menu with your balance, and all pages adapt seamlessly."
 
 **What to show:**
+
 - Mobile hamburger menu opening
 - Balance visible in the mobile menu
 - Scroll through any page at mobile width
@@ -166,17 +178,17 @@
 
 ## Quick Reference Card
 
-| Time | Page | Action |
-|------|------|--------|
-| 0:00 | / | Landing page intro |
-| 0:15 | /dashboard | Connect Freighter wallet |
-| 0:30 | Header | Send XLM transaction |
-| 0:45 | /collections | Create collection |
-| 1:00 | /mint | Fill mint form |
-| 1:20 | /mint | Watch TX progress |
-| 1:35 | /explore + /verify | Search + verify |
-| 1:45 | /profile + /settings | Profile + config |
-| 1:55 | Mobile | Responsive demo |
+| Time | Page                 | Action                   |
+| ---- | -------------------- | ------------------------ |
+| 0:00 | /                    | Landing page intro       |
+| 0:15 | /dashboard           | Connect Freighter wallet |
+| 0:30 | Header               | Send XLM transaction     |
+| 0:45 | /collections         | Create collection        |
+| 1:00 | /mint                | Fill mint form           |
+| 1:20 | /mint                | Watch TX progress        |
+| 1:35 | /explore + /verify   | Search + verify          |
+| 1:45 | /profile + /settings | Profile + config         |
+| 1:55 | Mobile               | Responsive demo          |
 
 ## Stellar Explorer Links (Show During Recording)
 

@@ -1,9 +1,16 @@
 import { describe, it, expect } from 'vitest';
-import { validateStellarAddress, validateRoyaltyBps, validateNftName, validateUrl } from '@bezamint/shared/utils';
+import {
+  validateStellarAddress,
+  validateRoyaltyBps,
+  validateNftName,
+  validateUrl,
+} from '@bezamint/shared/utils';
 
 describe('validateStellarAddress', () => {
   it('should accept a valid Stellar public key', () => {
-    expect(validateStellarAddress('GAV6ZOG4OLKZ7JCHM7X5XVDRTWAGQI2VKCQHZ3CBKDRJ4I2Z2ZPL2OX5').valid).toBe(true);
+    expect(
+      validateStellarAddress('GAV6ZOG4OLKZ7JCHM7X5XVDRTWAGQI2VKCQHZ3CBKDRJ4I2Z2ZPL2OX5').valid,
+    ).toBe(true);
   });
   it('should reject an invalid Stellar address', () => {
     expect(validateStellarAddress('invalid-address').valid).toBe(false);

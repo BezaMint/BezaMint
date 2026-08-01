@@ -25,7 +25,10 @@ export default function SearchFilters({ categories, selected, onChange }: Search
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Filters</h3>
         {selected.length > 0 && (
-          <button onClick={() => onChange([])} className="text-xs text-bezamint-secondary hover:text-bezamint-primary transition-colors">
+          <button
+            onClick={() => onChange([])}
+            className="text-xs text-bezamint-secondary hover:text-bezamint-primary transition-colors"
+          >
             Clear all
           </button>
         )}

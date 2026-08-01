@@ -23,30 +23,40 @@ const SAMPLE_STATS = [
 
 const SAMPLE_ACTIVITIES = [
   {
-    id: '1', eventType: 'nft_minted',
+    id: '1',
+    eventType: 'nft_minted',
     description: 'Abstract #001 minted in collection Digital Artworks',
-    timestamp: 'Just now', txHash: 'abc123def4567890123456789012345678901234567890abcd',
+    timestamp: 'Just now',
+    txHash: 'abc123def4567890123456789012345678901234567890abcd',
   },
   {
-    id: '2', eventType: 'collection_created',
+    id: '2',
+    eventType: 'collection_created',
     description: 'Created collection "Digital Artworks"',
-    timestamp: '2h ago', txHash: 'def789abc0123456789012345678901234567890123456ef01',
+    timestamp: '2h ago',
+    txHash: 'def789abc0123456789012345678901234567890123456ef01',
   },
   {
-    id: '3', eventType: 'profile_created',
+    id: '3',
+    eventType: 'profile_created',
     description: 'Creator profile registered on BezaMint',
-    timestamp: '1d ago', txHash: '012345abcdef78901234567890123456789012345678901234',
+    timestamp: '1d ago',
+    txHash: '012345abcdef78901234567890123456789012345678901234',
     href: '/profile',
   },
   {
-    id: '4', eventType: 'nft_transferred',
+    id: '4',
+    eventType: 'nft_transferred',
     description: 'Gaming Sword transferred to new owner',
-    timestamp: '3d ago', txHash: '567890abcdef12345678901234567890123456789012345678',
+    timestamp: '3d ago',
+    txHash: '567890abcdef12345678901234567890123456789012345678',
   },
   {
-    id: '5', eventType: 'royalty_configured',
+    id: '5',
+    eventType: 'royalty_configured',
     description: 'Set 5% royalty on collection "Music Lab"',
-    timestamp: '1w ago', txHash: '890123abcdef45678901234567890123456789012345678901',
+    timestamp: '1w ago',
+    txHash: '890123abcdef45678901234567890123456789012345678901',
   },
 ];
 
@@ -74,21 +84,39 @@ export default function DashboardPage() {
         <div className="card lg:col-span-1">
           <h2 className="section-title text-lg">Quick Actions</h2>
           <div className="space-y-2">
-            <a href="/mint" className="flex items-center gap-3 p-3 rounded-xl bg-bezamint-primary/10 border border-bezamint-primary/20 hover:bg-bezamint-primary/20 transition-all group">
+            <a
+              href="/mint"
+              className="flex items-center gap-3 p-3 rounded-xl bg-bezamint-primary/10 border border-bezamint-primary/20 hover:bg-bezamint-primary/20 transition-all group"
+            >
               <HiOutlinePlusCircle className="w-5 h-5 text-bezamint-secondary" />
               <span className="text-sm font-medium text-gray-200">Mint New NFT</span>
             </a>
-            <a href="/collections" className="flex items-center gap-3 p-3 rounded-xl bg-bezamint-muted/50 border border-bezamint-border hover:border-gray-600 transition-all group">
+            <a
+              href="/collections"
+              className="flex items-center gap-3 p-3 rounded-xl bg-bezamint-muted/50 border border-bezamint-border hover:border-gray-600 transition-all group"
+            >
               <HiOutlineCollection className="w-5 h-5 text-gray-400 group-hover:text-gray-200" />
-              <span className="text-sm font-medium text-gray-400 group-hover:text-gray-200">Manage Collections</span>
+              <span className="text-sm font-medium text-gray-400 group-hover:text-gray-200">
+                Manage Collections
+              </span>
             </a>
-            <a href="/explore" className="flex items-center gap-3 p-3 rounded-xl bg-bezamint-muted/50 border border-bezamint-border hover:border-gray-600 transition-all group">
+            <a
+              href="/explore"
+              className="flex items-center gap-3 p-3 rounded-xl bg-bezamint-muted/50 border border-bezamint-border hover:border-gray-600 transition-all group"
+            >
               <HiOutlineShoppingBag className="w-5 h-5 text-gray-400 group-hover:text-gray-200" />
-              <span className="text-sm font-medium text-gray-400 group-hover:text-gray-200">Explore NFTs</span>
+              <span className="text-sm font-medium text-gray-400 group-hover:text-gray-200">
+                Explore NFTs
+              </span>
             </a>
-            <a href="/verify" className="flex items-center gap-3 p-3 rounded-xl bg-bezamint-muted/50 border border-bezamint-border hover:border-gray-600 transition-all group">
+            <a
+              href="/verify"
+              className="flex items-center gap-3 p-3 rounded-xl bg-bezamint-muted/50 border border-bezamint-border hover:border-gray-600 transition-all group"
+            >
               <HiOutlineShieldCheck className="w-5 h-5 text-gray-400 group-hover:text-gray-200" />
-              <span className="text-sm font-medium text-gray-400 group-hover:text-gray-200">Verify Ownership</span>
+              <span className="text-sm font-medium text-gray-400 group-hover:text-gray-200">
+                Verify Ownership
+              </span>
             </a>
           </div>
         </div>

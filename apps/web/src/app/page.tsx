@@ -12,11 +12,7 @@ export default function HomePage() {
             xmlns="http://www.w3.org/2000/svg"
           >
             <rect width="40" height="40" rx="12" fill="url(#logo-gradient)" />
-            <path
-              d="M12 28L20 10L28 28H12Z"
-              fill="white"
-              fillOpacity="0.9"
-            />
+            <path d="M12 28L20 10L28 28H12Z" fill="white" fillOpacity="0.9" />
             <defs>
               <linearGradient id="logo-gradient" x1="0" y1="0" x2="40" y2="40">
                 <stop stopColor="#24a563" />
@@ -31,19 +27,14 @@ export default function HomePage() {
         </h1>
 
         <p className="text-lg text-gray-400 max-w-xl mx-auto mb-8 leading-relaxed">
-          A comprehensive NFT creation and digital asset management platform
-          built on the <span className="text-bezamint-secondary font-medium">Stellar</span>{' '}
-          network using{' '}
+          A comprehensive NFT creation and digital asset management platform built on the{' '}
+          <span className="text-bezamint-secondary font-medium">Stellar</span> network using{' '}
           <span className="text-bezamint-secondary font-medium">Soroban</span> smart contracts.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button className="btn-primary">
-            Connect Wallet
-          </button>
-          <button className="btn-secondary">
-            Explore Collections
-          </button>
+          <button className="btn-primary">Connect Wallet</button>
+          <button className="btn-secondary">Explore Collections</button>
         </div>
 
         <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-2xl mx-auto">

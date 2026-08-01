@@ -18,9 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="dark">
       <body className="min-h-screen flex flex-col">
         <ToastProvider>
-          <WalletProvider>
-            {children}
-          </WalletProvider>
+          <WalletProvider>{children}</WalletProvider>
         </ToastProvider>
         <Toaster
           position="bottom-right"

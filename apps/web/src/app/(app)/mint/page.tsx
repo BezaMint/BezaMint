@@ -54,9 +54,8 @@ export default function MintPage() {
               <h3 className="text-sm font-semibold text-gray-200">Testnet Only</h3>
             </div>
             <p className="text-xs text-gray-500 leading-relaxed">
-              All NFTs are minted on the Stellar testnet. No real assets are involved.
-              Make sure you have testnet XLM in your Freighter wallet to cover
-              transaction fees.
+              All NFTs are minted on the Stellar testnet. No real assets are involved. Make sure you
+              have testnet XLM in your Freighter wallet to cover transaction fees.
             </p>
           </div>
         </aside>

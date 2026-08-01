@@ -27,7 +27,11 @@ export default function CreatorProfileHeader({ profile, actions }: CreatorProfil
         <div className="w-24 h-24 rounded-2xl bg-bezamint-muted/50 border-2 border-bezamint-border overflow-hidden flex-shrink-0">
           {profile.avatarUri ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={profile.avatarUri} alt={profile.displayName} className="w-full h-full object-cover" />
+            <img
+              src={profile.avatarUri}
+              alt={profile.displayName}
+              className="w-full h-full object-cover"
+            />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <HiOutlineUser className="w-10 h-10 text-gray-500" />
@@ -49,10 +53,18 @@ export default function CreatorProfileHeader({ profile, actions }: CreatorProfil
 
           {/* Stats */}
           <div className="flex items-center gap-6 text-sm mb-4">
-            <div><span className="text-white font-semibold">{profile.totalNftsCreated}</span>{' '}
-              <span className="text-gray-500">{profile.totalNftsCreated === 1 ? 'NFT' : 'NFTs'}</span></div>
-            <div><span className="text-white font-semibold">{profile.totalCollections}</span>{' '}
-              <span className="text-gray-500">{profile.totalCollections === 1 ? 'Collection' : 'Collections'}</span></div>
+            <div>
+              <span className="text-white font-semibold">{profile.totalNftsCreated}</span>{' '}
+              <span className="text-gray-500">
+                {profile.totalNftsCreated === 1 ? 'NFT' : 'NFTs'}
+              </span>
+            </div>
+            <div>
+              <span className="text-white font-semibold">{profile.totalCollections}</span>{' '}
+              <span className="text-gray-500">
+                {profile.totalCollections === 1 ? 'Collection' : 'Collections'}
+              </span>
+            </div>
           </div>
 
           {/* Social Links */}
@@ -61,9 +73,14 @@ export default function CreatorProfileHeader({ profile, actions }: CreatorProfil
               {profile.socialLinks.map((link) => {
                 const Icon = getPlatformIcon(link.platform);
                 return (
-                  <a key={link.platform} href={link.url} target="_blank" rel="noopener noreferrer"
+                  <a
+                    key={link.platform}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="p-2 rounded-xl bg-bezamint-muted/50 border border-bezamint-border text-gray-400 hover:text-gray-200 hover:border-gray-600 transition-all"
-                    title={link.platform}>
+                    title={link.platform}
+                  >
                     <Icon className="w-4 h-4" />
                   </a>
                 );

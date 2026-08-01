@@ -21,9 +21,7 @@ export default function SocialLinkEditor({ links, onChange, maxLinks = 8 }: Soci
   };
 
   const updateLink = (idx: number, field: keyof SocialLink, value: string) => {
-    const updated = links.map((link, i) =>
-      i === idx ? { ...link, [field]: value } : link,
-    );
+    const updated = links.map((link, i) => (i === idx ? { ...link, [field]: value } : link));
     onChange(updated);
   };
 
@@ -31,14 +29,19 @@ export default function SocialLinkEditor({ links, onChange, maxLinks = 8 }: Soci
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <label className="input-label">Social Links</label>
-        <span className="text-xs text-gray-500">{links.length}/{maxLinks}</span>
+        <span className="text-xs text-gray-500">
+          {links.length}/{maxLinks}
+        </span>
       </div>
 
       {links.map((link, idx) => {
         const Icon = getPlatformIcon(link.platform);
 
         return (
-          <div key={idx} className="flex items-center gap-2 p-2 rounded-xl bg-bezamint-muted/30 border border-bezamint-border">
+          <div
+            key={idx}
+            className="flex items-center gap-2 p-2 rounded-xl bg-bezamint-muted/30 border border-bezamint-border"
+          >
             <div className="relative flex-shrink-0">
               <select
                 value={link.platform}
@@ -46,7 +49,9 @@ export default function SocialLinkEditor({ links, onChange, maxLinks = 8 }: Soci
                 className="input-field text-sm py-2 pl-8 pr-6 w-36 appearance-none bg-bezamint-muted"
               >
                 {SOCIAL_PLATFORMS.map((p) => (
-                  <option key={p.value} value={p.value}>{p.label}</option>
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
                 ))}
               </select>
               <Icon className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />

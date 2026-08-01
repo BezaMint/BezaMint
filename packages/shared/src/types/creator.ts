@@ -24,14 +24,7 @@ export interface SocialLink {
 }
 
 export type SocialPlatform =
-  | 'twitter'
-  | 'discord'
-  | 'github'
-  | 'website'
-  | 'youtube'
-  | 'instagram'
-  | 'telegram'
-  | 'other';
+  'twitter' | 'discord' | 'github' | 'website' | 'youtube' | 'instagram' | 'telegram' | 'other';
 
 /**
  * Creator form state

@@ -67,7 +67,9 @@ export default function ProfilePage() {
           <p className="text-sm text-gray-500 mb-6">
             Connect Freighter to set up your creator profile and showcase your work.
           </p>
-          <button onClick={connect} className="btn-primary text-sm">Connect Wallet</button>
+          <button onClick={connect} className="btn-primary text-sm">
+            Connect Wallet
+          </button>
         </div>
       </div>
     );

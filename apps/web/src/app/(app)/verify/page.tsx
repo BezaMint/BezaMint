@@ -5,8 +5,18 @@ import { HiOutlineSearch, HiOutlineBadgeCheck, HiOutlineShieldCheck } from 'reac
 import { useWallet } from '@/context';
 
 const MOCK_OWNERS = {
-  '1': { owner: 'GABC1234567890123456789012345678901234567', tokenId: 1, name: 'Abstract #001', confirmed: true },
-  '2': { owner: 'GXYZ9876543210987654321098765432109876543', tokenId: 2, name: 'Gaming Sword', confirmed: true },
+  '1': {
+    owner: 'GABC1234567890123456789012345678901234567',
+    tokenId: 1,
+    name: 'Abstract #001',
+    confirmed: true,
+  },
+  '2': {
+    owner: 'GXYZ9876543210987654321098765432109876543',
+    tokenId: 2,
+    name: 'Gaming Sword',
+    confirmed: true,
+  },
 };
 
 export default function VerifyPage() {
@@ -37,7 +47,9 @@ export default function VerifyPage() {
     <div className="page-container max-w-6xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white">Ownership Verification</h1>
-        <p className="text-gray-400 mt-2">Verify NFT ownership directly from the Stellar blockchain</p>
+        <p className="text-gray-400 mt-2">
+          Verify NFT ownership directly from the Stellar blockchain
+        </p>
       </div>
 
       <div className="max-w-xl mx-auto space-y-6">
@@ -61,8 +73,20 @@ export default function VerifyPage() {
             >
               {loading ? (
                 <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    fill="none"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                  />
                 </svg>
               ) : (
                 <HiOutlineSearch className="w-4 h-4" />
@@ -88,7 +112,9 @@ export default function VerifyPage() {
             <div className="space-y-3 p-4 rounded-xl bg-bezamint-muted/30 border border-bezamint-border">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-400">Owner</span>
-                <span className="text-sm font-mono text-white">{result.owner.slice(0, 8)}...{result.owner.slice(-6)}</span>
+                <span className="text-sm font-mono text-white">
+                  {result.owner.slice(0, 8)}...{result.owner.slice(-6)}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-400">Status</span>

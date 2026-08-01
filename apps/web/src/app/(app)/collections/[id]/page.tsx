@@ -20,7 +20,8 @@ import type { CollectionFormState, CollectionCategory } from '@bezamint/shared';
 const MOCK_COLLECTION = {
   id: '1',
   name: 'Digital Artworks',
-  description: 'A collection of modern digital artworks exploring abstract themes and generative patterns.',
+  description:
+    'A collection of modern digital artworks exploring abstract themes and generative patterns.',
   imageUri: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800',
   externalUrl: 'https://example.com/collection',
   category: 'art',
@@ -61,7 +62,10 @@ export default function CollectionDetailPage() {
   return (
     <div className="page-container max-w-6xl">
       {/* Back navigation */}
-      <Link href="/collections" className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-gray-200 mb-6 transition-colors">
+      <Link
+        href="/collections"
+        className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-gray-200 mb-6 transition-colors"
+      >
         <HiOutlineArrowLeft className="w-4 h-4" />
         Back to Collections
       </Link>
@@ -95,8 +99,11 @@ export default function CollectionDetailPage() {
             <div className="aspect-square rounded-xl bg-bezamint-muted/50 border border-bezamint-border overflow-hidden">
               {collection.imageUri ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={collection.imageUri} alt={collection.name}
-                  className="w-full h-full object-cover" />
+                <img
+                  src={collection.imageUri}
+                  alt={collection.name}
+                  className="w-full h-full object-cover"
+                />
               ) : (
                 <div className="w-full h-full flex items-center justify-center">
                   <HiOutlinePhotograph className="w-12 h-12 text-gray-600" />
@@ -111,7 +118,9 @@ export default function CollectionDetailPage() {
               <div>
                 <h1 className="text-2xl font-bold text-white">{collection.name}</h1>
                 <div className="flex items-center gap-3 mt-2 text-sm text-gray-400">
-                  <span className="badge-primary capitalize">{collection.category.replace('_', ' ')}</span>
+                  <span className="badge-primary capitalize">
+                    {collection.category.replace('_', ' ')}
+                  </span>
                   <span>{collection.nftCount} NFTs</span>
                   {collection.isArchived && (
                     <span className="badge inline-flex items-center gap-1 bg-red-500/20 text-red-400">
@@ -124,16 +133,20 @@ export default function CollectionDetailPage() {
 
               {/* Actions */}
               <div className="flex gap-2">
-                <button onClick={() => setIsEditing(true)}
-                  className="btn-secondary py-2 px-3 text-sm flex items-center gap-1">
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="btn-secondary py-2 px-3 text-sm flex items-center gap-1"
+                >
                   <HiOutlinePencil className="w-4 h-4" /> Edit
                 </button>
-                <button onClick={toggleArchive}
+                <button
+                  onClick={toggleArchive}
                   className={`py-2 px-3 text-sm rounded-xl font-semibold border transition-all flex items-center gap-1 ${
                     collection.isArchived
                       ? 'bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20'
                       : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/20'
-                  }`}>
+                  }`}
+                >
                   <HiOutlineArchive className="w-4 h-4" />
                   {collection.isArchived ? 'Unarchive' : 'Archive'}
                 </button>
@@ -146,8 +159,10 @@ export default function CollectionDetailPage() {
             <div className="flex flex-wrap items-center gap-2 mb-4">
               <HiOutlineTag className="w-4 h-4 text-gray-500" />
               {collection.tags.map((tag) => (
-                <span key={tag}
-                  className="text-xs px-3 py-1 rounded-full bg-bezamint-muted/50 border border-bezamint-border text-gray-400">
+                <span
+                  key={tag}
+                  className="text-xs px-3 py-1 rounded-full bg-bezamint-muted/50 border border-bezamint-border text-gray-400"
+                >
                   {tag}
                 </span>
               ))}

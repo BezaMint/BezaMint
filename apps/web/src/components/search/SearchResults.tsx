@@ -6,7 +6,18 @@ import SearchFilters from './SearchFilters';
 import SearchResultCard from './SearchResultCard';
 const CATEGORIES = [
   { value: 'all', label: 'All' },
-  ...[ 'art', 'music', 'gaming', 'sports', 'photography', 'brand', 'membership', 'ticketing', 'real_estate', 'other' ].map((c: string) => ({
+  ...[
+    'art',
+    'music',
+    'gaming',
+    'sports',
+    'photography',
+    'brand',
+    'membership',
+    'ticketing',
+    'real_estate',
+    'other',
+  ].map((c: string) => ({
     value: c,
     label: c.charAt(0).toUpperCase() + c.slice(1).replace('_', ' '),
   })),
@@ -20,14 +31,69 @@ const TABS: { key: 'all' | 'nfts' | 'collections' | 'creators'; label: string }[
 ];
 
 const MOCK_RESULTS = [
-  { type: 'nft' as const, title: 'Abstract #001', subtitle: 'Token #1 in Digital Artworks', href: '/explore', tags: ['abstract', 'digital'], category: 'art' },
-  { type: 'collection' as const, title: 'Digital Artworks', subtitle: '12 NFTs by GABC...DEFG', href: '/collections/1', tags: ['art', 'modern'], category: 'art' },
-  { type: 'creator' as const, title: 'Beza Creator', subtitle: '42 NFTs · 5 Collections', href: '/creators/GABC123', isVerified: true, category: 'art' },
-  { type: 'nft' as const, title: 'Gaming Sword', subtitle: 'Token #4 in Gaming Assets', href: '/explore', tags: ['rpg', 'weapon'], category: 'gaming' },
-  { type: 'collection' as const, title: 'Gaming Assets', subtitle: '8 NFTs by GXYZ...ABCD', href: '/collections/2', tags: ['gaming', 'items'], category: 'gaming' },
-  { type: 'creator' as const, title: 'Pixel Artist', subtitle: '15 NFTs · 2 Collections', href: '/creators/GXYZ123', category: 'gaming' },
-  { type: 'nft' as const, title: 'Melody #1', subtitle: 'Token #1 in Music Lab', href: '/explore', tags: ['music', 'audio'], category: 'music' },
-  { type: 'collection' as const, title: 'Music Lab', subtitle: '5 NFTs by GMUS...IC01', href: '/collections/3', tags: ['music'], category: 'music' },
+  {
+    type: 'nft' as const,
+    title: 'Abstract #001',
+    subtitle: 'Token #1 in Digital Artworks',
+    href: '/explore',
+    tags: ['abstract', 'digital'],
+    category: 'art',
+  },
+  {
+    type: 'collection' as const,
+    title: 'Digital Artworks',
+    subtitle: '12 NFTs by GABC...DEFG',
+    href: '/collections/1',
+    tags: ['art', 'modern'],
+    category: 'art',
+  },
+  {
+    type: 'creator' as const,
+    title: 'Beza Creator',
+    subtitle: '42 NFTs · 5 Collections',
+    href: '/creators/GABC123',
+    isVerified: true,
+    category: 'art',
+  },
+  {
+    type: 'nft' as const,
+    title: 'Gaming Sword',
+    subtitle: 'Token #4 in Gaming Assets',
+    href: '/explore',
+    tags: ['rpg', 'weapon'],
+    category: 'gaming',
+  },
+  {
+    type: 'collection' as const,
+    title: 'Gaming Assets',
+    subtitle: '8 NFTs by GXYZ...ABCD',
+    href: '/collections/2',
+    tags: ['gaming', 'items'],
+    category: 'gaming',
+  },
+  {
+    type: 'creator' as const,
+    title: 'Pixel Artist',
+    subtitle: '15 NFTs · 2 Collections',
+    href: '/creators/GXYZ123',
+    category: 'gaming',
+  },
+  {
+    type: 'nft' as const,
+    title: 'Melody #1',
+    subtitle: 'Token #1 in Music Lab',
+    href: '/explore',
+    tags: ['music', 'audio'],
+    category: 'music',
+  },
+  {
+    type: 'collection' as const,
+    title: 'Music Lab',
+    subtitle: '5 NFTs by GMUS...IC01',
+    href: '/collections/3',
+    tags: ['music'],
+    category: 'music',
+  },
 ];
 
 interface MockResult {
@@ -59,7 +125,11 @@ export default function SearchResults() {
     }
 
     if (activeTab !== 'all') {
-      const typeMap: Record<string, string> = { nfts: 'nft', collections: 'collection', creators: 'creator' };
+      const typeMap: Record<string, string> = {
+        nfts: 'nft',
+        collections: 'collection',
+        creators: 'creator',
+      };
       results = results.filter((r) => r.type === typeMap[activeTab]);
     }
 
@@ -94,9 +164,7 @@ export default function SearchResults() {
 
       <div className="space-y-2">
         {filtered.length > 0 ? (
-          filtered.map((result, idx) => (
-            <SearchResultCard key={idx} {...result} />
-          ))
+          filtered.map((result, idx) => <SearchResultCard key={idx} {...result} />)
         ) : (
           <div className="card text-center py-12">
             <p className="text-gray-400">No results found{query ? ` for "${query}"` : ''}.</p>

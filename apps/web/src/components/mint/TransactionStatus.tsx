@@ -85,8 +85,12 @@ export default function TransactionStatus({
                     <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                       <circle
                         className="opacity-25"
-                        cx="12" cy="12" r="10"
-                        stroke="currentColor" strokeWidth="4" fill="none"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                        fill="none"
                       />
                       <path
                         className="opacity-75"
@@ -99,9 +103,7 @@ export default function TransactionStatus({
                   )}
                 </div>
                 <span
-                  className={`text-sm ${
-                    isDone || isCurrent ? 'text-gray-200' : 'text-gray-600'
-                  }`}
+                  className={`text-sm ${isDone || isCurrent ? 'text-gray-200' : 'text-gray-600'}`}
                 >
                   {step.label}
                 </span>
@@ -117,11 +119,7 @@ export default function TransactionStatus({
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-bezamint-primary/10 border border-bezamint-primary/20 mb-3">
             <HiOutlineCheckCircle className="w-8 h-8 text-bezamint-secondary" />
           </div>
-          {tokenId && (
-            <p className="text-2xl font-bold text-white mb-1">
-              Token #{tokenId}
-            </p>
-          )}
+          {tokenId && <p className="text-2xl font-bold text-white mb-1">Token #{tokenId}</p>}
           <p className="text-sm text-gray-400">
             Your NFT has been successfully minted on the Stellar testnet.
           </p>
@@ -146,7 +144,9 @@ export default function TransactionStatus({
           rel="noopener noreferrer"
           className="flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-bezamint-muted/50 border border-bezamint-border text-sm text-gray-300 hover:bg-bezamint-muted transition-all group"
         >
-          <span className="font-mono text-xs">{txHash.slice(0, 12)}...{txHash.slice(-6)}</span>
+          <span className="font-mono text-xs">
+            {txHash.slice(0, 12)}...{txHash.slice(-6)}
+          </span>
           <HiOutlineExternalLink className="w-4 h-4 text-gray-500 group-hover:text-gray-300" />
         </a>
       )}

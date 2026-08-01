@@ -38,7 +38,15 @@ export interface NftData {
 /**
  * Minting transaction state
  */
-export type MintStatus = 'idle' | 'uploading' | 'preparing' | 'signing' | 'submitting' | 'confirming' | 'success' | 'error';
+export type MintStatus =
+  | 'idle'
+  | 'uploading'
+  | 'preparing'
+  | 'signing'
+  | 'submitting'
+  | 'confirming'
+  | 'success'
+  | 'error';
 
 /**
  * Minting form state

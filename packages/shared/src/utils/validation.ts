@@ -36,8 +36,7 @@ export function validateRoyaltyBps(bps: number): { valid: boolean; error?: strin
  */
 export function validateStellarAddress(address: string): { valid: boolean; error?: string } {
   const gRegex = /^G[A-Z2-7]{55}$/;
-  if (!gRegex.test(address))
-    return { valid: false, error: 'Invalid Stellar address format' };
+  if (!gRegex.test(address)) return { valid: false, error: 'Invalid Stellar address format' };
   return { valid: true };
 }
 

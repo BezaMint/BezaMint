@@ -37,7 +37,10 @@ export default function CreatorCard({
               {displayName}
             </h3>
             {isVerified && (
-              <HiOutlineBadgeCheck className="w-4 h-4 text-blue-400 flex-shrink-0" title="Verified" />
+              <HiOutlineBadgeCheck
+                className="w-4 h-4 text-blue-400 flex-shrink-0"
+                title="Verified"
+              />
             )}
           </div>
           <p className="text-xs text-gray-500 font-mono mt-0.5">{formatAddress(address)}</p>
@@ -45,16 +48,23 @@ export default function CreatorCard({
       </div>
       {bio && <p className="text-sm text-gray-400 line-clamp-2 mb-4">{bio}</p>}
       <div className="flex items-center gap-4 mb-4 text-xs text-gray-500">
-        <span>{totalNftsCreated} {totalNftsCreated === 1 ? 'NFT' : 'NFTs'}</span>
-        <span>{totalCollections} {totalCollections === 1 ? 'Collection' : 'Collections'}</span>
+        <span>
+          {totalNftsCreated} {totalNftsCreated === 1 ? 'NFT' : 'NFTs'}
+        </span>
+        <span>
+          {totalCollections} {totalCollections === 1 ? 'Collection' : 'Collections'}
+        </span>
       </div>
       {socialLinks.length > 0 && (
         <div className="flex items-center gap-2 pt-3 border-t border-bezamint-border">
           {socialLinks.slice(0, 4).map((link) => {
             const Icon = getPlatformIcon(link.platform);
             return (
-              <span key={link.platform} className="p-1.5 rounded-lg bg-bezamint-muted/50 text-gray-500 hover:text-gray-300 transition-colors"
-                title={link.platform}>
+              <span
+                key={link.platform}
+                className="p-1.5 rounded-lg bg-bezamint-muted/50 text-gray-500 hover:text-gray-300 transition-colors"
+                title={link.platform}
+              >
                 <Icon className="w-3.5 h-3.5" />
               </span>
             );

@@ -26,9 +26,7 @@ export default function AttributeEditor({
   };
 
   const updateAttribute = (index: number, field: keyof NftAttribute, value: string) => {
-    const updated = attributes.map((attr, i) =>
-      i === index ? { ...attr, [field]: value } : attr,
-    );
+    const updated = attributes.map((attr, i) => (i === index ? { ...attr, [field]: value } : attr));
     onChange(updated);
   };
 

@@ -7,12 +7,14 @@ interface LoadingSkeletonProps {
 }
 
 function Skeleton({ className = '' }: { className?: string }) {
-  return (
-    <div className={`animate-pulse bg-bezamint-muted/50 rounded-lg ${className}`} />
-  );
+  return <div className={`animate-pulse bg-bezamint-muted/50 rounded-lg ${className}`} />;
 }
 
-export default function LoadingSkeleton({ type = 'text', count = 1, className = '' }: LoadingSkeletonProps) {
+export default function LoadingSkeleton({
+  type = 'text',
+  count = 1,
+  className = '',
+}: LoadingSkeletonProps) {
   const items = Array.from({ length: count });
 
   if (type === 'card') {
@@ -78,7 +80,10 @@ export default function LoadingSkeleton({ type = 'text', count = 1, className = 
   return (
     <div className={`space-y-2 ${className}`}>
       {items.map((_, i) => (
-        <Skeleton key={i} className={`h-4 ${i === 0 ? 'w-3/4' : i === items.length - 1 ? 'w-1/2' : 'w-full'}`} />
+        <Skeleton
+          key={i}
+          className={`h-4 ${i === 0 ? 'w-3/4' : i === items.length - 1 ? 'w-1/2' : 'w-full'}`}
+        />
       ))}
     </div>
   );

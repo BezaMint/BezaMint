@@ -21,9 +21,25 @@ interface CollectionGridProps {
   isConnected: boolean;
 }
 
-const CATEGORY_FILTERS = ['all', 'art', 'music', 'gaming', 'sports', 'photography', 'brand', 'membership', 'ticketing', 'real_estate', 'other'];
+const CATEGORY_FILTERS = [
+  'all',
+  'art',
+  'music',
+  'gaming',
+  'sports',
+  'photography',
+  'brand',
+  'membership',
+  'ticketing',
+  'real_estate',
+  'other',
+];
 
-export default function CollectionGrid({ collections, onCreateClick, isConnected }: CollectionGridProps) {
+export default function CollectionGrid({
+  collections,
+  onCreateClick,
+  isConnected,
+}: CollectionGridProps) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
   const [showArchived, setShowArchived] = useState(false);
@@ -34,9 +50,7 @@ export default function CollectionGrid({ collections, onCreateClick, isConnected
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
-        (c) =>
-          c.name.toLowerCase().includes(q) ||
-          c.tags.some((t) => t.includes(q)),
+        (c) => c.name.toLowerCase().includes(q) || c.tags.some((t) => t.includes(q)),
       );
     }
 
@@ -88,7 +102,10 @@ export default function CollectionGrid({ collections, onCreateClick, isConnected
           </button>
 
           {isConnected && (
-            <button onClick={onCreateClick} className="btn-primary py-2 px-4 text-sm flex items-center gap-2">
+            <button
+              onClick={onCreateClick}
+              className="btn-primary py-2 px-4 text-sm flex items-center gap-2"
+            >
               <HiOutlinePlus className="w-4 h-4" />
               New
             </button>

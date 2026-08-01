@@ -9,11 +9,7 @@ interface RoyaltyConfigProps {
   userAddress?: string;
 }
 
-export default function RoyaltyConfig({
-  config,
-  onChange,
-  userAddress,
-}: RoyaltyConfigProps) {
+export default function RoyaltyConfig({ config, onChange, userAddress }: RoyaltyConfigProps) {
   const isEnabled = config !== null;
   const basisPoints = config?.basisPoints ?? 0;
   const recipients = config?.recipients ?? [];
@@ -55,9 +51,7 @@ export default function RoyaltyConfig({
 
   const updateRecipient = (idx: number, field: 'address' | 'share', value: string | number) => {
     if (!config) return;
-    const updated = config.recipients.map((r, i) =>
-      i === idx ? { ...r, [field]: value } : r,
-    );
+    const updated = config.recipients.map((r, i) => (i === idx ? { ...r, [field]: value } : r));
     onChange({ ...config, recipients: updated });
   };
 
@@ -88,9 +82,7 @@ export default function RoyaltyConfig({
           <div>
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs text-gray-400">Royalty Percentage</span>
-              <span className="text-sm font-mono text-bezamint-secondary">
-                {percentage}%
-              </span>
+              <span className="text-sm font-mono text-bezamint-secondary">{percentage}%</span>
             </div>
             <input
               type="range"
@@ -129,7 +121,9 @@ export default function RoyaltyConfig({
                     onChange={(e) => updateRecipient(idx, 'share', Number(e.target.value))}
                     className="input-field text-sm py-2 pr-7"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">%</span>
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">
+                    %
+                  </span>
                 </div>
                 <button
                   onClick={() => removeRecipient(idx)}

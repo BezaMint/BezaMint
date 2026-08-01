@@ -11,7 +11,13 @@ interface EmptyStateProps {
   actionHref?: string;
 }
 
-export default function EmptyState({ icon: Icon, title, description, actionLabel, actionHref }: EmptyStateProps) {
+export default function EmptyState({
+  icon: Icon,
+  title,
+  description,
+  actionLabel,
+  actionHref,
+}: EmptyStateProps) {
   return (
     <div className="card text-center py-12">
       <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-bezamint-muted/50 border border-bezamint-border mb-4">

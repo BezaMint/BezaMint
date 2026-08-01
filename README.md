@@ -157,26 +157,26 @@ const { txHash } = await signAndSubmit(tx);
 
 ## 📋 Submission Checklist
 
-| Requirement                        | Status | Evidence                                                                       |
-| ---------------------------------- | ------ | ------------------------------------------------------------------------------ |
-| Public GitHub repository           | ✅     | [github.com/BezaMint/BezaMint](https://github.com/BezaMint/BezaMint)           |
-| README with complete documentation | ✅     | Architecture, quick start, deployment, checklist                               |
-| 54+ meaningful commits             | ✅     | [Commit history](https://github.com/BezaMint/BezaMint/commits/main)            |
-| Live demo link                     | ✅     | [web-kappa-lac-27.vercel.app](https://web-kappa-lac-27.vercel.app)             |
-| Contract deployment address        | ✅     | 5 contracts deployed — see [Deployed Contracts](#-deployed-contracts)          |
-| Transaction hash                   | ✅     | 6 TXs — see [Transaction Verification](#-transaction-verification)             |
-| 3+ error types handled             | ✅     | 9 error types: wallet, connection, balance, TX, network, validation, signing   |
-| Transaction status visible         | ✅     | 4-step progress indicator + Stellar Explorer link + balance check              |
-| Mobile responsive UI               | ✅     | Hamburger drawer, responsive grids, breakpoints, body scroll lock              |
-| CI/CD pipeline                     | ✅     | 3 GitHub Actions workflows (CI, release, security)                             |
-| Test output (3+ passing)           | ✅     | 42 Rust contract tests; 26 frontend tests passing                              |
-| Inter-contract communication       | ✅     | Factory `ContractsSet` event emitted on-chain, verified on Explorer            |
-| Event streaming                    | ✅     | 5 contracts emit typed events; `useContractEvents` hook polls Soroban RPC      |
-| Wallet session persistence         | ✅     | localStorage persistence + auto-reconnect on page refresh                      |
-| XLM balance display                | ✅     | Header, Sidebar, and MobileMenu show live XLM balance                          |
-| XLM send flow                      | ✅     | Send XLM modal with address validation, amount, and memo                       |
-| Screenshots                        | ✅     | See [Screenshots](#-screenshots) section                                       |
-| Demo video (2 min)                 | ✅     | See [Demo Video](#-demo-video) section                                         |
+| Requirement                        | Status | Evidence                                                                     |
+| ---------------------------------- | ------ | ---------------------------------------------------------------------------- |
+| Public GitHub repository           | ✅     | [github.com/BezaMint/BezaMint](https://github.com/BezaMint/BezaMint)         |
+| README with complete documentation | ✅     | Architecture, quick start, deployment, checklist                             |
+| 54+ meaningful commits             | ✅     | [Commit history](https://github.com/BezaMint/BezaMint/commits/main)          |
+| Live demo link                     | ✅     | [web-kappa-lac-27.vercel.app](https://web-kappa-lac-27.vercel.app)           |
+| Contract deployment address        | ✅     | 5 contracts deployed — see [Deployed Contracts](#-deployed-contracts)        |
+| Transaction hash                   | ✅     | 6 TXs — see [Transaction Verification](#-transaction-verification)           |
+| 3+ error types handled             | ✅     | 9 error types: wallet, connection, balance, TX, network, validation, signing |
+| Transaction status visible         | ✅     | 4-step progress indicator + Stellar Explorer link + balance check            |
+| Mobile responsive UI               | ✅     | Hamburger drawer, responsive grids, breakpoints, body scroll lock            |
+| CI/CD pipeline                     | ✅     | 3 GitHub Actions workflows (CI, release, security)                           |
+| Test output (3+ passing)           | ✅     | 42 Rust contract tests; 26 frontend tests passing                            |
+| Inter-contract communication       | ✅     | Factory `ContractsSet` event emitted on-chain, verified on Explorer          |
+| Event streaming                    | ✅     | 5 contracts emit typed events; `useContractEvents` hook polls Soroban RPC    |
+| Wallet session persistence         | ✅     | localStorage persistence + auto-reconnect on page refresh                    |
+| XLM balance display                | ✅     | Header, Sidebar, and MobileMenu show live XLM balance                        |
+| XLM send flow                      | ✅     | Send XLM modal with address validation, amount, and memo                     |
+| Screenshots                        | ✅     | See [Screenshots](#-screenshots) section                                     |
+| Demo video (2 min)                 | ✅     | See [Demo Video](#-demo-video) section                                       |
 
 ## 🌐 Live Demo
 
@@ -225,16 +225,16 @@ vercel deploy --prod --yes
 
 All screenshots captured from the live deployment at [web-kappa-lac-27.vercel.app](https://web-kappa-lac-27.vercel.app).
 
-| Feature | Desktop | Mobile |
-|---------|---------|--------|
-| **Landing Page** | ![Landing](screenshots/01-landing-desktop.png) | ![Landing Mobile](screenshots/01-landing-mobile.png) |
-| **Dashboard** | ![Dashboard](screenshots/02-dashboard-desktop.png) | ![Dashboard Mobile](screenshots/02-dashboard-mobile.png) |
-| **Mint NFT (wallet prompt)** | ![Mint](screenshots/03-mint-desktop.png) | ![Mint Mobile](screenshots/03-mint-mobile.png) |
-| **Collections** | ![Collections](screenshots/04-collections-desktop.png) | ![Collections Mobile](screenshots/04-collections-mobile.png) |
-| **Explore & Search** | ![Explore](screenshots/05-explore-desktop.png) | ![Explore Mobile](screenshots/05-explore-mobile.png) |
-| **Ownership Verification** | ![Verify](screenshots/06-verify-desktop.png) | ![Verify Mobile](screenshots/06-verify-mobile.png) |
-| **Settings** | ![Settings](screenshots/07-settings-desktop.png) | ![Settings Mobile](screenshots/07-settings-mobile.png) |
-| **Creator Profile** | ![Profile](screenshots/08-profile-desktop.png) | ![Profile Mobile](screenshots/08-profile-mobile.png) |
+| Feature                      | Desktop                                                | Mobile                                                       |
+| ---------------------------- | ------------------------------------------------------ | ------------------------------------------------------------ |
+| **Landing Page**             | ![Landing](screenshots/01-landing-desktop.png)         | ![Landing Mobile](screenshots/01-landing-mobile.png)         |
+| **Dashboard**                | ![Dashboard](screenshots/02-dashboard-desktop.png)     | ![Dashboard Mobile](screenshots/02-dashboard-mobile.png)     |
+| **Mint NFT (wallet prompt)** | ![Mint](screenshots/03-mint-desktop.png)               | ![Mint Mobile](screenshots/03-mint-mobile.png)               |
+| **Collections**              | ![Collections](screenshots/04-collections-desktop.png) | ![Collections Mobile](screenshots/04-collections-mobile.png) |
+| **Explore & Search**         | ![Explore](screenshots/05-explore-desktop.png)         | ![Explore Mobile](screenshots/05-explore-mobile.png)         |
+| **Ownership Verification**   | ![Verify](screenshots/06-verify-desktop.png)           | ![Verify Mobile](screenshots/06-verify-mobile.png)           |
+| **Settings**                 | ![Settings](screenshots/07-settings-desktop.png)       | ![Settings Mobile](screenshots/07-settings-mobile.png)       |
+| **Creator Profile**          | ![Profile](screenshots/08-profile-desktop.png)         | ![Profile Mobile](screenshots/08-profile-mobile.png)         |
 
 > **16 screenshots captured** — 8 pages × 2 viewports (desktop 1440×900 + mobile 375×812) at 2x DPI.
 
@@ -308,14 +308,14 @@ Record a 2-minute walkthrough following this script:
 
 All transactions verifiable on Stellar Explorer:
 
-| Transaction | Hash | Explorer |
-|------------|------|----------|
-| **NFT Init** | `9c1d871b...6bc25e518` | [View](https://stellar.expert/explorer/testnet/tx/9c1d871b931e3455a5c2bfadcccca2bd8694105338fa2a88161e23a6bc25e518) |
-| **Collection Init** | `157062e3...f7a6ec06` | [View](https://stellar.expert/explorer/testnet/tx/157062e311fedbcbc3507c41d91ceb0b37e9cfd6e21992e67df31333f7a6ec06) |
-| **Royalty Init** | `8473eb92...bf03b639` | [View](https://stellar.expert/explorer/testnet/tx/8473eb92b1157de549bcd398ca3aceaec5bc2cdb3830731bd270d1c0bf03b639) |
-| **Creator Init** | `987134c5...ca670c74` | [View](https://stellar.expert/explorer/testnet/tx/987134c527d75480025611cfaddaa399c51d81ddd48b521467201d1bca670c74) |
-| **Factory Init** | `bdbe9101...e89c72bf` | [View](https://stellar.expert/explorer/testnet/tx/bdbe9101b00718b3d0d0c0b2cdfed7c810443c3ce99894dd4a440180e89c72bf) |
-| **Factory Links** | `7e03914a...e45cc8d9` | [View](https://stellar.expert/explorer/testnet/tx/7e03914abe8f06d81bc79a284c86c0c7ff2db300ff84f8f15c38e8d4e45cc8d9) |
+| Transaction         | Hash                   | Explorer                                                                                                            |
+| ------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| **NFT Init**        | `9c1d871b...6bc25e518` | [View](https://stellar.expert/explorer/testnet/tx/9c1d871b931e3455a5c2bfadcccca2bd8694105338fa2a88161e23a6bc25e518) |
+| **Collection Init** | `157062e3...f7a6ec06`  | [View](https://stellar.expert/explorer/testnet/tx/157062e311fedbcbc3507c41d91ceb0b37e9cfd6e21992e67df31333f7a6ec06) |
+| **Royalty Init**    | `8473eb92...bf03b639`  | [View](https://stellar.expert/explorer/testnet/tx/8473eb92b1157de549bcd398ca3aceaec5bc2cdb3830731bd270d1c0bf03b639) |
+| **Creator Init**    | `987134c5...ca670c74`  | [View](https://stellar.expert/explorer/testnet/tx/987134c527d75480025611cfaddaa399c51d81ddd48b521467201d1bca670c74) |
+| **Factory Init**    | `bdbe9101...e89c72bf`  | [View](https://stellar.expert/explorer/testnet/tx/bdbe9101b00718b3d0d0c0b2cdfed7c810443c3ce99894dd4a440180e89c72bf) |
+| **Factory Links**   | `7e03914a...e45cc8d9`  | [View](https://stellar.expert/explorer/testnet/tx/7e03914abe8f06d81bc79a284c86c0c7ff2db300ff84f8f15c38e8d4e45cc8d9) |
 
 **Factory `ContractsSet` event emission confirms inter-contract communication.**
 
