@@ -11,8 +11,8 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-30 h-16 bg-bezamint-surface/80 backdrop-blur-lg border-b border-bezamint-border flex items-center justify-between px-6">
-      {/* Left spacer (sidebar offset) */}
-      <div className="w-64" />
+      {/* Left spacer (sidebar offset — hidden on mobile) */}
+      <div className="hidden lg:block w-64" />
 
       {/* Center — page title area */}
       <div className="flex-1 flex items-center justify-between max-w-6xl">
