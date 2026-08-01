@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { HiOutlineLogout, HiOutlineSwitchHorizontal, HiOutlineExternalLink } from 'react-icons/hi';
+import { HiOutlineLogout, HiOutlineExternalLink, HiOutlineSearch } from 'react-icons/hi';
+import Link from 'next/link';
 import { useWallet } from '@/context';
 import { formatAddress, getExplorerAccountUrl } from '@/services';
 
@@ -15,18 +16,25 @@ export default function Header() {
 
       {/* Center — page title area */}
       <div className="flex-1 flex items-center justify-between max-w-6xl">
-        <div className="text-sm text-gray-400">
-          {isConnected ? (
-            <span className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-bezamint-secondary animate-pulse" />
-              Connected
-            </span>
-          ) : (
-            <span className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-gray-500" />
-              Not Connected
-            </span>
-          )}
+        <div className="flex items-center gap-4">
+          <Link href="/explore" className="flex items-center gap-2 text-sm text-gray-400 hover:text-gray-200 transition-colors" title="Search (/)">
+            <HiOutlineSearch className="w-4 h-4" />
+            <span className="hidden lg:inline">Search</span>
+            <kbd className="hidden lg:inline text-xs text-gray-600 border border-gray-700 rounded px-1.5 py-0.5">/</kbd>
+          </Link>
+          <div className="text-sm text-gray-400">
+            {isConnected ? (
+              <span className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-bezamint-secondary animate-pulse" />
+                Connected
+              </span>
+            ) : (
+              <span className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-gray-500" />
+                Not Connected
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Wallet button */}
