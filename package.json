@@ -8,6 +8,8 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",
+    "contract:build": "cargo build --workspace --release --target wasm32-unknown-unknown --manifest-path contracts/Cargo.toml",
+    "contract:test": "cargo test --workspace --manifest-path contracts/Cargo.toml",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,toml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,toml,yaml}\"",
     "clean": "turbo run clean",

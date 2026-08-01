@@ -34,7 +34,7 @@
     },
     "contract:build": {
       "cache": false,
-      "outputs": ["target/**"]
+      "outputs": ["contracts/target/**"]
     },
     "contract:test": {
       "dependsOn": ["contract:build"],
