@@ -10,6 +10,9 @@
   <a href="https://web-kappa-lac-27.vercel.app">
     <img src="https://img.shields.io/badge/deployed-Vercel-black?logo=vercel" alt="Vercel" />
   </a>
+  <a href="demo-video.mp4">
+    <img src="https://img.shields.io/badge/demo-video-FF0000?logo=youtube" alt="Demo Video" />
+  </a>
   <img src="https://img.shields.io/badge/TypeScript-5.7-3178c6?logo=typescript" alt="TypeScript" />
   <img src="https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs" alt="Next.js" />
   <img src="https://img.shields.io/badge/Soroban_SDK-22.0.11-7b3fe4" alt="Soroban SDK" />
