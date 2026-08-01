@@ -95,9 +95,8 @@ export default function MintForm() {
       });
 
       showSuccess('NFT minted successfully!');
-    } catch (err: any) {
-      showError(err?.message || 'Minting failed');
-      throw err;
+    } catch {
+      // Error already handled by useTransaction hook and displayed via TransactionStatus
     }
   };
 

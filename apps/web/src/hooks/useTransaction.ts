@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import type { MintStatus } from '@bezamint/shared';
 
 interface TransactionState {
@@ -21,7 +21,6 @@ export function useTransaction() {
   const statusRef = useRef<MintStatus>('idle');
 
   const setStatus = useCallback((status: MintStatus) => {
-    statusRef.current = status;
     setState((s) => ({ ...s, status }));
   }, []);
 
@@ -38,7 +37,6 @@ export function useTransaction() {
   }, []);
 
   const reset = useCallback(() => {
-    statusRef.current = 'idle';
     setState({
       status: 'idle',
       txHash: null,
@@ -56,7 +54,7 @@ export function useTransaction() {
       executeFn: (onStatus: (status: MintStatus) => void) => Promise<{ txHash: string; tokenId?: number }>,
     ) => {
       setStatus('preparing');
-      setError(null as any); // clear previous error
+      setState((s) => ({ ...s, error: null }));
 
       try {
         const { txHash, tokenId } = await executeFn((newStatus) => {
