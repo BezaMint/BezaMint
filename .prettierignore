@@ -6,3 +6,4 @@ target/
 *.wasm
 pnpm-lock.yaml
 coverage/
+*.toml
