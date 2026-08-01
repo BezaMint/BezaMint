@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock @stellar/stellar-sdk before any imports that use it
 vi.mock('@stellar/stellar-sdk', async () => {
-  const actual = await vi.importActual('@stellar/stellar-sdk');
+  const actual: any = await vi.importActual('@stellar/stellar-sdk');
   return {
     ...actual,
     rpc: {
