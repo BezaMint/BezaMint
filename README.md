@@ -225,18 +225,23 @@ vercel deploy --prod --yes
 
 All screenshots captured from the live deployment at [web-kappa-lac-27.vercel.app](https://web-kappa-lac-27.vercel.app).
 
-| Feature                      | Desktop                                                | Mobile                                                       |
-| ---------------------------- | ------------------------------------------------------ | ------------------------------------------------------------ |
-| **Landing Page**             | ![Landing](screenshots/01-landing-desktop.png)         | ![Landing Mobile](screenshots/01-landing-mobile.png)         |
-| **Dashboard**                | ![Dashboard](screenshots/02-dashboard-desktop.png)     | ![Dashboard Mobile](screenshots/02-dashboard-mobile.png)     |
-| **Mint NFT (wallet prompt)** | ![Mint](screenshots/03-mint-desktop.png)               | ![Mint Mobile](screenshots/03-mint-mobile.png)               |
-| **Collections**              | ![Collections](screenshots/04-collections-desktop.png) | ![Collections Mobile](screenshots/04-collections-mobile.png) |
-| **Explore & Search**         | ![Explore](screenshots/05-explore-desktop.png)         | ![Explore Mobile](screenshots/05-explore-mobile.png)         |
-| **Ownership Verification**   | ![Verify](screenshots/06-verify-desktop.png)           | ![Verify Mobile](screenshots/06-verify-mobile.png)           |
-| **Settings**                 | ![Settings](screenshots/07-settings-desktop.png)       | ![Settings Mobile](screenshots/07-settings-mobile.png)       |
-| **Creator Profile**          | ![Profile](screenshots/08-profile-desktop.png)         | ![Profile Mobile](screenshots/08-profile-mobile.png)         |
+| Feature                      | Desktop                                                   | Mobile                                                          |
+| ---------------------------- | --------------------------------------------------------- | --------------------------------------------------------------- |
+| **Landing Page**             | ![Landing](screenshots/audit-01-landing-desktop.png)      | ![Landing Mobile](screenshots/audit-01-landing-mobile.png)      |
+| **Dashboard**                | ![Dashboard](screenshots/audit-02-dashboard-desktop.png)  | ![Dashboard Mobile](screenshots/audit-02-dashboard-mobile.png)  |
+| **Collections**              | ![Collections](screenshots/audit-03-collections-desktop.png) | ![Collections Mobile](screenshots/audit-03-collections-mobile.png) |
+| **Mint NFT Form**            | ![Mint](screenshots/audit-04-mint-desktop.png)            | ![Mint Mobile](screenshots/audit-04-mint-mobile.png)            |
+| **Explore & Search**         | ![Explore](screenshots/audit-05-explore-desktop.png)      | ![Explore Mobile](screenshots/audit-05-explore-mobile.png)      |
+| **Ownership Verification**   | ![Verify](screenshots/audit-06-verify-desktop.png)        | ![Verify Mobile](screenshots/audit-06-verify-mobile.png)        |
+| **Settings & Contracts**     | ![Settings](screenshots/audit-07-settings-desktop.png)    | ![Settings Mobile](screenshots/audit-07-settings-mobile.png)    |
+| **Creator Profile**          | ![Profile](screenshots/audit-08-profile-desktop.png)      | ![Profile Mobile](screenshots/audit-08-profile-mobile.png)      |
+| **Wallet Options**           | ![Wallet Options](screenshots/audit-09-wallet-options-desktop.png) | ![Wallet Options Mobile](screenshots/audit-09-wallet-options-mobile.png) |
+| **Wallet Connected + Balance** | ![Wallet Connected](screenshots/audit-10-wallet-connected-desktop.png) | ![Wallet Connected Mobile](screenshots/audit-10-wallet-connected-mobile.png) |
+| **Mint Form Filled**         | ![TX Form](screenshots/audit-11-tx-form-filled-desktop.png) | – |
+| **CI/CD Pipeline**           | ![CI](screenshots/audit-12-ci-pipeline.png)               | – |
+| **Test Output**              | ![Tests](screenshots/audit-13-test-output.png)            | – |
 
-> **16 screenshots captured** — 8 pages × 2 viewports (desktop 1440×900 + mobile 375×812) at 2x DPI.
+> **23 screenshots captured** — 13 unique views covering all pages, wallet states, CI/CD, and test evidence.
 
 ### Test Evidence
 
