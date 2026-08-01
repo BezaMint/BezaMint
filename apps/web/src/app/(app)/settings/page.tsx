@@ -1,8 +1,15 @@
 'use client';
 
-import { HiOutlineCog, HiOutlineShieldCheck, HiOutlineServer, HiOutlineGlobe, HiOutlineKey } from 'react-icons/hi';
+import {
+  HiOutlineCog,
+  HiOutlineShieldCheck,
+  HiOutlineServer,
+  HiOutlineGlobe,
+  HiOutlineKey,
+  HiOutlineExternalLink,
+} from 'react-icons/hi';
 import { useWallet } from '@/context';
-import { formatAddress, getExplorerAccountUrl } from '@/services';
+import { formatAddress, getExplorerAccountUrl, CONTRACT_IDS } from '@/services';
 
 export default function SettingsPage() {
   const { address, isConnected, network } = useWallet();
@@ -31,14 +38,20 @@ export default function SettingsPage() {
                 <span className="text-sm text-gray-400">Network</span>
                 <span className="text-sm text-gray-200 capitalize">{network}</span>
               </div>
-              <a href={getExplorerAccountUrl(address)} target="_blank" rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-sm text-bezamint-secondary hover:text-bezamint-primary transition-colors">
+              <a
+                href={getExplorerAccountUrl(address)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-sm text-bezamint-secondary hover:text-bezamint-primary transition-colors"
+              >
                 <HiOutlineGlobe className="w-4 h-4" />
                 View on Stellar Explorer
               </a>
             </div>
           ) : (
-            <p className="text-sm text-gray-500">Connect your Freighter wallet to view account details.</p>
+            <p className="text-sm text-gray-500">
+              Connect your Freighter wallet to view account details.
+            </p>
           )}
         </div>
 
@@ -65,7 +78,9 @@ export default function SettingsPage() {
             </div>
             <div className="flex items-center justify-between p-3 rounded-lg bg-bezamint-muted/50 border border-bezamint-border">
               <span className="text-sm text-gray-400">Passphrase</span>
-              <span className="text-xs font-mono text-gray-500 truncate max-w-[200px]">Test SDF Network ; September 2015</span>
+              <span className="text-xs font-mono text-gray-500 truncate max-w-[200px]">
+                Test SDF Network ; September 2015
+              </span>
             </div>
           </div>
         </div>
@@ -77,10 +92,31 @@ export default function SettingsPage() {
             <h2 className="text-lg font-semibold text-white">Smart Contracts</h2>
           </div>
           <div className="space-y-2">
-            {['NFT', 'Collection', 'Royalty', 'Creator'].map((name) => (
-              <div key={name} className="flex items-center justify-between p-3 rounded-lg bg-bezamint-muted/50 border border-bezamint-border">
-                <span className="text-sm text-gray-400">{name} Contract</span>
-                <span className="text-xs font-mono text-gray-600">Not deployed</span>
+            {[
+              { label: 'NFT Contract', id: CONTRACT_IDS.nft },
+              { label: 'Collection Contract', id: CONTRACT_IDS.collection },
+              { label: 'Royalty Contract', id: CONTRACT_IDS.royalty },
+              { label: 'Creator Contract', id: CONTRACT_IDS.creator },
+              { label: 'Factory Contract', id: CONTRACT_IDS.factory },
+            ].map(({ label, id }) => (
+              <div
+                key={label}
+                className="flex items-center justify-between p-3 rounded-lg bg-bezamint-muted/50 border border-bezamint-border"
+              >
+                <span className="text-sm text-gray-400">{label}</span>
+                {id ? (
+                  <a
+                    href={`https://stellar.expert/explorer/testnet/contract/${id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 text-xs font-mono text-bezamint-secondary hover:text-bezamint-primary transition-colors"
+                  >
+                    {id.slice(0, 8)}...{id.slice(-6)}
+                    <HiOutlineExternalLink className="w-3 h-3" />
+                  </a>
+                ) : (
+                  <span className="text-xs font-mono text-gray-600">Not deployed</span>
+                )}
               </div>
             ))}
           </div>

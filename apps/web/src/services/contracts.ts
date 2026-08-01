@@ -13,6 +13,7 @@ export const CONTRACT_IDS = {
   collection: process.env.NEXT_PUBLIC_COLLECTION_CONTRACT_ID || '',
   royalty: process.env.NEXT_PUBLIC_ROYALTY_CONTRACT_ID || '',
   creator: process.env.NEXT_PUBLIC_CREATOR_CONTRACT_ID || '',
+  factory: process.env.NEXT_PUBLIC_FACTORY_CONTRACT_ID || '',
 };
 
 // ─────────────────────── NFT Contract ───────────────────────
