@@ -223,16 +223,20 @@ vercel deploy --prod --yes
 
 ## 📸 Screenshots
 
-| Feature                    | Evidence |
-| -------------------------- | -------- |
-| **Wallet Options**         | Connect Wallet button visible on all unauthenticated pages ([demo](https://web-kappa-lac-27.vercel.app)) |
-| **Wallet Connected**       | Green "Connected" indicator + address badge + XLM balance in Header/Sidebar |
-| **Balance Display**        | Live XLM balance with refresh button in Header, Sidebar, and MobileMenu |
-| **Successful Transaction** | 4-step progress → green checkmark + token ID + "NFT minted successfully!" toast |
-| **Transaction Result**     | Truncated tx hash clickable to Stellar Expert → `https://stellar.expert/explorer/testnet/tx/...` |
-| **Mobile Responsive**      | Hamburger menu with balance display, Escape-to-close, body scroll lock |
-| **CI/CD Pipeline**         | [GitHub Actions](https://github.com/BezaMint/BezaMint/actions) — CI, Release, Security workflows |
-| **Test Output**            | `26 passed (2 test files)` — see Test Evidence below |
+All screenshots captured from the live deployment at [web-kappa-lac-27.vercel.app](https://web-kappa-lac-27.vercel.app).
+
+| Feature | Desktop | Mobile |
+|---------|---------|--------|
+| **Landing Page** | ![Landing](screenshots/01-landing-desktop.png) | ![Landing Mobile](screenshots/01-landing-mobile.png) |
+| **Dashboard** | ![Dashboard](screenshots/02-dashboard-desktop.png) | ![Dashboard Mobile](screenshots/02-dashboard-mobile.png) |
+| **Mint NFT (wallet prompt)** | ![Mint](screenshots/03-mint-desktop.png) | ![Mint Mobile](screenshots/03-mint-mobile.png) |
+| **Collections** | ![Collections](screenshots/04-collections-desktop.png) | ![Collections Mobile](screenshots/04-collections-mobile.png) |
+| **Explore & Search** | ![Explore](screenshots/05-explore-desktop.png) | ![Explore Mobile](screenshots/05-explore-mobile.png) |
+| **Ownership Verification** | ![Verify](screenshots/06-verify-desktop.png) | ![Verify Mobile](screenshots/06-verify-mobile.png) |
+| **Settings** | ![Settings](screenshots/07-settings-desktop.png) | ![Settings Mobile](screenshots/07-settings-mobile.png) |
+| **Creator Profile** | ![Profile](screenshots/08-profile-desktop.png) | ![Profile Mobile](screenshots/08-profile-mobile.png) |
+
+> **16 screenshots captured** — 8 pages × 2 viewports (desktop 1440×900 + mobile 375×812) at 2x DPI.
 
 ### Test Evidence
 
