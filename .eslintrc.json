@@ -1,0 +1,10 @@
+{
+  "extends": ["next/core-web-vitals", "turbo"],
+  "rules": {
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "no-unused-vars": "off",
+    "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }],
+    "react/self-closing-comp": "error",
+    "import/no-duplicates": "error"
+  }
+}
