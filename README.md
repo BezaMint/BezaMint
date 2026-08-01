@@ -285,23 +285,18 @@ Route (app)                                 Size  First Load JS
 ✓ Compiled successfully — zero TypeScript or ESLint errors
 ```
 
-## 🎥 Demo Video (2-Minute Script)
+## 🎥 Demo Video (~2 Minutes)
 
-Record a 2-minute walkthrough following this script:
+A 2-minute walkthrough of BezaMint showcasing all major features — landing page, dashboard, collections, smart contract settings, NFT minting form, search & discovery, ownership verification, and creator profiles.
 
-### Script
-
-1. **Intro (0:00-0:15)** — Open the deployed app at [web-kappa-lac-27.vercel.app](https://web-kappa-lac-27.vercel.app), show the dashboard landing page with stats cards
-2. **Wallet Connect (0:15-0:30)** — Click "Connect Wallet", show Freighter popup, show connected state with XLM balance displayed
-3. **Send XLM (0:30-0:45)** — Click the send button in the header, fill the send form, show the transaction confirmation
-4. **Create Collection (0:45-1:05)** — Navigate to Collections → "Create Collection" → fill form → submit
-5. **Mint NFT (1:05-1:30)** — Navigate to Mint → fill metadata form → add attributes → configure royalty → mint
-6. **Transaction Status (1:30-1:45)** — Show the 4-step progress (preparing → signing → submitting → confirming) → show success + tx hash
-7. **Search & Explore (1:45-1:55)** — Use search bar to find the minted NFT, switch tabs
-8. **Mobile View (1:55-2:00)** — Resize browser to mobile, show hamburger menu with balance
-
-> **Recording tools:** Loom, OBS Studio, QuickTime, or Screenity Chrome extension
-> **Video link:** [Add your YouTube/Loom video link here]
+> **▶️ Watch the demo:** [`demo-video.mp4`](demo-video.mp4) (included in the repository)
+>
+> Upload to YouTube/Loom for a shareable link:
+> ```bash
+> # Example: Upload to YouTube as unlisted
+> # Then add the link here and in the submission
+> ```
+>
 > **Full script with timestamps and narration:** See [DEMO.md](DEMO.md)
 
 ## 🔗 Transaction Verification
