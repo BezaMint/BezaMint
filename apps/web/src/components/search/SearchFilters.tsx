@@ -1,7 +1,6 @@
 'use client';
 
-import { useMemo, useCallback } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback } from 'react';
 
 interface SearchFiltersProps {
   categories: { value: string; label: string }[];
@@ -21,14 +20,12 @@ export default function SearchFilters({ categories, selected, onChange }: Search
     [selected, onChange],
   );
 
-  const clearAll = () => onChange([]);
-
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Filters</h3>
         {selected.length > 0 && (
-          <button onClick={clearAll} className="text-xs text-bezamint-secondary hover:text-bezamint-primary transition-colors">
+          <button onClick={() => onChange([])} className="text-xs text-bezamint-secondary hover:text-bezamint-primary transition-colors">
             Clear all
           </button>
         )}

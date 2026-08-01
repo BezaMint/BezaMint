@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { HiOutlinePhotograph, HiOutlineCollection, HiOutlineUser, HiOutlineBadgeCheck } from 'react-icons/hi';
-import { formatAddress } from '@/services';
 
 interface SearchResultProps {
   type: 'nft' | 'collection' | 'creator';
@@ -23,24 +22,23 @@ export default function SearchResultCard({
   tags = [],
   isVerified = false,
 }: SearchResultProps) {
-  const icon = type === 'nft' ? HiOutlinePhotograph : type === 'collection' ? HiOutlineCollection : HiOutlineUser;
+  const Icon =
+    type === 'nft' ? HiOutlinePhotograph : type === 'collection' ? HiOutlineCollection : HiOutlineUser;
 
   return (
     <Link
       href={href}
       className="flex items-center gap-4 p-3 rounded-xl hover:bg-bezamint-muted/30 border border-transparent hover:border-bezamint-border transition-all group"
     >
-      {/* Icon / Avatar */}
       <div className="w-12 h-12 rounded-xl bg-bezamint-muted/50 border border-bezamint-border overflow-hidden flex-shrink-0 flex items-center justify-center">
         {imageUri ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={imageUri} alt={title} className="w-full h-full object-cover" />
         ) : (
-          <icon.type className="w-5 h-5 text-gray-500" />
+          <Icon className="w-5 h-5 text-gray-500" />
         )}
       </div>
 
-      {/* Info */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-xs uppercase tracking-wider px-1.5 py-0.5 rounded text-gray-500 bg-bezamint-muted/50 font-medium">
@@ -61,7 +59,6 @@ export default function SearchResultCard({
         )}
       </div>
 
-      {/* Arrow */}
       <svg className="w-4 h-4 text-gray-600 group-hover:text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
       </svg>
