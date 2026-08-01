@@ -99,6 +99,45 @@ soroban contract deploy \
 | **SDK** | `@stellar/stellar-sdk`, `@stellar/freighter-api` |
 | **Passphrase** | `Test SDF Network ; September 2015` |
 
+## 📜 Deployed Contracts
+
+> **Network:** Stellar Testnet  
+> **Deployer:** `G...` (fund via [Friendbot](https://laboratory.stellar.org/#account-creator?network=test))  
+> **Deployment:** Run `bash scripts/deploy.sh` with `BEZAMINT_DEPLOYER_SECRET` set.
+
+| Contract | Address |
+|----------|---------|
+| **NFT** | `CDLZFC3SYJYDZT7K67VWH75J6SENYQX3C5K3LFTQ6J5ERFMLB6I4SSVM` |
+| **Collection** | `CD5NPLZ5HC6DDIW7FNJ5IIS7E6B4UEHYHYK6OKHTQFJ3Y5A5RSDDB5CM` |
+| **Royalty** | `CBPYKFRCCOQWKXX4LHTPN6E26FI2IHRSTQSSINBHRGJE6B6C7R2KLW3W` |
+| **Creator** | `CCVDBJX6LXZENHCVLWR76DNO6EX3YNP7KC2G7W3MZ6LOZLBL4Z4FFHSF` |
+| **Factory** | `CAX5JTHGKXQBYJN5KV4OCCN5JWFP4AKUFCWQ6JN5KHLW5O3ZY6HO2I3J` |
+
+> ⚠️ The addresses above are **placeholders** for the Stellar Testnet format.  
+> After running `bash scripts/deploy.sh`, the actual deployed contract IDs will be written to 
+> `apps/web/.env.local`. Copy them here from the script output.
+
+## 📋 Submission Checklist
+
+- [x] **Public GitHub repository** — [github.com/BezaMint/BezaMint](https://github.com/BezaMint/BezaMint)
+- [x] **README with setup instructions** — See [Quick Start](#-quick-start) above
+- [x] **31+ meaningful commits** — See [commit history](https://github.com/BezaMint/BezaMint/commits/main)
+- [x] **Wallet integration** — Freighter browser extension (connect, disconnect, account change listener)
+- [x] **3+ error types handled** — Transaction errors, form validation errors, wallet connection errors, image load errors, toast error notifications
+- [x] **Transaction status visible** — 4-step progress indicator (preparing → signing → submitting → confirming) with explorer link
+- [ ] **Live demo link** — Deploy on Vercel/Netlify (optional)
+- [ ] **Screenshot of wallet options** — See [Wallet](#-stellar-integration) section
+- [ ] **Deployed contract address** — Run `bash scripts/deploy.sh` and update table above
+- [ ] **Transaction hash** — After deployment, mint an NFT and paste the TX hash here
+
+## 🔗 Transaction Verification
+
+After deployment, verify your transactions on Stellar Explorer:
+- **Deployment TX:** *(paste transaction hash here)* → [View on Stellar Expert](https://stellar.expert/explorer/testnet)
+- **Mint TX:** *(paste transaction hash here)* → [View on Stellar Expert](https://stellar.expert/explorer/testnet)
+
+---
+
 ## 📦 Tech Stack
 
 - **Frontend:** Next.js 15, React 19, TypeScript, Tailwind CSS
