@@ -15,8 +15,9 @@ license = "MIT"
 repository = "https://github.com/your-org/bezamint"
 
 [workspace.dependencies]
-soroban-sdk = "22.0.0"
-soroban-token-sdk = "22.0.0"
+soroban-sdk = "22.0.11"
+soroban-token-sdk = "22.0.11"
+
 
 [profile.release]
 opt-level = "z"

@@ -26,6 +26,7 @@ export default function RoyaltyConfig({
       onChange({
         basisPoints: 250, // default 2.5%
         recipients: userAddress ? [{ address: userAddress, share: 100 }] : [],
+        isFrozen: false,
       });
     }
   };

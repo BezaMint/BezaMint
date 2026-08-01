@@ -40,9 +40,9 @@ pub enum CreatorKey {
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum CreatorEvent {
-    Registered { address: Address, display_name: String },
-    ProfileUpdated { address: Address },
-    Verified { address: Address },
+    Registered(Address),
+    ProfileUpdated(Address),
+    Verified(Address),
 }
 
 fn emit(env: &Env, event: CreatorEvent) {
@@ -62,7 +62,6 @@ impl BezaMintCreator {
         env.storage().instance().set(&CreatorKey::Counter, &0u64);
     }
 
-    /// Register a new creator profile
     pub fn register(
         env: Env,
         creator: Address,
@@ -73,7 +72,6 @@ impl BezaMintCreator {
     ) {
         creator.require_auth();
 
-        // One profile per address
         assert!(
             !env.storage()
                 .persistent()
@@ -102,16 +100,9 @@ impl BezaMintCreator {
         env.storage().persistent().set(&CreatorKey::Profile(creator.clone()), &profile);
         env.storage().instance().set(&CreatorKey::Counter, &(counter + 1));
 
-        emit(
-            &env,
-            CreatorEvent::Registered {
-                address: creator.clone(),
-                display_name: String::from_str(&env, ""),
-            },
-        );
+        emit(&env, CreatorEvent::Registered(creator.clone()));
     }
 
-    /// Update an existing profile
     pub fn update_profile(
         env: Env,
         creator: Address,
@@ -138,10 +129,9 @@ impl BezaMintCreator {
             .persistent()
             .set(&CreatorKey::Profile(creator.clone()), &profile);
 
-        emit(&env, CreatorEvent::ProfileUpdated { address: creator });
+        emit(&env, CreatorEvent::ProfileUpdated(creator));
     }
 
-    /// Add / update social links
     pub fn set_social_links(env: Env, creator: Address, links: Vec<SocialLink>) {
         creator.require_auth();
 
@@ -159,8 +149,7 @@ impl BezaMintCreator {
             .set(&CreatorKey::Profile(creator.clone()), &profile);
     }
 
-    /// Admin: verify a creator
-    pub fn verify_creator(env: Env, admin: Address, creator: Address) {
+    pub fn verify_creator(env: Env, _admin: Address, creator: Address) {
         let stored_admin: Address = env.storage().instance().get(&CreatorKey::Admin).unwrap();
         stored_admin.require_auth();
 
@@ -177,7 +166,7 @@ impl BezaMintCreator {
             .persistent()
             .set(&CreatorKey::Profile(creator.clone()), &profile);
 
-        emit(&env, CreatorEvent::Verified { address: creator });
+        emit(&env, CreatorEvent::Verified(creator));
     }
 
     // ── Queries ─────────────────────────────────────────────
@@ -193,7 +182,7 @@ impl BezaMintCreator {
         env.storage()
             .persistent()
             .get(&CreatorKey::Profile(creator.clone()))
-            .unwrap_or_else(|| panic!("Creator: profile not found for {}", creator))
+            .unwrap_or_else(|| panic!("Creator: profile not found"))
     }
 
     pub fn is_registered(env: Env, creator: Address) -> bool {

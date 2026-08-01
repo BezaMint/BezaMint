@@ -1,3 +1,5 @@
+import type { RoyaltyConfig } from './royalty';
+
 /**
  * NFT metadata structure matching Stellar ecosystem standards
  */
@@ -50,17 +52,4 @@ export interface MintFormState {
   attributes: NftAttribute[];
   collectionId: string;
   royalties: RoyaltyConfig | null;
-}
-
-/**
- * Royalty configuration for NFT minting
- */
-export interface RoyaltyConfig {
-  basisPoints: number;
-  recipients: RoyaltyRecipient[];
-}
-
-export interface RoyaltyRecipient {
-  address: string;
-  share: number; // percentage of the royalty
 }

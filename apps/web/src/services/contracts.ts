@@ -19,7 +19,7 @@ export async function mintNft(
   metadataUri: string,
 ) {
   const toScVal = new Address(toAddress).toScVal();
-  const collectionScVal = xdr.ScVal.scvU64(collectionId.toString());
+  const collectionScVal = xdr.ScVal.scvU64(new xdr.Uint64(collectionId));
   const metadataScVal = xdr.ScVal.scvString(metadataUri);
 
   const { tx } = await buildContractTransaction(sourceAddress, CONTRACT_IDS.nft, 'mint', [
@@ -45,7 +45,7 @@ export async function getTotalSupply(sourceAddress: string): Promise<number> {
 
 export async function getOwnerOf(sourceAddress: string, tokenId: number): Promise<string | null> {
   try {
-    const tokenScVal = xdr.ScVal.scvU64(tokenId.toString());
+  const tokenScVal = xdr.ScVal.scvU64(new xdr.Uint64(tokenId));
     const result = await simulateTransaction(sourceAddress, CONTRACT_IDS.nft, 'owner_of', [
       tokenScVal,
     ]);

@@ -18,8 +18,6 @@ export function useTransaction() {
     tokenId: null,
   });
 
-  const statusRef = useRef<MintStatus>('idle');
-
   const setStatus = useCallback((status: MintStatus) => {
     setState((s) => ({ ...s, status }));
   }, []);

@@ -1,7 +1,7 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, Map, String, Vec,
+    contract, contractimpl, contracttype, symbol_short, Address, Env, Map,
 };
 
 // ─────────────────────────── Types ───────────────────────────
@@ -28,9 +28,9 @@ pub enum RoyaltyKey {
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum RoyaltyEvent {
-    Configured { target_id: u64, basis_points: u32 },
-    Updated { target_id: u64, basis_points: u32 },
-    Frozen { target_id: u64 },
+    Configured(u64, u32),
+    Updated(u64, u32),
+    Frozen(u64),
 }
 
 fn emit(env: &Env, event: RoyaltyEvent) {
@@ -49,7 +49,6 @@ impl BezaMintRoyalty {
         env.storage().instance().set(&RoyaltyKey::Admin, &admin);
     }
 
-    /// Configure royalty for a specific NFT or collection
     pub fn configure_royalty(
         env: Env,
         target_id: u64,
@@ -61,7 +60,7 @@ impl BezaMintRoyalty {
         admin.require_auth();
 
         assert!(
-            Self::validate_basis_points(env.clone(), basis_points),
+            Self::validate_basis_points(basis_points),
             "Royalty: basis points must be <= 10000"
         );
 
@@ -80,16 +79,9 @@ impl BezaMintRoyalty {
 
         env.storage().persistent().set(&key, &config);
 
-        emit(
-            &env,
-            RoyaltyEvent::Configured {
-                target_id,
-                basis_points,
-            },
-        );
+        emit(&env, RoyaltyEvent::Configured(target_id, basis_points));
     }
 
-    /// Update royalty (only if not frozen)
     pub fn update_royalty(
         env: Env,
         target_id: u64,
@@ -114,7 +106,7 @@ impl BezaMintRoyalty {
 
         assert!(!config.is_frozen, "Royalty: config is frozen for {}", target_id);
         assert!(
-            Self::validate_basis_points(env.clone(), basis_points),
+            Self::validate_basis_points(basis_points),
             "Royalty: basis points must be <= 10000"
         );
 
@@ -124,16 +116,9 @@ impl BezaMintRoyalty {
 
         env.storage().persistent().set(&key, &config);
 
-        emit(
-            &env,
-            RoyaltyEvent::Updated {
-                target_id,
-                basis_points,
-            },
-        );
+        emit(&env, RoyaltyEvent::Updated(target_id, basis_points));
     }
 
-    /// Freeze royalty so it cannot be changed
     pub fn freeze_royalty(env: Env, target_id: u64, is_collection: bool) {
         let admin: Address = env.storage().instance().get(&RoyaltyKey::Admin).unwrap();
         admin.require_auth();
@@ -153,12 +138,12 @@ impl BezaMintRoyalty {
         config.is_frozen = true;
         env.storage().persistent().set(&key, &config);
 
-        emit(&env, RoyaltyEvent::Frozen { target_id });
+        emit(&env, RoyaltyEvent::Frozen(target_id));
     }
 
     // ── Queries ─────────────────────────────────────────────
 
-    pub fn validate_basis_points(env: Env, basis_points: u32) -> bool {
+    pub fn validate_basis_points(basis_points: u32) -> bool {
         basis_points <= 10000
     }
 

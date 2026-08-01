@@ -1,10 +1,10 @@
 import {
   Networks,
-  SorobanRpc,
   TransactionBuilder,
   Contract,
   xdr,
   BASE_FEE,
+  rpc as SorobanRpc,
 } from '@stellar/stellar-sdk';
 
 // ─────────────────────── Network Configuration ───────────────────────
@@ -80,7 +80,7 @@ export async function simulateTransaction(
     .setTimeout(30)
     .build();
 
-  return rpcClient.simulateTransaction(tx);
+  return rpcClient.simulateTransaction(tx) as Promise<SorobanRpc.Api.SimulateTransactionSuccessResponse>;
 }
 
 /**
