@@ -5,13 +5,14 @@ use soroban_sdk::{
 
 use crate::{BezaMintRoyalty, BezaMintRoyaltyClient};
 
-fn setup() -> (Env, Address, BezaMintRoyaltyClient) {
+fn setup() -> (Env, BezaMintRoyaltyClient<'static>) {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let contract_id = env.register(BezaMintRoyalty, ());
     let client = BezaMintRoyaltyClient::new(&env, &contract_id);
     client.initialize(&admin);
-    (env, admin, client)
+    (env, client)
 }
 
 fn empty_recipients(env: &Env) -> Map<Address, u32> {
@@ -20,7 +21,7 @@ fn empty_recipients(env: &Env) -> Map<Address, u32> {
 
 #[test]
 fn test_validate_basis_points() {
-    let (env, admin, client) = setup();
+    let (_, client) = setup();
     assert!(client.validate_basis_points(&500));
     assert!(client.validate_basis_points(&10000));
     assert!(!client.validate_basis_points(&10001));
@@ -29,8 +30,8 @@ fn test_validate_basis_points() {
 
 #[test]
 fn test_configure_royalty_for_nft() {
-    let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    let (env, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
 
     client.configure_royalty(&1, &500, &empty_recipients(&env), &false);
 
@@ -42,8 +43,8 @@ fn test_configure_royalty_for_nft() {
 
 #[test]
 fn test_configure_royalty_for_collection() {
-    let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    let (env, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
 
     client.configure_royalty(&42, &750, &empty_recipients(&env), &true);
 
@@ -55,14 +56,14 @@ fn test_configure_royalty_for_collection() {
 #[test]
 #[should_panic(expected = "basis points must be")]
 fn test_configure_invalid_basis_points_fails() {
-    let (env, admin, client) = setup();
+    let (env, client) = setup();
     client.configure_royalty(&1, &15000, &empty_recipients(&env), &false);
 }
 
 #[test]
 fn test_update_royalty() {
-    let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    let (env, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
 
     client.configure_royalty(&1, &500, &empty_recipients(&env), &false);
     client.update_royalty(&1, &1000, &empty_recipients(&env), &false);
@@ -73,8 +74,8 @@ fn test_update_royalty() {
 
 #[test]
 fn test_freeze_prevents_updates() {
-    let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    let (env, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
 
     client.configure_royalty(&1, &500, &empty_recipients(&env), &false);
     client.freeze_royalty(&1, &false);
@@ -85,8 +86,8 @@ fn test_freeze_prevents_updates() {
 #[test]
 #[should_panic(expected = "frozen")]
 fn test_update_frozen_royalty_fails() {
-    let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    let (env, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
 
     client.configure_royalty(&1, &500, &empty_recipients(&env), &false);
     client.freeze_royalty(&1, &false);
@@ -96,14 +97,14 @@ fn test_update_frozen_royalty_fails() {
 #[test]
 #[should_panic(expected = "no config")]
 fn test_get_nonexistent_royalty_panics() {
-    let (env, admin, client) = setup();
+    let (_, client) = setup();
     client.get_royalty(&999, &false);
 }
 
 #[test]
 fn test_nft_and_collection_royalties_are_separate() {
-    let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    let (env, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
 
     client.configure_royalty(&1, &300, &empty_recipients(&env), &false);
     client.configure_royalty(&1, &700, &empty_recipients(&env), &true);

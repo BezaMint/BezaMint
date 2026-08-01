@@ -9,6 +9,7 @@ fn mint_one(client: &BezaMintNftClient, to: &Address, collection_id: u64) -> u64
 #[test]
 fn test_initialize_sets_admin_and_counter() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let contract_id = env.register(BezaMintNft, ());
     let client = BezaMintNftClient::new(&env, &contract_id);
@@ -19,6 +20,7 @@ fn test_initialize_sets_admin_and_counter() {
 #[test]
 fn test_mint_increases_counter_and_sets_owner() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     let contract_id = env.register(BezaMintNft, ());
@@ -37,6 +39,7 @@ fn test_mint_increases_counter_and_sets_owner() {
 #[test]
 fn test_mint_multiple_tokens() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     let contract_id = env.register(BezaMintNft, ());
@@ -56,6 +59,7 @@ fn test_mint_multiple_tokens() {
 #[test]
 fn test_transfer_changes_ownership() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     let new_owner = Address::generate(&env);
@@ -74,6 +78,7 @@ fn test_transfer_changes_ownership() {
 #[should_panic(expected = "caller not owner")]
 fn test_transfer_fails_if_not_owner() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     let attacker = Address::generate(&env);
@@ -89,6 +94,7 @@ fn test_transfer_fails_if_not_owner() {
 #[test]
 fn test_approve_and_is_approved() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     let operator = Address::generate(&env);
@@ -105,6 +111,7 @@ fn test_approve_and_is_approved() {
 #[test]
 fn test_approval_for_all() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     let operator = Address::generate(&env);
@@ -123,6 +130,7 @@ fn test_approval_for_all() {
 #[test]
 fn test_burn_removes_ownership() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     let contract_id = env.register(BezaMintNft, ());
@@ -138,6 +146,7 @@ fn test_burn_removes_ownership() {
 #[should_panic]
 fn test_burn_fails_for_nonexistent_token() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let contract_id = env.register(BezaMintNft, ());
     let client = BezaMintNftClient::new(&env, &contract_id);
@@ -148,6 +157,7 @@ fn test_burn_fails_for_nonexistent_token() {
 #[test]
 fn test_balance_of_multiple_owners() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     let user2 = Address::generate(&env);
@@ -166,6 +176,7 @@ fn test_balance_of_multiple_owners() {
 #[should_panic]
 fn test_owner_of_nonexistent_panics() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let contract_id = env.register(BezaMintNft, ());
     let client = BezaMintNftClient::new(&env, &contract_id);
@@ -176,6 +187,7 @@ fn test_owner_of_nonexistent_panics() {
 #[test]
 fn test_token_data_stores_correct_info() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     let contract_id = env.register(BezaMintNft, ());

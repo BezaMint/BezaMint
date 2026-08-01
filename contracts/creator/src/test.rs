@@ -1,12 +1,13 @@
 use soroban_sdk::{
     testutils::{Address as _, Ledger},
-    vec, Address, Env, String, Vec,
+    vec, Address, Env, String,
 };
 
-use crate::{BezaMintCreator, BezaMintCreatorClient, CreatorProfile, SocialLink};
+use crate::{BezaMintCreator, BezaMintCreatorClient, SocialLink};
 
-fn setup() -> (Env, Address, BezaMintCreatorClient) {
+fn setup() -> (Env, Address, BezaMintCreatorClient<'static>) {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let contract_id = env.register(BezaMintCreator, ());
     let client = BezaMintCreatorClient::new(&env, &contract_id);
@@ -26,8 +27,8 @@ fn register(env: &Env, client: &BezaMintCreatorClient, creator: &Address, name: 
 
 #[test]
 fn test_register_and_get_profile() {
-    let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    let (env, _admin, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
     register(&env, &client, &creator, "Alice");
@@ -46,7 +47,7 @@ fn test_register_and_get_profile() {
 #[test]
 #[should_panic(expected = "already registered")]
 fn test_duplicate_registration_fails() {
-    let (env, admin, client) = setup();
+    let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
 
     register(&env, &client, &creator, "Alice");
@@ -55,8 +56,8 @@ fn test_duplicate_registration_fails() {
 
 #[test]
 fn test_update_profile() {
-    let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    let (env, _admin, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
     register(&env, &client, &creator, "Alice");
@@ -75,8 +76,8 @@ fn test_update_profile() {
 
 #[test]
 fn test_set_social_links() {
-    let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    let (env, _admin, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
     register(&env, &client, &creator, "Alice");
@@ -102,7 +103,7 @@ fn test_set_social_links() {
 #[test]
 fn test_verify_creator() {
     let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
     register(&env, &client, &creator, "Alice");
@@ -117,7 +118,7 @@ fn test_verify_creator() {
 
 #[test]
 fn test_total_creators_count() {
-    let (env, admin, client) = setup();
+    let (env, _admin, client) = setup();
     let creator1 = Address::generate(&env);
     let creator2 = Address::generate(&env);
     let creator3 = Address::generate(&env);
@@ -131,7 +132,7 @@ fn test_total_creators_count() {
 
 #[test]
 fn test_unregistered_address() {
-    let (env, admin, client) = setup();
+    let (env, _admin, client) = setup();
     let stranger = Address::generate(&env);
 
     assert!(!client.is_registered(&stranger));
@@ -141,7 +142,7 @@ fn test_unregistered_address() {
 #[test]
 #[should_panic(expected = "profile not found")]
 fn test_update_nonexistent_fails() {
-    let (env, admin, client) = setup();
+    let (env, _admin, client) = setup();
     let stranger = Address::generate(&env);
 
     client.update_profile(

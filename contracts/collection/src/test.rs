@@ -1,12 +1,13 @@
 use soroban_sdk::{
     testutils::{Address as _, Ledger},
-    Address, Env, String, Vec,
+    Address, Env, String,
 };
 
-use crate::{BezaMintCollection, BezaMintCollectionClient, CollectionData};
+use crate::{BezaMintCollection, BezaMintCollectionClient};
 
-fn setup() -> (Env, Address, BezaMintCollectionClient) {
+fn setup() -> (Env, Address, BezaMintCollectionClient<'static>) {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
 
     let contract_id = env.register(BezaMintCollection, ());
@@ -18,14 +19,14 @@ fn setup() -> (Env, Address, BezaMintCollectionClient) {
 
 #[test]
 fn test_initialize() {
-    let (env, admin, client) = setup();
+    let (_, _, client) = setup();
     assert_eq!(client.total_collections(), 0);
 }
 
 #[test]
 fn test_create_collection() {
-    let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    let (env, _admin, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
     let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://col-meta/1"));
@@ -41,8 +42,8 @@ fn test_create_collection() {
 
 #[test]
 fn test_create_multiple_collections() {
-    let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    let (env, _admin, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
     let c1 = Address::generate(&env);
     let c2 = Address::generate(&env);
 
@@ -56,8 +57,8 @@ fn test_create_multiple_collections() {
 
 #[test]
 fn test_update_collection_metadata() {
-    let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    let (env, _admin, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
     let id = client.create_collection(&creator, &String::from_str(&env, "old-meta"));
@@ -70,8 +71,8 @@ fn test_update_collection_metadata() {
 #[test]
 #[should_panic(expected = "is archived")]
 fn test_update_archived_collection_fails() {
-    let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    let (env, _admin, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
     let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
@@ -81,8 +82,8 @@ fn test_update_archived_collection_fails() {
 
 #[test]
 fn test_archive_collection() {
-    let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    let (env, _admin, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
     let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
@@ -95,7 +96,7 @@ fn test_archive_collection() {
 #[test]
 fn test_add_nft_to_collection() {
     let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
     let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
@@ -113,7 +114,7 @@ fn test_add_nft_to_collection() {
 #[test]
 fn test_get_collection_for_nft() {
     let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
     let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
@@ -125,7 +126,7 @@ fn test_get_collection_for_nft() {
 #[test]
 fn test_remove_nft_from_collection() {
     let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
     let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
@@ -146,8 +147,8 @@ fn test_remove_nft_from_collection() {
 
 #[test]
 fn test_get_collections_by_creator() {
-    let (env, admin, client) = setup();
-    let ledger = env.ledger().with_mock();
+    let (env, _admin, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
     let alice = Address::generate(&env);
     let bob = Address::generate(&env);
 
@@ -165,6 +166,6 @@ fn test_get_collections_by_creator() {
 #[test]
 #[should_panic(expected = "not found")]
 fn test_get_nonexistent_collection_panics() {
-    let (env, admin, client) = setup();
+    let (_, _, client) = setup();
     client.get_collection(&999);
 }
