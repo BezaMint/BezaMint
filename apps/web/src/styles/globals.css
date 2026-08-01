@@ -1,0 +1,137 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #24a563;
+    --color-secondary: #7cd9a3;
+    --color-dark: #06271a;
+    --color-light: #eefbf3;
+    --color-accent: #47c07d;
+    --color-surface: #0a0f1a;
+    --color-card: #111827;
+    --color-muted: #374151;
+    --color-border: #1f2937;
+    --color-text: #f3f4f6;
+    --color-text-muted: #9ca3af;
+  }
+
+  * {
+    @apply border-stellar-100 dark:border-bezamint-border;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  body {
+    @apply bg-bezamint-surface text-gray-100 antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-bezamint-primary text-white px-6 py-3 rounded-xl font-semibold
+           hover:bg-bezamint-accent transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-bezamint-primary focus:ring-offset-2
+           focus:ring-offset-bezamint-surface disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply bg-bezamint-card text-gray-300 px-6 py-3 rounded-xl font-semibold
+           border border-bezamint-border hover:bg-bezamint-muted transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-bezamint-border focus:ring-offset-2
+           focus:ring-offset-bezamint-surface disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply text-gray-300 px-4 py-2 rounded-lg font-medium
+           hover:bg-bezamint-muted transition-all duration-200
+           focus:outline-none focus:ring-2 focus:ring-bezamint-border;
+  }
+
+  .card {
+    @apply bg-bezamint-card border border-bezamint-border rounded-2xl p-6
+           transition-all duration-200 hover:border-gray-600;
+  }
+
+  .card-interactive {
+    @apply card cursor-pointer hover:shadow-lg hover:shadow-bezamint-primary/5
+           hover:border-bezamint-primary/30;
+  }
+
+  .input-field {
+    @apply w-full bg-bezamint-muted border border-bezamint-border rounded-xl px-4 py-3
+           text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2
+           focus:ring-bezamint-primary focus:border-transparent transition-all duration-200;
+  }
+
+  .input-label {
+    @apply block text-sm font-medium text-gray-300 mb-2;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-medium;
+  }
+
+  .badge-primary {
+    @apply badge bg-bezamint-primary/20 text-bezamint-secondary;
+  }
+
+  .badge-success {
+    @apply badge bg-green-500/20 text-green-400;
+  }
+
+  .badge-warning {
+    @apply badge bg-yellow-500/20 text-yellow-400;
+  }
+
+  .badge-info {
+    @apply badge bg-blue-500/20 text-blue-400;
+  }
+
+  .section-title {
+    @apply text-2xl font-bold text-white mb-6;
+  }
+
+  .page-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-bezamint-primary to-bezamint-secondary;
+  }
+
+  .glass {
+    @apply bg-bezamint-card/80 backdrop-blur-lg border border-bezamint-border/50;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0f1a;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}
+
+/* Selection styling */
+::selection {
+  background-color: rgba(36, 165, 99, 0.3);
+  color: white;
+}
