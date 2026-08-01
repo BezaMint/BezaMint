@@ -302,6 +302,7 @@ Record a 2-minute walkthrough following this script:
 
 > **Recording tools:** Loom, OBS Studio, QuickTime, or Screenity Chrome extension
 > **Video link:** [Add your YouTube/Loom video link here]
+> **Full script with timestamps and narration:** See [DEMO.md](DEMO.md)
 
 ## 🔗 Transaction Verification
 
