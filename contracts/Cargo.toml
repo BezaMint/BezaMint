@@ -5,6 +5,7 @@ members = [
   "collection",
   "royalty",
   "creator",
+  "factory",
 ]
 
 [workspace.package]
