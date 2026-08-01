@@ -7,3 +7,4 @@ target/
 pnpm-lock.yaml
 coverage/
 *.toml
+contracts/*/test_snapshots/
