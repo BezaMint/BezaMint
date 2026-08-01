@@ -1,6 +1,7 @@
 'use client';
 
 import { HiOutlineSparkles } from 'react-icons/hi';
+import MintForm from '@/components/mint/MintForm';
 
 export default function MintPage() {
   return (
@@ -10,15 +11,55 @@ export default function MintPage() {
         <p className="text-gray-400 mt-2">Create a new NFT on the Stellar network</p>
       </div>
 
-      <div className="card max-w-2xl mx-auto text-center py-12">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-bezamint-primary/10 border border-bezamint-primary/20 mb-4">
-          <HiOutlineSparkles className="w-8 h-8 text-bezamint-secondary" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Form */}
+        <div className="lg:col-span-2">
+          <MintForm />
         </div>
-        <h3 className="text-lg font-semibold text-gray-300 mb-2">Minting Coming Soon</h3>
-        <p className="text-sm text-gray-500 max-w-sm mx-auto">
-          The NFT minting engine is being built. Connect your Freighter wallet and prepare your
-          digital assets — full minting capabilities are coming in the next phase.
-        </p>
+
+        {/* Sidebar Info */}
+        <aside className="space-y-4">
+          <div className="card">
+            <div className="flex items-center gap-2 mb-3">
+              <HiOutlineSparkles className="w-5 h-5 text-bezamint-secondary" />
+              <h3 className="text-sm font-semibold text-gray-200">How Minting Works</h3>
+            </div>
+            <ol className="space-y-2 text-sm text-gray-400">
+              <li className="flex gap-2">
+                <span className="text-bezamint-secondary font-mono">1.</span>
+                Fill in your NFT details and metadata
+              </li>
+              <li className="flex gap-2">
+                <span className="text-bezamint-secondary font-mono">2.</span>
+                Configure attributes and royalties
+              </li>
+              <li className="flex gap-2">
+                <span className="text-bezamint-secondary font-mono">3.</span>
+                Click &quot;Mint NFT&quot; to build the transaction
+              </li>
+              <li className="flex gap-2">
+                <span className="text-bezamint-secondary font-mono">4.</span>
+                Sign the transaction with Freighter wallet
+              </li>
+              <li className="flex gap-2">
+                <span className="text-bezamint-secondary font-mono">5.</span>
+                Wait for confirmation on Stellar testnet
+              </li>
+            </ol>
+          </div>
+
+          <div className="card">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="w-2 h-2 rounded-full bg-yellow-400" />
+              <h3 className="text-sm font-semibold text-gray-200">Testnet Only</h3>
+            </div>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              All NFTs are minted on the Stellar testnet. No real assets are involved.
+              Make sure you have testnet XLM in your Freighter wallet to cover
+              transaction fees.
+            </p>
+          </div>
+        </aside>
       </div>
     </div>
   );
