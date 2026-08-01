@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { Toaster } from 'react-hot-toast';
+import { WalletProvider, ToastProvider } from '@/context';
 import '@/styles/globals.css';
 
 export const metadata: Metadata = {
@@ -14,7 +16,19 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark">
-      <body className="min-h-screen flex flex-col">{children}</body>
+      <body className="min-h-screen flex flex-col">
+        <ToastProvider>
+          <WalletProvider>
+            {children}
+          </WalletProvider>
+        </ToastProvider>
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            duration: 5000,
+          }}
+        />
+      </body>
     </html>
   );
 }
