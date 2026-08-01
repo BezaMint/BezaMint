@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import {
   HiOutlineCollection,
   HiOutlinePhotograph,
@@ -44,7 +43,6 @@ const SAMPLE_ACTIVITY = [
 
 export default function DashboardPage() {
   const { address, isConnected } = useWallet();
-  const [stats, setStats] = useState(SAMPLE_STATS);
 
   return (
     <div className="page-container max-w-6xl">
@@ -60,7 +58,7 @@ export default function DashboardPage() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {stats.map((stat) => (
+        {SAMPLE_STATS.map((stat) => (
           <StatCard
             key={stat.label}
             label={stat.label}

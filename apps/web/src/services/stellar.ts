@@ -3,8 +3,6 @@ import {
   SorobanRpc,
   TransactionBuilder,
   Contract,
-  Address,
-  scValToNative,
   xdr,
   BASE_FEE,
 } from '@stellar/stellar-sdk';

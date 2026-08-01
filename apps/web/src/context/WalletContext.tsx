@@ -95,27 +95,25 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
   // Listen for Freighter account changes
   useEffect(() => {
-    const handleAccountsChanged = async () => {
-      if (!isFreighterInstalled()) return;
-      try {
-        const freighter = (window as any).stellar;
-        const publicKey = await freighter.getPublicKey();
-        if (publicKey) {
-          setState((s) => ({ ...s, address: publicKey }));
-        }
-      } catch {
-        // silently ignore
-      }
-    };
+    if (!isFreighterInstalled()) return;
+    const freighter = (window as any).stellar;
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('freighter:accountChanged', handleAccountsChanged);
-    }
+    const unsubscribe = freighter.onAccountChanged
+      ? freighter.onAccountChanged(async (publicKey: string | null) => {
+          if (publicKey) {
+            setState((s) => ({ ...s, address: publicKey }));
+          } else {
+            disconnect();
+          }
+        })
+      : undefined;
 
     return () => {
-      window.removeEventListener('freighter:accountChanged', handleAccountsChanged);
+      if (unsubscribe && typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
     };
-  }, [isFreighterInstalled]);
+  }, [isFreighterInstalled, disconnect]);
 
   const value: WalletContextValue = {
     ...state,
