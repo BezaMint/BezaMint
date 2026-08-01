@@ -99,15 +99,19 @@ export async function getTotalCreators(sourceAddress: string): Promise<number> {
 
 // ─────────────────────── Transaction Flow ───────────────────────
 
+const isFreighterInstalled = (): boolean => {
+  return typeof window !== 'undefined' && !!(window as any).stellar?.isConnected;
+};
+
 export async function signAndSubmit(
   txXdr: string,
   onStatus?: (status: string) => void,
 ): Promise<{ txHash: string; result: any }> {
-  const freighter = (window as any).stellar;
-
-  if (!freighter) {
-    throw new Error('Freighter wallet is not installed');
+  if (!isFreighterInstalled()) {
+    throw new Error('Freighter wallet is not installed. Please install the Freighter browser extension.');
   }
+
+  const freighter = (window as any).stellar;
 
   onStatus?.('signing');
   const signedXdr = await freighter.signTransaction(txXdr, {
