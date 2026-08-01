@@ -32,7 +32,7 @@
 
 BezaMint is a complete, end-to-end dApp that brings enterprise-grade NFT infrastructure to the Stellar ecosystem. Artists, brands, gaming studios, and digital creators can mint NFTs, manage collections, configure royalties, register creator profiles, and verify on-chain ownership — all through a polished, responsive interface backed by five custom Soroban smart contracts with inter-contract communication, real-time event streaming, and comprehensive error handling.
 
-**Not a prototype. A submission-ready Stellar dApp.**
+**Engineered for production. Built for the Stellar ecosystem.**
 
 ---
 
