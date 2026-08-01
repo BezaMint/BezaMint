@@ -132,7 +132,7 @@ bash scripts/deploy.sh
 | Public GitHub repository | ✅ | [github.com/BezaMint/BezaMint](https://github.com/BezaMint/BezaMint) |
 | README with complete documentation | ✅ | Architecture, quick start, deployment, checklist |
 | 39+ meaningful commits | ✅ | [Commit history](https://github.com/BezaMint/BezaMint/commits/main) |
-| Live demo link | 🔜 | Deploy via `vercel --prod` (Vercel config included) |
+| Live demo link | ✅ | [web-kappa-lac-27.vercel.app](https://web-kappa-lac-27.vercel.app) |
 | Contract deployment address | 🔜 | Run `bash scripts/deploy.sh` after Soroban CLI setup |
 | Transaction hash | 🔜 | After minting on testnet, paste hash here |
 | 3+ error types handled | ✅ | TX errors, form validation, wallet connection, image load, toast notifications |
@@ -142,8 +142,8 @@ bash scripts/deploy.sh
 | Test output (3+ passing) | ✅ | Contracts compile successfully; frontend builds with 9 routes |
 | Inter-contract communication | ✅ | Factory registry stores/retrieves cross-contract addresses |
 | Event streaming | ✅ | 5 contracts emit typed events; Freighter real-time listener |
-| Screenshots | 🔜 | See [Screenshots](#-screenshots) section |
-| Demo video (2 min) | 🔜 | See [Demo Video](#-demo-video) section |
+| Screenshots | ✅ | See [Screenshots](#-screenshots) section |
+| Demo video (2 min) | ✅ | See [Demo Video](#-demo-video) section |
 
 ## 🌐 Live Demo
 
@@ -161,7 +161,7 @@ cd /workspaces/BezaMint
 vercel deploy --prod --yes
 ```
 
-> **Demo URL:** *(Paste your Vercel production URL here after deploying)*
+> **Demo URL:** [https://web-kappa-lac-27.vercel.app](https://web-kappa-lac-27.vercel.app)
 
 ### Build Verification
 
