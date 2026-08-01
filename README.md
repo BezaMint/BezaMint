@@ -1,5 +1,23 @@
 # BezaMint
 
+<p align="center">
+  <a href="https://github.com/BezaMint/BezaMint/actions/workflows/ci.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/BezaMint/BezaMint/ci.yml?branch=main&label=CI" alt="CI" />
+  </a>
+  <a href="https://github.com/BezaMint/BezaMint/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
+  </a>
+  <a href="https://web-kappa-lac-27.vercel.app">
+    <img src="https://img.shields.io/badge/deployed-Vercel-black?logo=vercel" alt="Vercel" />
+  </a>
+  <img src="https://img.shields.io/badge/TypeScript-5.7-3178c6?logo=typescript" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs" alt="Next.js" />
+  <img src="https://img.shields.io/badge/Soroban_SDK-22.0.11-7b3fe4" alt="Soroban SDK" />
+  <img src="https://img.shields.io/badge/Stellar-Testnet-24a563?logo=stellar" alt="Stellar" />
+  <img src="https://img.shields.io/badge/tests-68_passing-success" alt="Tests" />
+  <img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome" />
+</p>
+
 A comprehensive NFT creation and digital asset management platform built exclusively on the **Stellar network** using **Soroban smart contracts**.
 
 BezaMint empowers artists, brands, gaming studios, organizations, and digital creators to create, organize, manage, and prepare NFT collections for marketplace integration — all powered by the scalability, security, and efficiency of the Stellar ecosystem.
