@@ -1,0 +1,11 @@
+
+ RUN  v3.2.7 /workspaces/BezaMint/apps/web
+
+ ✓ src/lib/__tests__/integration.test.ts (16 tests) 26ms
+ ✓ src/lib/__tests__/validation.test.ts (10 tests) 14ms
+
+ Test Files  2 passed (2)
+      Tests  26 passed (26)
+   Start at  15:41:53
+   Duration  1.42s (transform 373ms, setup 0ms, collect 428ms, tests 40ms, environment 0ms, prepare 205ms)
+
