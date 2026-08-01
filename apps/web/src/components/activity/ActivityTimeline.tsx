@@ -11,13 +11,14 @@ import {
 } from 'react-icons/hi';
 import { useRouter } from 'next/navigation';
 
+export type { ActivityEventType } from '@bezamint/shared';
+
 export interface ActivityItem {
   id: string;
   eventType: string;
   description: string;
   timestamp: string;
   txHash: string;
-  icon: React.ComponentType<{ className?: string }>;
   href?: string;
 }
 

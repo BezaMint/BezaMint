@@ -1,9 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { HiOutlineSearch, HiOutlineBadgeCheck, HiOutlineShieldCheck, HiOutlineExternalLink } from 'react-icons/hi';
+import { HiOutlineSearch, HiOutlineBadgeCheck, HiOutlineShieldCheck } from 'react-icons/hi';
 import { useWallet } from '@/context';
-import { getExplorerTxUrl } from '@/services';
 
 const MOCK_OWNERS = {
   '1': { owner: 'GABC1234567890123456789012345678901234567', tokenId: 1, name: 'Abstract #001', confirmed: true },
