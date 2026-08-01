@@ -9,6 +9,7 @@ import {
   HiOutlineUser,
   HiOutlineSearch,
   HiOutlineCog,
+  HiOutlineShieldCheck,
 } from 'react-icons/hi';
 import { BezaMintLogo } from '@/components/ui/Logo';
 
@@ -17,6 +18,7 @@ const NAV_ITEMS = [
   { href: '/collections', label: 'Collections', icon: HiOutlineCollection },
   { href: '/mint', label: 'Mint NFT', icon: HiOutlinePlusCircle },
   { href: '/explore', label: 'Explore', icon: HiOutlineSearch },
+  { href: '/verify', label: 'Verify', icon: HiOutlineShieldCheck },
   { href: '/profile', label: 'Profile', icon: HiOutlineUser },
   { href: '/settings', label: 'Settings', icon: HiOutlineCog },
 ] as const;

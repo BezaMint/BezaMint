@@ -5,11 +5,12 @@ import {
   HiOutlinePhotograph,
   HiOutlineCurrencyDollar,
   HiOutlineUserGroup,
-  HiOutlineSparkles,
   HiOutlinePlusCircle,
   HiOutlineShoppingBag,
+  HiOutlineShieldCheck,
 } from 'react-icons/hi';
-import { StatCard, ActivityItem } from '@/components/ui';
+import { StatCard } from '@/components/ui';
+import { ActivityTimeline } from '@/components/activity';
 import { useWallet } from '@/context';
 import { formatAddress } from '@/services';
 
@@ -20,24 +21,32 @@ const SAMPLE_STATS = [
   { label: 'Creators', value: '—', icon: HiOutlineUserGroup },
 ];
 
-const SAMPLE_ACTIVITY = [
+const SAMPLE_ACTIVITIES = [
   {
-    eventType: 'NFT Minted',
-    description: 'Created a new NFT on the Stellar testnet',
-    timestamp: 'Just now',
-    icon: <HiOutlineSparkles className="w-4 h-4 text-bezamint-secondary" />,
+    id: '1', eventType: 'nft_minted',
+    description: 'Abstract #001 minted in collection Digital Artworks',
+    timestamp: 'Just now', txHash: 'abc123def4567890123456789012345678901234567890abcd',
   },
   {
-    eventType: 'Collection Created',
-    description: 'Set up a new collection for digital art',
-    timestamp: '2 hours ago',
-    icon: <HiOutlineCollection className="w-4 h-4 text-blue-400" />,
+    id: '2', eventType: 'collection_created',
+    description: 'Created collection "Digital Artworks"',
+    timestamp: '2h ago', txHash: 'def789abc0123456789012345678901234567890123456ef01',
   },
   {
-    eventType: 'Wallet Connected',
-    description: 'Connected Freighter wallet to BezaMint',
-    timestamp: '1 day ago',
-    icon: <HiOutlineUserGroup className="w-4 h-4 text-yellow-400" />,
+    id: '3', eventType: 'profile_created',
+    description: 'Creator profile registered on BezaMint',
+    timestamp: '1d ago', txHash: '012345abcdef78901234567890123456789012345678901234',
+    href: '/profile',
+  },
+  {
+    id: '4', eventType: 'nft_transferred',
+    description: 'Gaming Sword transferred to new owner',
+    timestamp: '3d ago', txHash: '567890abcdef12345678901234567890123456789012345678',
+  },
+  {
+    id: '5', eventType: 'royalty_configured',
+    description: 'Set 5% royalty on collection "Music Lab"',
+    timestamp: '1w ago', txHash: '890123abcdef45678901234567890123456789012345678901',
   },
 ];
 
@@ -46,7 +55,6 @@ export default function DashboardPage() {
 
   return (
     <div className="page-container max-w-6xl">
-      {/* Page Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white">Dashboard</h1>
         <p className="text-gray-400 mt-2">
@@ -56,21 +64,13 @@ export default function DashboardPage() {
         </p>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {SAMPLE_STATS.map((stat) => (
-          <StatCard
-            key={stat.label}
-            label={stat.label}
-            value={stat.value}
-            icon={stat.icon}
-          />
+          <StatCard key={stat.label} label={stat.label} value={stat.value} icon={stat.icon} />
         ))}
       </div>
 
-      {/* Quick Actions + Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Quick Actions */}
         <div className="card lg:col-span-1">
           <h2 className="section-title text-lg">Quick Actions</h2>
           <div className="space-y-2">
@@ -80,27 +80,22 @@ export default function DashboardPage() {
             </a>
             <a href="/collections" className="flex items-center gap-3 p-3 rounded-xl bg-bezamint-muted/50 border border-bezamint-border hover:border-gray-600 transition-all group">
               <HiOutlineCollection className="w-5 h-5 text-gray-400 group-hover:text-gray-200" />
-              <span className="text-sm font-medium text-gray-400 group-hover:text-gray-200">
-                Manage Collections
-              </span>
+              <span className="text-sm font-medium text-gray-400 group-hover:text-gray-200">Manage Collections</span>
             </a>
             <a href="/explore" className="flex items-center gap-3 p-3 rounded-xl bg-bezamint-muted/50 border border-bezamint-border hover:border-gray-600 transition-all group">
               <HiOutlineShoppingBag className="w-5 h-5 text-gray-400 group-hover:text-gray-200" />
-              <span className="text-sm font-medium text-gray-400 group-hover:text-gray-200">
-                Explore NFTs
-              </span>
+              <span className="text-sm font-medium text-gray-400 group-hover:text-gray-200">Explore NFTs</span>
+            </a>
+            <a href="/verify" className="flex items-center gap-3 p-3 rounded-xl bg-bezamint-muted/50 border border-bezamint-border hover:border-gray-600 transition-all group">
+              <HiOutlineShieldCheck className="w-5 h-5 text-gray-400 group-hover:text-gray-200" />
+              <span className="text-sm font-medium text-gray-400 group-hover:text-gray-200">Verify Ownership</span>
             </a>
           </div>
         </div>
 
-        {/* Recent Activity */}
         <div className="card lg:col-span-2">
           <h2 className="section-title text-lg">Recent Activity</h2>
-          <div className="space-y-1">
-            {SAMPLE_ACTIVITY.map((activity, idx) => (
-              <ActivityItem key={idx} {...activity} />
-            ))}
-          </div>
+          <ActivityTimeline activities={SAMPLE_ACTIVITIES} maxItems={8} />
         </div>
       </div>
     </div>
