@@ -6,7 +6,7 @@ import type { MintFormState, NftAttribute, RoyaltyConfig as RoyaltyConfigType } 
 import { useWallet } from '@/context';
 import { useToast } from '@/context';
 import { useTransaction } from '@/hooks/useTransaction';
-import { mintNft, signAndSubmit } from '@/services';
+import { mintNft, signAndSubmit, uploadMetadataToIpfs } from '@/services';
 import AttributeEditor from './AttributeEditor';
 import ImagePreview from './ImagePreview';
 import CollectionSelector from './CollectionSelector';
@@ -76,12 +76,25 @@ export default function MintForm() {
 
     try {
       await tx.execute(async (onStatus) => {
-        // Build metadata URI (in production, upload to IPFS first)
-        const metadataUri = `beza://metadata/${Date.now()}`;
+        // Step 1: Upload metadata to IPFS (or fall back to placeholder URI)
+        onStatus('uploading');
+        const { ipfsUri: metadataUri } = await uploadMetadataToIpfs({
+          name: form.name,
+          description: form.description,
+          imageUri: form.imageUri,
+          animationUri: form.animationUri,
+          externalUrl: form.externalUrl,
+          attributes: form.attributes.map((a) => ({
+            traitType: a.traitType,
+            value: a.value,
+            displayType: a.displayType,
+          })),
+          collectionId: form.collectionId,
+          royalties: form.royalties,
+        });
         const collectionId = form.collectionId ? Number(form.collectionId) : 0;
 
-        // Build the minting transaction
-        onStatus('preparing');
+        // Step 2: Build the minting transaction
         const txXdr = await mintNft(address!, address!, collectionId, metadataUri);
 
         // Sign and submit via Freighter
