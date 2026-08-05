@@ -1,28 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { HiOutlineUser } from 'react-icons/hi';
 import { CreatorProfileForm, CreatorProfileHeader } from '@/components/profile';
 import { useWallet } from '@/context';
 import { useToast } from '@/context';
 import type { CreatorFormState, CreatorProfile } from '@bezamint/shared';
-
-const MOCK_PROFILE: CreatorProfile = {
-  address: '',
-  displayName: 'Beza Creator',
-  bio: 'Digital artist and NFT creator on the Stellar network.',
-  avatarUri: 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=200',
-  bannerUri: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200',
-  socialLinks: [
-    { platform: 'twitter', url: 'https://twitter.com/bezacreator' },
-    { platform: 'github', url: 'https://github.com/bezacreator' },
-  ],
-  createdAt: Date.now() / 1000 - 86400 * 7,
-  updatedAt: Date.now() / 1000,
-  isVerified: false,
-  totalNftsCreated: 15,
-  totalCollections: 3,
-};
+import { getCreatorProfile } from '@/services/contracts';
 
 export default function ProfilePage() {
   const { isConnected, address, connect } = useWallet();
@@ -31,7 +15,37 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const displayProfile = profile || (isConnected ? { ...MOCK_PROFILE, address: address! } : null);
+  // Load the real on-chain profile for the connected wallet.
+  useEffect(() => {
+    if (!isConnected || !address) return;
+    let cancelled = false;
+
+    (async () => {
+      const onChain = await getCreatorProfile(address, address);
+      if (!cancelled && onChain) {
+        setProfile({
+          address: onChain.address,
+          displayName: onChain.displayName || 'Unnamed Creator',
+          bio: onChain.bio,
+          avatarUri: onChain.avatarUri,
+          bannerUri: onChain.bannerUri,
+          socialLinks: onChain.socialLinks,
+          createdAt: Date.now() / 1000,
+          updatedAt: Date.now() / 1000,
+          isVerified: onChain.isVerified,
+          totalNftsCreated: 0,
+          totalCollections: 0,
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, address]);
+
+  const displayProfile = profile;
+  const showCreateForm = isConnected && !profile && !isEditing;
 
   const handleSave = async (data: CreatorFormState) => {
     setIsSubmitting(true);
@@ -75,7 +89,7 @@ export default function ProfilePage() {
     );
   }
 
-  if (isEditing || !displayProfile) {
+  if (isEditing || showCreateForm) {
     return (
       <div className="page-container max-w-6xl">
         <div className="mb-8">
@@ -106,6 +120,29 @@ export default function ProfilePage() {
             }
             isSubmitting={isSubmitting}
           />
+        </div>
+      </div>
+    );
+  }
+
+  if (!displayProfile) {
+    return (
+      <div className="page-container max-w-6xl">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-white">Creator Profile</h1>
+          <p className="text-gray-400 mt-2">Connect your wallet to create your creator profile</p>
+        </div>
+        <div className="card text-center py-12 max-w-lg mx-auto">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-bezamint-muted/50 border border-bezamint-border mb-4">
+            <HiOutlineUser className="w-8 h-8 text-gray-500" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-300 mb-2">Connect Your Wallet</h3>
+          <p className="text-sm text-gray-500 mb-6">
+            Connect Freighter to set up your creator profile and showcase your work.
+          </p>
+          <button onClick={connect} className="btn-primary text-sm">
+            Connect Wallet
+          </button>
         </div>
       </div>
     );

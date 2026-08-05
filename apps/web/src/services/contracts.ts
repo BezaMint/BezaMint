@@ -226,6 +226,48 @@ export async function getCollectionById(
 
 // ─────────────────────── Creator Contract ───────────────────────
 
+export interface OnChainCreatorProfile {
+  address: string;
+  displayName: string;
+  bio: string;
+  avatarUri: string;
+  bannerUri: string;
+  isVerified: boolean;
+  socialLinks: Array<{ platform: string; url: string }>;
+}
+
+/**
+ * Fetch a creator profile from the Creator contract.
+ * Returns null if the creator is not registered.
+ */
+export async function getCreatorProfile(
+  sourceAddress: string,
+  creatorAddress: string,
+): Promise<OnChainCreatorProfile | null> {
+  try {
+    const creatorScVal = new Address(creatorAddress).toScVal();
+    const result = await simulateTransaction(sourceAddress, CONTRACT_IDS.creator, 'get_profile', [
+      creatorScVal,
+    ]);
+    if (result.result?.retval) {
+      const raw = scValToNative(result.result.retval) as Record<string, unknown>;
+      const socialLinks = (raw.social_links as Array<{ platform: string; url: string }>) || [];
+      return {
+        address: String(raw.address ?? creatorAddress),
+        displayName: String(raw.display_name ?? ''),
+        bio: String(raw.bio ?? ''),
+        avatarUri: String(raw.avatar_uri ?? ''),
+        bannerUri: String(raw.banner_uri ?? ''),
+        isVerified: Boolean(raw.is_verified),
+        socialLinks: socialLinks.map((l) => ({ platform: l.platform, url: l.url })),
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getTotalCreators(sourceAddress: string): Promise<number> {
   try {
     const result = await simulateTransaction(
