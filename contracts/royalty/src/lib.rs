@@ -19,6 +19,7 @@ pub struct RoyaltyConfig {
 #[derive(Clone, Debug, PartialEq)]
 pub enum RoyaltyKey {
     Admin,
+    Version,
     ConfigNft(u64),
     ConfigCollection(u64),
 }
@@ -47,6 +48,7 @@ impl BezaMintRoyalty {
     pub fn initialize(env: Env, admin: Address) {
         admin.require_auth();
         env.storage().instance().set(&RoyaltyKey::Admin, &admin);
+        env.storage().instance().set(&RoyaltyKey::Version, &1u32);
     }
 
     pub fn configure_royalty(
