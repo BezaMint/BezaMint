@@ -224,3 +224,15 @@ fn test_get_collections_by_creator() {
     let cols = contract.get_collections_by_creator(&c1);
     assert_eq!(cols.len(), 2);
 }
+
+#[test]
+fn test_get_collection_for_nft() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let contract = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
+    contract.initialize(&admin);
+    let id = contract.create_collection(&creator, &String::from_str(&env, "ipfs://col"));
+    contract.add_nft(&admin, &id, &42);
+    assert_eq!(contract.get_collection_for_nft(&42), id);
+}
