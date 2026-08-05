@@ -131,6 +131,8 @@ export async function waitForTransaction(
 }
 
 
+export { withRetry, simulateAndSend } from './stellar';
+
 // ─────────────────────── Retry Helper ───────────────────────
 
 /**
