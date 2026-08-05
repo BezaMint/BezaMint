@@ -69,6 +69,8 @@ BezaMint is a complete, end-to-end dApp that brings enterprise-grade NFT infrast
 
 **Engineered for production. Built for the Stellar ecosystem.**
 
+> **August 2026:** 100+ improvements across frontend, smart contracts, testing, CI/CD, accessibility, and developer experience.
+
 ---
 
 ## ✨ Feature Highlights
