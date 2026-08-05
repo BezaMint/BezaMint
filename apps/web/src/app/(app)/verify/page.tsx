@@ -22,7 +22,12 @@ const MOCK_OWNERS = {
 export default function VerifyPage() {
   const { address, isConnected } = useWallet();
   const [tokenId, setTokenId] = useState('');
-  const [result, setResult] = useState<{ owner: string; tokenId: number; name: string; confirmed: boolean } | null>(null);
+  const [result, setResult] = useState<{
+    owner: string;
+    tokenId: number;
+    name: string;
+    confirmed: boolean;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -35,7 +40,12 @@ export default function VerifyPage() {
     await new Promise((r) => setTimeout(r, 800));
 
     try {
-      const found = (MOCK_OWNERS as Record<string, { owner: string; tokenId: number; name: string; confirmed: boolean }>)[tokenId.trim()];
+      const found = (
+        MOCK_OWNERS as Record<
+          string,
+          { owner: string; tokenId: number; name: string; confirmed: boolean }
+        >
+      )[tokenId.trim()];
       if (found) {
         setResult(found);
       } else {

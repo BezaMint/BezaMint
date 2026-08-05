@@ -66,7 +66,10 @@ export function validateDisplayName(name: string): { valid: boolean; error?: str
   return { valid: true };
 }
 
-export function validateRoyaltyRecipients(recipients: { address: string; share: number }[]): { valid: boolean; error?: string } {
+export function validateRoyaltyRecipients(recipients: { address: string; share: number }[]): {
+  valid: boolean;
+  error?: string;
+} {
   if (!recipients || recipients.length === 0) return { valid: true };
   if (recipients.length > 10) return { valid: false, error: 'Max 10 royalty recipients' };
   const total = recipients.reduce((s, r) => s + r.share, 0);
@@ -78,7 +81,11 @@ export function validateRoyaltyRecipients(recipients: { address: string; share: 
 }
 
 export function isValidIpfsUri(uri: string): boolean {
-  return uri.startsWith('ipfs://') || uri.startsWith('https://ipfs.io/ipfs/') || uri.startsWith('https://gateway.pinata.cloud/ipfs/');
+  return (
+    uri.startsWith('ipfs://') ||
+    uri.startsWith('https://ipfs.io/ipfs/') ||
+    uri.startsWith('https://gateway.pinata.cloud/ipfs/')
+  );
 }
 
 export function isValidEvmAddress(address: string): boolean {
@@ -86,6 +93,6 @@ export function isValidEvmAddress(address: string): boolean {
 }
 
 export function isPositiveInteger(value: string | number): boolean {
-  const num = typeof value === "string" ? parseInt(value, 10) : value;
+  const num = typeof value === 'string' ? parseInt(value, 10) : value;
   return Number.isInteger(num) && num > 0;
 }

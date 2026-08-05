@@ -132,7 +132,6 @@ export async function waitForTransaction(
   throw new Error(`Transaction ${txHash} not finalized after ${maxRetries} attempts`);
 }
 
-
 // ─────────────────────── Retry Helper ───────────────────────
 
 /**
@@ -243,7 +242,6 @@ export async function buildXlmPayment(
     hash: built.hash().toString('hex'),
   };
 }
-
 
 // ─────────────────────── AbortController Helper ───────────────────────
 

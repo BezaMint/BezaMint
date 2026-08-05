@@ -16,7 +16,8 @@ export default function Sidebar() {
     <aside
       className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-bezamint-border bg-bezamint-surface/95 backdrop-blur-sm flex flex-col"
       role="complementary"
-      aria-label="Main navigation" role="navigation"
+      aria-label="Main navigation"
+      role="navigation"
     >
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 h-16 border-b border-bezamint-border">
@@ -92,4 +93,4 @@ export default function Sidebar() {
   );
 }
 
-Sidebar.displayName = "Sidebar";
+Sidebar.displayName = 'Sidebar';

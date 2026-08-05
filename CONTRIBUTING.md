@@ -3,6 +3,7 @@
 ## Development Setup
 
 1. Clone the repo and install dependencies:
+
    ```bash
    git clone https://github.com/BezaMint/BezaMint.git
    cd BezaMint
@@ -10,6 +11,7 @@
    ```
 
 2. Copy the environment template:
+
    ```bash
    cp .env.example apps/web/.env.local
    ```

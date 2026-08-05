@@ -1,7 +1,7 @@
 ---
 name: Bug report
 about: Create a bug report
-title: "[BUG] "
+title: '[BUG] '
 labels: bug
 ---
 
@@ -12,6 +12,7 @@ labels: bug
 **Expected behavior**
 
 **Environment:**
-- OS: 
-- Browser: 
+
+- OS:
+- Browser:
 - Wallet: Freighter

@@ -18,10 +18,7 @@ interface ErrorBoundaryState {
  * React Error Boundary that catches render errors and displays a
  * user-friendly fallback UI instead of a blank white screen.
  */
-export default class ErrorBoundary extends React.Component<
-  ErrorBoundaryProps,
-  ErrorBoundaryState
-> {
+export default class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   constructor(props: ErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, error: null };
@@ -57,9 +54,7 @@ export default class ErrorBoundary extends React.Component<
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 mb-4">
               <HiOutlineExclamationCircle className="w-8 h-8 text-red-400" />
             </div>
-            <h2 className="text-lg font-semibold text-white mb-2">
-              Something went wrong
-            </h2>
+            <h2 className="text-lg font-semibold text-white mb-2">Something went wrong</h2>
             <p className="text-sm text-gray-400 mb-6">
               An unexpected error occurred. Please try refreshing the page.
             </p>

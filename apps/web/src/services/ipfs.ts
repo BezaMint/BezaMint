@@ -1,5 +1,11 @@
 export class IpfsUploadError extends Error {
-  constructor(msg, public statusCode) { super(msg); this.name = "IpfsUploadError"; }
+  constructor(
+    msg,
+    public statusCode,
+  ) {
+    super(msg);
+    this.name = 'IpfsUploadError';
+  }
 }
 
 export interface IpfsUploadResult {
@@ -37,7 +43,7 @@ export async function uploadMetadataToIpfs(metadata: {
   clearTimeout(t);
 
   clearTimeout(t);
-    if (!response.ok) {
+  if (!response.ok) {
     // IPFS upload failed — fall back to placeholder
     const slug = encodeURIComponent(metadata.name).slice(0, 32);
     return {

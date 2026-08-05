@@ -31,7 +31,10 @@ const SAMPLE_COLLECTIONS = [
 ];
 
 // Show loading skeleton initially
-  useState(() => { const t = setTimeout(() => setIsLoading(false), 100); return () => clearTimeout(t); });
+useState(() => {
+  const t = setTimeout(() => setIsLoading(false), 100);
+  return () => clearTimeout(t);
+});
 
 export default function CollectionsPage() {
   const { isConnected, connect } = useWallet();

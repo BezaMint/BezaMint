@@ -5,11 +5,7 @@ import {
   submitSignedTransaction,
   waitForTransaction,
 } from './stellar';
-import {
-  isFreighterInstalled,
-  getFreighterApi,
-  signFreighterTransaction,
-} from '@/lib/freighter';
+import { isFreighterInstalled, getFreighterApi, signFreighterTransaction } from '@/lib/freighter';
 import { STELLAR_NETWORK_PASSPHRASE } from '@/lib/constants';
 
 // Re-export for convenience
@@ -60,7 +56,12 @@ function categorizeError(err: unknown): TxError {
       err,
     );
   }
-  if (message.includes('cancelled') || message.includes('rejected') || message.includes('denied') || message.includes('user')) {
+  if (
+    message.includes('cancelled') ||
+    message.includes('rejected') ||
+    message.includes('denied') ||
+    message.includes('user')
+  ) {
     return new TxError('Transaction was cancelled by user.', TxErrorType.UserCancelled, err);
   }
   if (message.includes('insufficient') || message.includes('balance')) {

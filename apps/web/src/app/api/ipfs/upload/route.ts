@@ -8,13 +8,16 @@ import { getPinataClient, isIpfsAvailable } from '@/lib/pinata';
  */
 // Max body size: 1MB
 export async function OPTIONS() {
-  return NextResponse.json({}, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+  return NextResponse.json(
+    {},
+    {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      },
     },
-  });
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -26,7 +29,9 @@ export async function POST(request: NextRequest) {
     const metadata = await request.json();
 
     // Sanitize inputs
-    const safeName = String(metadata.name || '').trim().slice(0, 128);
+    const safeName = String(metadata.name || '')
+      .trim()
+      .slice(0, 128);
 
     if (!metadata.name) {
       return NextResponse.json({ error: 'Metadata must include a name field' }, { status: 400 });
@@ -86,7 +91,8 @@ export async function POST(request: NextRequest) {
     // Return proper error status so callers can detect failure
     return NextResponse.json(
       {
-        error: process.env.NODE_ENV === 'development' ? (error as Error).message : 'IPFS upload failed',
+        error:
+          process.env.NODE_ENV === 'development' ? (error as Error).message : 'IPFS upload failed',
         cid: null,
         ipfsUri: null,
         fallback: false,

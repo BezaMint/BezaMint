@@ -27,14 +27,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             duration: 5000,
           }}
         />
-      {process.env.NEXT_PUBLIC_VERCEL_ANALYTICS_ID && (
-        <script
-          defer
-          src="/_vercel/insights/script.js"
-          data-token={process.env.NEXT_PUBLIC_VERCEL_ANALYTICS_ID}
-        />
-      )}
-    </body>
+        {process.env.NEXT_PUBLIC_VERCEL_ANALYTICS_ID && (
+          <script
+            defer
+            src="/_vercel/insights/script.js"
+            data-token={process.env.NEXT_PUBLIC_VERCEL_ANALYTICS_ID}
+          />
+        )}
+      </body>
     </html>
   );
 }

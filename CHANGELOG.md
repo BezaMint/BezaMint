@@ -3,6 +3,7 @@
 ## [0.1.0] - 2026-08-05
 
 ### Added
+
 - Initial release of BezaMint NFT platform
 - Five Soroban smart contracts: NFT, Collection, Royalty, Creator, Factory
 - Next.js 15 frontend with Freighter wallet integration

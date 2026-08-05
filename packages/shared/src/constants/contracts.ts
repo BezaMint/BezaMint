@@ -49,14 +49,13 @@ export const SOROBAN_METHODS = {
   },
 } as const;
 
-
 export const FACTORY_METHODS = {
-  initialize: "initialize",
-  setContracts: "set_contracts",
-  mintWithRoyalty: "mint_with_royalty",
-  createCollectionForCreator: "create_collection_for_creator",
-  getNftContract: "get_nft_contract",
-  getCollectionContract: "get_collection_contract",
-  getRoyaltyContract: "get_royalty_contract",
-  getCreatorContract: "get_creator_contract",
+  initialize: 'initialize',
+  setContracts: 'set_contracts',
+  mintWithRoyalty: 'mint_with_royalty',
+  createCollectionForCreator: 'create_collection_for_creator',
+  getNftContract: 'get_nft_contract',
+  getCollectionContract: 'get_collection_contract',
+  getRoyaltyContract: 'get_royalty_contract',
+  getCreatorContract: 'get_creator_contract',
 } as const;

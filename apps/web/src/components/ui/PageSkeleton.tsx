@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 export default function PageSkeleton({ rows = 3 }: { rows?: number }) {
   return (

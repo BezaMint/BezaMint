@@ -282,4 +282,4 @@ export default function MintForm() {
   );
 }
 
-MintForm.displayName = "MintForm";
+MintForm.displayName = 'MintForm';
