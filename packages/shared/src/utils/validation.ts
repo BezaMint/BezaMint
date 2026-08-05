@@ -80,3 +80,7 @@ export function validateRoyaltyRecipients(recipients: { address: string; share: 
 export function isValidIpfsUri(uri: string): boolean {
   return uri.startsWith('ipfs://') || uri.startsWith('https://ipfs.io/ipfs/') || uri.startsWith('https://gateway.pinata.cloud/ipfs/');
 }
+
+export function isValidEvmAddress(address: string): boolean {
+  return /^0x[a-fA-F0-9]{40}$/.test(address);
+}
