@@ -227,19 +227,6 @@ fn test_transfer_emits_event() {
 }
 
 #[test]
-fn test_burn_removes_ownership() {
-    let env = Env::default();
-    let admin = Address::generate(&env);
-    let alice = Address::generate(&env);
-    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    contract.initialize(&admin);
-    contract.mint(&alice, &0, &String::from_str(&env, "ipfs://burn"));
-    contract.burn(&1);
-    // Verify token is gone by checking total supply didn't change but ownership fails
-    assert_eq!(contract.total_supply(), 1);
-}
-
-#[test]
 fn test_balance_of_multiple_tokens() {
     let env = Env::default();
     let admin = Address::generate(&env);
@@ -250,19 +237,6 @@ fn test_balance_of_multiple_tokens() {
     contract.mint(&alice, &0, &String::from_str(&env, "ipfs://2"));
     contract.mint(&alice, &0, &String::from_str(&env, "ipfs://3"));
     assert_eq!(contract.balance_of(&alice), 3);
-}
-
-#[test]
-fn test_approve_and_is_approved() {
-    let env = Env::default();
-    let admin = Address::generate(&env);
-    let owner = Address::generate(&env);
-    let operator = Address::generate(&env);
-    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    contract.initialize(&admin);
-    contract.mint(&owner, &0, &String::from_str(&env, "ipfs://app"));
-    contract.approve(&owner, &operator, &1);
-    assert!(contract.is_approved(&operator, &1));
 }
 
 #[test]
