@@ -33,13 +33,14 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `style`, `perf`, `ci`
 
 1. Fork the repo and create a feature branch
 2. Write or update tests for your changes
-3. Ensure all checks pass: `pnpm format:check && pnpm lint && pnpm test`
+3. Ensure all checks pass: `pnpm format:check && pnpm lint && pnpm typecheck && pnpm test`
 4. For contract changes also run: `pnpm run contract:test`
 5. Open a PR against `main` with a clear description
 
 ## Testing
 
-- Frontend: `pnpm test` (Vitest)
-- Smart Contracts: `pnpm run contract:test` (Rust)
+- Frontend: `pnpm test` (Vitest) — 100+ tests across 32 files
+- Smart Contracts: `pnpm run contract:test` (Rust) — 61 tests across 5 crates
+- TypeScript: `pnpm typecheck`
 - Format check: `pnpm format:check`
 - Lint: `pnpm lint`
