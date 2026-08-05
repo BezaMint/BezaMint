@@ -126,6 +126,41 @@ export async function getOwnerOf(sourceAddress: string, tokenId: number): Promis
   }
 }
 
+export interface OnChainTokenData {
+  tokenId: number;
+  creator: string;
+  collectionId: number;
+  metadataUri: string;
+}
+
+/**
+ * Fetch on-chain token metadata (creator, collection, metadata URI) for a token.
+ * Returns null if the token does not exist or the contract is unreachable.
+ */
+export async function getTokenData(
+  sourceAddress: string,
+  tokenId: number,
+): Promise<OnChainTokenData | null> {
+  try {
+    const tokenScVal = xdr.ScVal.scvU64(new xdr.Uint64(tokenId));
+    const result = await simulateTransaction(sourceAddress, CONTRACT_IDS.nft, 'token_data', [
+      tokenScVal,
+    ]);
+    if (result.result?.retval) {
+      const raw = scValToNative(result.result.retval) as Record<string, unknown>;
+      return {
+        tokenId: Number(raw.token_id ?? tokenId),
+        creator: String(raw.creator ?? ''),
+        collectionId: Number(raw.collection_id ?? 0),
+        metadataUri: String(raw.metadata_uri ?? ''),
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // ─────────────────────── Collection Contract ───────────────────────
 
 export async function getTotalCollections(sourceAddress: string): Promise<number> {

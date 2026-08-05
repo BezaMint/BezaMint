@@ -3,31 +3,25 @@
 import { useState } from 'react';
 import { HiOutlineSearch, HiOutlineBadgeCheck, HiOutlineShieldCheck } from 'react-icons/hi';
 import { useWallet } from '@/context';
+import { getOwnerOf, getTokenData } from '@/services/contracts';
 
-const MOCK_OWNERS = {
-  '1': {
-    owner: 'GABC1234567890123456789012345678901234567',
-    tokenId: 1,
-    name: 'Abstract #001',
-    confirmed: true,
-  },
-  '2': {
-    owner: 'GXYZ9876543210987654321098765432109876543',
-    tokenId: 2,
-    name: 'Gaming Sword',
-    confirmed: true,
-  },
-};
+interface VerifyResult {
+  owner: string;
+  tokenId: number;
+  collectionId: number;
+  metadataUri: string;
+}
+
+// Soroban simulation reads do not require a funded account, but need a valid
+// source address. Fall back to a well-formed placeholder if no wallet is
+// connected so the verify page works standalone.
+const CONTRACT_FALLBACK_SOURCE =
+  'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
 
 export default function VerifyPage() {
-  const { address, isConnected } = useWallet();
+  const { address } = useWallet();
   const [tokenId, setTokenId] = useState('');
-  const [result, setResult] = useState<{
-    owner: string;
-    tokenId: number;
-    name: string;
-    confirmed: boolean;
-  } | null>(null);
+  const [result, setResult] = useState<VerifyResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,17 +31,20 @@ export default function VerifyPage() {
     setError(null);
     setResult(null);
 
-    await new Promise((r) => setTimeout(r, 800));
-
     try {
-      const found = (
-        MOCK_OWNERS as Record<
-          string,
-          { owner: string; tokenId: number; name: string; confirmed: boolean }
-        >
-      )[tokenId.trim()];
-      if (found) {
-        setResult(found);
+      const id = Number(tokenId.trim());
+      const source = address || CONTRACT_FALLBACK_SOURCE;
+
+      // Query the NFT contract directly for ownership + metadata.
+      const [owner, data] = await Promise.all([getOwnerOf(source, id), getTokenData(source, id)]);
+
+      if (owner && data) {
+        setResult({
+          owner,
+          tokenId: data.tokenId,
+          collectionId: data.collectionId,
+          metadataUri: data.metadataUri,
+        });
       } else {
         setError(`No NFT found with token ID "${tokenId}"`);
       }
@@ -118,8 +115,11 @@ export default function VerifyPage() {
                 <HiOutlineBadgeCheck className="w-6 h-6 text-bezamint-secondary" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white">{result.name}</h3>
-                <p className="text-sm text-gray-400">Token #{result.tokenId}</p>
+                <h3 className="text-lg font-semibold text-white">Token #{result.tokenId}</h3>
+                <p className="text-sm text-gray-400">
+                  Collection #{result.collectionId}
+                  {result.metadataUri ? ` · ${result.metadataUri.slice(0, 40)}` : ''}
+                </p>
               </div>
             </div>
 
