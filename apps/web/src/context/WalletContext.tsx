@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import { isFreighterInstalled } from '@/lib/freighter';
+import { isFreighterInstalled, getFreighterApi, onFreighterAccountChanged } from '@/lib/freighter';
 import { fetchXlmBalance } from '@/services/stellar';
 
 // ─────────────────────── Constants ───────────────────────
@@ -125,7 +125,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     const session = loadSession();
     if (!session) return;
 
-    const freighter = (window as any).stellar;
+    const freighter = getFreighterApi();
     freighter
       .getPublicKey()
       .then((publicKey: string) => {
@@ -164,7 +164,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         );
       }
 
-      const freighter = (window as any).stellar;
+      const freighter = getFreighterApi();
       const hasAccess = await freighter.requestAccess();
 
       if (!hasAccess) {
@@ -222,7 +222,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   // Listen for Freighter account changes
   useEffect(() => {
     if (!isFreighterInstalled()) return;
-    const freighter = (window as any).stellar;
+    const freighter = getFreighterApi();
 
     const unsubscribe = freighter.onAccountChanged
       ? freighter.onAccountChanged(async (publicKey: string | null) => {
