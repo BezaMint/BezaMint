@@ -287,3 +287,5 @@ export default function Header() {
     </header>
   );
 }
+
+Header.displayName = "Header";
