@@ -45,3 +45,9 @@ export const EXPLORER_URLS = {
  * Minimum XLM balance required for account existence
  */
 export const MIN_XLM_RESERVE = 1;
+
+
+export const STELLAR_PASSPHRASES = {
+  testnet: "Test SDF Network ; September 2015",
+  mainnet: "Public Global Stellar Network ; September 2015",
+} as const;
