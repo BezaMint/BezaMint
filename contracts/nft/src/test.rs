@@ -264,3 +264,15 @@ fn test_approve_and_is_approved() {
     contract.approve(&owner, &operator, &1);
     assert!(contract.is_approved(&operator, &1));
 }
+
+#[test]
+fn test_burn_event_emission() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    contract.initialize(&admin);
+    contract.mint(&user, &0, &String::from_str(&env, "ipfs://burn"));
+    contract.burn(&1);
+    assert_eq!(contract.total_supply(), 1);
+}
