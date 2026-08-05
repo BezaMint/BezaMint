@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       image: metadata.imageUri || '',
       animation_url: metadata.animationUri || '',
       external_url: metadata.externalUrl || '',
-      attributes: (metadata.attributes || []).map((attr: any) => ({
+      attributes: (metadata.attributes || []).map((attr: Record<string,string>) => ({
         trait_type: attr.traitType || attr.trait_type,
         value: attr.value,
         display_type: attr.displayType || attr.display_type,
