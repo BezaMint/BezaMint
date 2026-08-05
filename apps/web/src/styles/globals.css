@@ -155,3 +155,6 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
 
 ::selection { background-color: rgba(36, 165, 99, 0.3); color: white; }
+
+/* Focus visible ring for keyboard navigation */
+*:focus-visible { outline: 2px solid var(--color-bezamint-primary); outline-offset: 2px; border-radius: 4px; }
