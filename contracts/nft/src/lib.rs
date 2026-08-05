@@ -78,6 +78,7 @@ impl BezaMintNft {
 
         assert!(metadata_uri.len() > 0, "NFT: metadata URI cannot be empty");
         assert!(counter < MAX_SUPPLY, "NFT: max supply of {} reached", MAX_SUPPLY);
+        assert!(to != Address::from_str(&env, "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"), "NFT: cannot mint to zero address");
         assert!(metadata_uri.len() <= 512, "NFT: metadata URI exceeds 512 chars");
 
         let counter: u64 = env.storage().instance().get(&String::from_str(&env, COUNTER)).unwrap_or(0);
