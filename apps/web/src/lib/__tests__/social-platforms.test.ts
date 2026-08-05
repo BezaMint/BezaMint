@@ -1,15 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { getAllSocialPlatforms } from "@/lib/socialPlatforms";
+import { SOCIAL_PLATFORMS } from "@/lib/socialPlatforms";
 
-describe("getAllSocialPlatforms", () => {
+describe("SOCIAL_PLATFORMS", () => {
   it("returns array of platforms", () => {
-    const platforms = getAllSocialPlatforms();
-    expect(Array.isArray(platforms)).toBe(true);
-    expect(platforms.length).toBeGreaterThan(0);
+    expect(Array.isArray(SOCIAL_PLATFORMS)).toBe(true);
+    expect(SOCIAL_PLATFORMS.length).toBeGreaterThan(0);
   });
-  it("each platform has id and label", () => {
-    for (const p of getAllSocialPlatforms()) {
-      expect(p.id).toBeTruthy();
+  it("each platform has value and label", () => {
+    for (const p of SOCIAL_PLATFORMS) {
+      expect(p.value).toBeTruthy();
       expect(p.label).toBeTruthy();
     }
   });
