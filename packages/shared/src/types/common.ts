@@ -86,3 +86,5 @@ export enum EventType {
   PROFILE_UPDATED = 'profile_updated',
   CREATOR_VERIFIED = 'creator_verified',
 }
+
+export type MintStatus = 'idle' | 'uploading' | 'preparing' | 'signing' | 'submitting' | 'confirming' | 'success' | 'error';
