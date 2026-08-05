@@ -5,6 +5,7 @@ use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, E
 // ── Storage ────────────────────────────────────────────────────
 
 const COUNTER: &str = "counter";
+const VERSION: &str = "version";
 const ADMIN: &str = "admin";
 const OWNER: &str = "owner";
 const DATA: &str = "data";
@@ -67,6 +68,7 @@ impl BezaMintNft {
         admin.require_auth();
         env.storage().instance().set(&String::from_str(&env, ADMIN), &admin);
         env.storage().instance().set(&String::from_str(&env, COUNTER), &0u64);
+        env.storage().instance().set(&String::from_str(&env, VERSION), &1u32);
     }
 
     pub fn mint(env: Env, to: Address, collection_id: u64, metadata_uri: String) -> u64 {
