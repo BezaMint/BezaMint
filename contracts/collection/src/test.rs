@@ -195,3 +195,17 @@ fn test_collection_archive() {
     let col = contract.get_collection(&id);
     assert!(col.is_archived);
 }
+
+#[test]
+fn test_add_nft_to_collection() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let contract = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
+    contract.initialize(&admin);
+    let col_id = contract.create_collection(&creator, &String::from_str(&env, "ipfs://col"));
+    contract.add_nft(&admin, &col_id, &1);
+    let nfts = contract.get_nfts_in_collection(&col_id);
+    assert_eq!(nfts.len(), 1);
+    assert_eq!(nfts.get(0).unwrap(), 1);
+}
