@@ -18,6 +18,12 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
@@ -44,6 +50,12 @@ jobs:
     timeout-minutes: 15
 
     steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
       - uses: actions/checkout@v4
 
       - name: Install Rust
@@ -72,6 +84,12 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
       - uses: actions/checkout@v4
 
       - uses: pnpm/action-setup@v4
