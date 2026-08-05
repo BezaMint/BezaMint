@@ -165,3 +165,17 @@ fn test_verify_creator() {
     contract.verify_creator(&admin, &creator);
     assert!(contract.is_verified(&creator));
 }
+
+#[test]
+fn test_prevent_duplicate_registration() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let contract = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
+    contract.initialize(&admin);
+    contract.register(&creator, &String::from_str(&env, "Test"), &String::from_str(&env, "bio"), &String::from_str(&env, ""), &String::from_str(&env, ""));
+    let result = std::panic::catch_unwind(|| {
+        contract.register(&creator, &String::from_str(&env, "Test2"), &String::from_str(&env, "bio"), &String::from_str(&env, ""), &String::from_str(&env, ""));
+    });
+    assert!(result.is_err());
+}
