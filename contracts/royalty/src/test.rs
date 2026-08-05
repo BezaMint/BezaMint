@@ -140,3 +140,16 @@ fn test_royalty_update_blocked_when_frozen() {
     });
     assert!(result.is_err());
 }
+
+#[test]
+fn test_get_royalty_returns_config() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let contract = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
+    contract.initialize(&admin);
+    let recipients = Map::new(&env);
+    contract.configure_royalty(&1, &750, &recipients, &false);
+    let config = contract.get_royalty(&1, &false);
+    assert_eq!(config.basis_points, 750);
+    assert!(!config.is_frozen);
+}
