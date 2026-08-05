@@ -33,10 +33,13 @@ export function formatBasisPoints(bps: number): string {
 }
 
 /**
- * Format an XLM amount
+ * Format an XLM amount. Accepts numbers or numeric strings (Horizon returns
+ * balances as strings). Non-numeric input renders as 0.0000000 XLM.
  */
-export function formatXlm(amount: number): string {
-  return `${amount.toFixed(7)} XLM`;
+export function formatXlm(amount: number | string): string {
+  const numeric = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (Number.isNaN(numeric)) return '0.0000000 XLM';
+  return `${numeric.toFixed(7)} XLM`;
 }
 
 /**
