@@ -6,7 +6,12 @@ import { getPinataClient, isIpfsAvailable } from '@/lib/pinata';
  * Upload NFT metadata JSON to IPFS via Pinata.
  * Returns proper HTTP status codes so callers can distinguish success from fallback.
  */
+// Max body size: 1MB
 export async function POST(request: NextRequest) {
+  const contentLength = request.headers.get("content-length");
+  if (contentLength && parseInt(contentLength) > 1_000_000) {
+    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+  }
   try {
     const metadata = await request.json();\n\n    // Sanitize inputs\n    const safeName = String(metadata.name || "").trim().slice(0, 128);
 
