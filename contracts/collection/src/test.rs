@@ -169,3 +169,16 @@ fn test_get_nonexistent_collection_panics() {
     let (_, _, client) = setup();
     client.get_collection(&999);
 }
+
+#[test]
+fn test_collection_version_tracking() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let contract = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
+    contract.initialize(&admin);
+    let id = contract.create_collection(&creator, &String::from_str(&env, "ipfs://col"));
+    assert_eq!(id, 1);
+    let col = contract.get_collection(&id);
+    assert_eq!(col.nft_count, 0);
+}
