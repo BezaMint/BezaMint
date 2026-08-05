@@ -77,11 +77,11 @@ impl BezaMintNft {
         admin.require_auth();
 
         assert!(metadata_uri.len() > 0, "NFT: metadata URI cannot be empty");
-        assert!(counter < MAX_SUPPLY, "NFT: max supply of {} reached", MAX_SUPPLY);
-        assert!(to != Address::from_str(&env, "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"), "NFT: cannot mint to zero address");
         assert!(metadata_uri.len() <= 512, "NFT: metadata URI exceeds 512 chars");
+        assert!(to != Address::from_str(&env, "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"), "NFT: cannot mint to zero address");
 
         let counter: u64 = env.storage().instance().get(&String::from_str(&env, COUNTER)).unwrap_or(0);
+        assert!(counter < MAX_SUPPLY, "NFT: max supply of {} reached", MAX_SUPPLY);
         let token_id = counter + 1;
         let ledger = env.ledger();
 
@@ -110,7 +110,7 @@ impl BezaMintNft {
         assert!(&current == &from, "NFT: caller not owner");
 
         env.storage().persistent().set(&(String::from_str(&env, OWNER), token_id), &to);
-        env.storage().persistent().remove(&(String::from_str(&env, APPROVAL), token_id, from));
+        env.storage().persistent().remove(&(String::from_str(&env, APPROVAL), token_id, from.clone()));
 
         emit_nft(&env, NftEvent::Transferred(token_id, from.clone(), to.clone()));
     }
@@ -118,7 +118,7 @@ impl BezaMintNft {
     pub fn approve(env: Env, operator: Address, token_id: u64) {
         let owner: Address = env.storage().persistent()
             .get(&(String::from_str(&env, OWNER), token_id))
-            .unwrap_or_else(|| panic!("NFT: cannot burn nonexistent token {}", token_id));
+            .unwrap_or_else(|| panic!("NFT: cannot approve nonexistent token {}", token_id));
         owner.require_auth();
         env.storage().persistent().set(&(String::from_str(&env, APPROVAL), token_id, operator.clone()), &true);
     }
