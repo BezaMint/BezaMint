@@ -56,7 +56,7 @@ impl BezaMintRoyalty {
         recipients: Map<Address, u32>,
         is_collection: bool,
     ) {
-        let admin: Address = env.storage().instance().get(&RoyaltyKey::Admin).unwrap();
+        let admin: Address = env.storage().instance().get(&RoyaltyKey::Admin).unwrap_or_else(|| panic!("Royalty: not initialized"));
         admin.require_auth();
 
         assert!(
@@ -89,7 +89,7 @@ impl BezaMintRoyalty {
         recipients: Map<Address, u32>,
         is_collection: bool,
     ) {
-        let admin: Address = env.storage().instance().get(&RoyaltyKey::Admin).unwrap();
+        let admin: Address = env.storage().instance().get(&RoyaltyKey::Admin).unwrap_or_else(|| panic!("Royalty: not initialized"));
         admin.require_auth();
 
         let key = if is_collection {
@@ -120,7 +120,7 @@ impl BezaMintRoyalty {
     }
 
     pub fn freeze_royalty(env: Env, target_id: u64, is_collection: bool) {
-        let admin: Address = env.storage().instance().get(&RoyaltyKey::Admin).unwrap();
+        let admin: Address = env.storage().instance().get(&RoyaltyKey::Admin).unwrap_or_else(|| panic!("Royalty: not initialized"));
         admin.require_auth();
 
         let key = if is_collection {
