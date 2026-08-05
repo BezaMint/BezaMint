@@ -88,7 +88,7 @@ export default function MintForm() {
         );
         return;
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (err?.message?.includes('Insufficient')) {
         showError(err.message);
         return;
@@ -130,7 +130,7 @@ export default function MintForm() {
       });
 
       showSuccess('NFT minted successfully!');
-    } catch (err: any) {
+    } catch (err: unknown) {
       const message = err?.message || '';
       if (
         message.includes('cancelled') ||
