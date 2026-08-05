@@ -8,7 +8,7 @@ import { getPinataClient, isIpfsAvailable } from '@/lib/pinata';
  */
 export async function POST(request: NextRequest) {
   try {
-    const metadata = await request.json();
+    const metadata = await request.json();\n\n    // Sanitize inputs\n    const safeName = String(metadata.name || "").trim().slice(0, 128);
 
     if (!metadata.name) {
       return NextResponse.json({ error: 'Metadata must include a name field' }, { status: 400 });
