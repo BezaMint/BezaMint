@@ -21,7 +21,7 @@
   <img src="https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs" alt="Next.js" />
   <img src="https://img.shields.io/badge/Soroban_SDK-22.0.11-7b3fe4" alt="Soroban SDK" />
   <img src="https://img.shields.io/badge/Stellar-Testnet-24a563?logo=stellar" alt="Stellar" />
-  <img src="https://img.shields.io/badge/tests-96_passing-success" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-145_passing-success" alt="Tests" />
   <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="Version" />
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome" />
 </p>
@@ -413,24 +413,24 @@ BezaMint implements defense-in-depth across the entire stack:
 
 ## 🧪 Testing
 
-| Suite           | Framework      | Tests  | Status                      |
-| --------------- | -------------- | ------ | --------------------------- |
-| Smart Contracts | Rust `#[test]` | 52     | ✅ 42/42 passing locally    |
-| Frontend        | Vitest         | 44     | ✅ 26/26 passing (2 suites) |
-| **Total**       |                | **96** | **All passing**             |
+| Suite           | Framework      | Tests | Status              |
+| --------------- | -------------- | ----- | ------------------- |
+| Smart Contracts | Rust `#[test]` | 55    | ✅ 55/55 passing    |
+| Frontend        | Vitest         | 90    | ✅ 90/90 passing    |
+| **Total**       |                | **145** | **All passing**   |
 
 ```bash
-pnpm test                # Frontend: 44/44 passing
-pnpm run contract:test   # Contracts: 52 tests across 5 crates
+pnpm test                # Frontend: 90/90 passing (31 files)
+pnpm run contract:test   # Contracts: 55 tests across 5 crates
 ```
 
 | Contract crate        | Tests |
 | --------------------- | ----- |
-| `bezamint-nft`        | 12    |
-| `bezamint-collection` | 11    |
-| `bezamint-royalty`    | 9     |
-| `bezamint-creator`    | 8     |
-| `bezamint-factory`    | 2     |
+| `bezamint-nft`        | 16    |
+| `bezamint-collection` | 13    |
+| `bezamint-royalty`    | 13    |
+| `bezamint-creator`    | 9     |
+| `bezamint-factory`    | 4     |
 
 ---
 
@@ -468,8 +468,8 @@ A 2-minute walkthrough covering all major features — landing, dashboard, colle
 
 ## ✅ Production Readiness Checklist
 
-- [x] Smart contract tests (52/52 passing)
-- [x] Frontend tests (44/44 passing)
+- [x] Smart contract tests (55/55 passing)
+- [x] Frontend tests (90/90 passing)
 - [x] Security headers (CSP, HSTS, X-Frame, XSS)
 - [x] CI/CD pipeline (3 workflows)
 - [x] Error boundaries and graceful fallbacks
