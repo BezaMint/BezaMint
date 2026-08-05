@@ -117,6 +117,8 @@ impl BezaMintCreator {
     ) {
         creator.require_auth();
 
+        assert!(links.len() <= 8, "Creator: max 8 social links");
+
         let mut profile: CreatorProfile = env
             .storage()
             .persistent()
@@ -138,6 +140,8 @@ impl BezaMintCreator {
 
     pub fn set_social_links(env: Env, creator: Address, links: Vec<SocialLink>) {
         creator.require_auth();
+
+        assert!(links.len() <= 8, "Creator: max 8 social links");
 
         let mut profile: CreatorProfile = env
             .storage()
