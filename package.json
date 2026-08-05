@@ -13,7 +13,10 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,toml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,toml,yaml}\"",
     "clean": "turbo run clean",
-    "prepare": "husky"
+    "prepare": "husky",
+    "contract:check": "cargo check --workspace --manifest-path contracts/Cargo.toml",
+    "contract:clippy": "cargo clippy --workspace --manifest-path contracts/Cargo.toml -- -D warnings",
+    "contract:fmt": "cargo fmt --all --manifest-path contracts/Cargo.toml -- --check"
   },
   "engines": {
     "node": ">=20.0.0",
