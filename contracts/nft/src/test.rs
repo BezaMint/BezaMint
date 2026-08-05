@@ -243,6 +243,19 @@ fn test_balance_of_multiple_tokens() {
 }
 
 #[test]
+#[should_panic]
+fn test_mint_requires_recipient_auth() {
+    let env = Env::default();
+    // Do NOT mock auth: mint must fail because the recipient never authorized.
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    contract.initialize(&admin);
+    // Only the admin's initialize is authorized; the mint must be rejected.
+    contract.mint(&user, &0, &String::from_str(&env, "ipfs://meta"));
+}
+
+#[test]
 #[should_panic(expected = "metadata URI cannot be empty")]
 fn test_mint_rejects_empty_metadata() {
     let env = Env::default();
