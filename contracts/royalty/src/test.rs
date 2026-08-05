@@ -124,3 +124,19 @@ fn test_freeze_royalty() {
     contract.freeze_royalty(&1, &false);
     assert!(contract.is_frozen(&1, &false));
 }
+
+#[test]
+fn test_royalty_update_blocked_when_frozen() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let contract = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
+    contract.initialize(&admin);
+    let recipients = Map::new(&env);
+    contract.configure_royalty(&1, &500, &recipients, &false);
+    contract.freeze_royalty(&1, &false);
+    // Update should panic when frozen
+    let result = std::panic::catch_unwind(|| {
+        contract.update_royalty(&1, &1000, &recipients, &false);
+    });
+    assert!(result.is_err());
+}
