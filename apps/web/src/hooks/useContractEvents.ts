@@ -119,7 +119,7 @@ export function useContractEvents(options: UseContractEventsOptions = {}): UseCo
           return merged.slice(0, maxEvents);
         });
 
-        if (newEvents.length > 0) {
+        if (newEvents.length > 0 && newEvents[0]) {
           setLastLedger(newEvents[0].ledger);
         }
       }
