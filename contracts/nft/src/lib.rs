@@ -109,7 +109,8 @@ impl BezaMintNft {
 
     pub fn approve(env: Env, operator: Address, token_id: u64) {
         let owner: Address = env.storage().persistent()
-            .get(&(String::from_str(&env, OWNER), token_id)).unwrap();
+            .get(&(String::from_str(&env, OWNER), token_id))
+            .unwrap_or_else(|| panic!("NFT: cannot burn nonexistent token {}", token_id));
         owner.require_auth();
         env.storage().persistent().set(&(String::from_str(&env, APPROVAL), token_id, operator.clone()), &true);
     }
@@ -121,7 +122,8 @@ impl BezaMintNft {
 
     pub fn burn(env: Env, token_id: u64) {
         let owner: Address = env.storage().persistent()
-            .get(&(String::from_str(&env, OWNER), token_id)).unwrap();
+            .get(&(String::from_str(&env, OWNER), token_id))
+            .unwrap_or_else(|| panic!("NFT: cannot burn nonexistent token {}", token_id));
         owner.require_auth();
         env.storage().persistent().remove(&(String::from_str(&env, OWNER), token_id));
         env.storage().persistent().remove(&(String::from_str(&env, DATA), token_id));
