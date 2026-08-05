@@ -22,6 +22,7 @@
   <img src="https://img.shields.io/badge/Soroban_SDK-22.0.11-7b3fe4" alt="Soroban SDK" />
   <img src="https://img.shields.io/badge/Stellar-Testnet-24a563?logo=stellar" alt="Stellar" />
   <img src="https://img.shields.io/badge/tests-68_passing-success" alt="Tests" />
+  <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="Version" />
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome" />
 </p>
 
