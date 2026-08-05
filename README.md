@@ -21,7 +21,7 @@
   <img src="https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs" alt="Next.js" />
   <img src="https://img.shields.io/badge/Soroban_SDK-22.0.11-7b3fe4" alt="Soroban SDK" />
   <img src="https://img.shields.io/badge/Stellar-Testnet-24a563?logo=stellar" alt="Stellar" />
-  <img src="https://img.shields.io/badge/tests-68_passing-success" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-96_passing-success" alt="Tests" />
   <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="Version" />
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome" />
 </p>
@@ -415,13 +415,13 @@ BezaMint implements defense-in-depth across the entire stack:
 
 | Suite           | Framework      | Tests  | Status                      |
 | --------------- | -------------- | ------ | --------------------------- |
-| Smart Contracts | Rust `#[test]` | 42     | ✅ 42/42 passing locally    |
-| Frontend        | Vitest         | 26     | ✅ 26/26 passing (2 suites) |
-| **Total**       |                | **68** | **All passing**             |
+| Smart Contracts | Rust `#[test]` | 52     | ✅ 42/42 passing locally    |
+| Frontend        | Vitest         | 44     | ✅ 26/26 passing (2 suites) |
+| **Total**       |                | **96** | **All passing**             |
 
 ```bash
-pnpm test                # Frontend: 26/26 passing
-pnpm run contract:test   # Contracts: 42 tests across 5 crates
+pnpm test                # Frontend: 44/44 passing
+pnpm run contract:test   # Contracts: 52 tests across 5 crates
 ```
 
 | Contract crate        | Tests |
