@@ -153,3 +153,15 @@ fn test_update_nonexistent_fails() {
         &String::from_str(&env, "Banner"),
     );
 }
+
+#[test]
+fn test_verify_creator() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let contract = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
+    contract.initialize(&admin);
+    contract.register(&creator, &String::from_str(&env, "Alice"), &String::from_str(&env, "Bio"), &String::from_str(&env, ""), &String::from_str(&env, ""));
+    contract.verify_creator(&admin, &creator);
+    assert!(contract.is_verified(&creator));
+}
