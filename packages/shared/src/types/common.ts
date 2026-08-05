@@ -71,3 +71,18 @@ export interface WalletState {
   connectionState: WalletConnectionState;
   error: string | null;
 }
+
+export enum EventType {
+  NFT_MINTED = 'nft_minted',
+  NFT_TRANSFERRED = 'nft_transferred',
+  NFT_BURNED = 'nft_burned',
+  COLLECTION_CREATED = 'collection_created',
+  COLLECTION_UPDATED = 'collection_updated',
+  COLLECTION_ARCHIVED = 'collection_archived',
+  ROYALTY_CONFIGURED = 'royalty_configured',
+  ROYALTY_UPDATED = 'royalty_updated',
+  ROYALTY_FROZEN = 'royalty_frozen',
+  PROFILE_CREATED = 'profile_created',
+  PROFILE_UPDATED = 'profile_updated',
+  CREATOR_VERIFIED = 'creator_verified',
+}
