@@ -30,12 +30,6 @@ const SAMPLE_COLLECTIONS = [
   },
 ];
 
-// Show loading skeleton initially
-useState(() => {
-  const t = setTimeout(() => setIsLoading(false), 100);
-  return () => clearTimeout(t);
-});
-
 export default function CollectionsPage() {
   const { isConnected, connect } = useWallet();
   const { showSuccess } = useToast();
@@ -43,6 +37,12 @@ export default function CollectionsPage() {
   const [collections, setCollections] = useState(SAMPLE_COLLECTIONS);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Simulate initial load
+  useState(() => {
+    const t = setTimeout(() => setIsLoading(false), 100);
+    return () => clearTimeout(t);
+  });
 
   const handleCreate = useCallback(
     async (data: CollectionFormState) => {
