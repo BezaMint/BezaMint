@@ -3,6 +3,11 @@ import path from 'path';
 
 export default defineConfig({
   test: {
+    testTimeout: 10000,
+    globals: true,
+    environment: "jsdom",
+  },
+  test: {
     include: ['src/**/__tests__/**/*.test.{ts,tsx}'],
     globals: true,
     environment: 'node',
