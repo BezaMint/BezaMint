@@ -6,7 +6,8 @@
     "lint": "next lint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "clean": "rm -rf .next dist"
+    "clean": "rm -rf .next dist",
+    "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
     "@stellar/freighter-api": "^4.0.0",
