@@ -31,6 +31,8 @@ const rpcClient = new SorobanRpc.Server(CURRENT_NETWORK.rpcUrl, {
 
 const horizonServer = new Horizon.Server(CURRENT_NETWORK.networkUrl);
 
+export { getOrCreateRpcClient };
+
 export function getRpcClient(): SorobanRpc.Server {
   return rpcClient;
 }
