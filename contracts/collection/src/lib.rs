@@ -145,7 +145,7 @@ impl BezaMintCollection {
     }
 
     pub fn add_nft(env: Env, _admin: Address, collection_id: u64, token_id: u64) {
-        let stored_admin: Address = env.storage().instance().get(&ColKey::Admin).unwrap();
+        let stored_admin: Address = env.storage().instance().get(&ColKey::Admin).unwrap_or_else(|| panic!("Collection: not initialized"));
         stored_admin.require_auth();
 
         let mut data: CollectionData = env
@@ -179,7 +179,7 @@ impl BezaMintCollection {
     }
 
     pub fn remove_nft(env: Env, _admin: Address, collection_id: u64, token_id: u64) {
-        let stored_admin: Address = env.storage().instance().get(&ColKey::Admin).unwrap();
+        let stored_admin: Address = env.storage().instance().get(&ColKey::Admin).unwrap_or_else(|| panic!("Collection: not initialized"));
         stored_admin.require_auth();
 
         let mut data: CollectionData = env
