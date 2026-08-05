@@ -6,6 +6,7 @@ use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, E
 
 const COUNTER: &str = "counter";
 const VERSION: &str = "version";
+const MAX_SUPPLY: u64 = 1_000_000;
 const ADMIN: &str = "admin";
 const OWNER: &str = "owner";
 const DATA: &str = "data";
@@ -76,6 +77,7 @@ impl BezaMintNft {
         admin.require_auth();
 
         assert!(metadata_uri.len() > 0, "NFT: metadata URI cannot be empty");
+        assert!(counter < MAX_SUPPLY, "NFT: max supply of {} reached", MAX_SUPPLY);
         assert!(metadata_uri.len() <= 512, "NFT: metadata URI exceeds 512 chars");
 
         let counter: u64 = env.storage().instance().get(&String::from_str(&env, COUNTER)).unwrap_or(0);
