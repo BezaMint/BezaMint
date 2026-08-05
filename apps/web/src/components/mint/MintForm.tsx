@@ -281,3 +281,5 @@ export default function MintForm() {
     </div>
   );
 }
+
+MintForm.displayName = "MintForm";
