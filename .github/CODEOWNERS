@@ -1,0 +1,14 @@
+# Default owners for everything in the repo
+* @BezaMint/maintainers
+
+# Smart contracts — any change requires contract review
+/contracts/ @BezaMint/maintainers
+
+# Frontend
+/apps/web/ @BezaMint/maintainers
+
+# Shared package
+/packages/ @BezaMint/maintainers
+
+# CI/CD — require maintainer review
+/.github/ @BezaMint/maintainers
