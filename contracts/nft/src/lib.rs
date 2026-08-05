@@ -70,7 +70,7 @@ impl BezaMintNft {
     }
 
     pub fn mint(env: Env, to: Address, collection_id: u64, metadata_uri: String) -> u64 {
-        let admin: Address = env.storage().instance().get(&String::from_str(&env, ADMIN)).unwrap();
+        let admin: Address = env.storage().instance().get(&String::from_str(&env, ADMIN)).unwrap_or_else(|| panic!("NFT: not initialized"));
         admin.require_auth();
 
         let counter: u64 = env.storage().instance().get(&String::from_str(&env, COUNTER)).unwrap_or(0);
