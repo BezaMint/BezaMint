@@ -155,6 +155,27 @@ fn test_update_nonexistent_fails() {
 }
 
 #[test]
+fn test_social_links_update_emits_profile_updated_event() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+
+    register(&env, &client, &creator, "Alice");
+
+    let links = vec![
+        &env,
+        SocialLink {
+            platform: String::from_str(&env, "twitter"),
+            url: String::from_str(&env, "https://twitter.com/alice"),
+        },
+    ];
+    client.set_social_links(&creator, &links);
+
+    let profile = client.get_profile(&creator);
+    assert_eq!(profile.social_links.len(), 1);
+    assert_eq!(profile.social_links.get(0).unwrap().platform, String::from_str(&env, "twitter"));
+}
+
+#[test]
 #[should_panic(expected = "already registered")]
 fn test_prevent_duplicate_registration() {
     let (env, _admin, client) = setup();
