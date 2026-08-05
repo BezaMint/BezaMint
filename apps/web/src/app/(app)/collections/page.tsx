@@ -1,13 +1,25 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { CollectionFormState } from '@bezamint/shared';
 import { CollectionGrid, CollectionForm } from '@/components/collection';
 import { useWallet } from '@/context';
 import { useToast } from '@/context';
+import { getCollectionsByCreator } from '@/services/contracts';
 
-// Mock data — in production, fetch from contract
-const SAMPLE_COLLECTIONS = [
+interface CollectionItem {
+  id: string;
+  name: string;
+  imageUri: string;
+  category: string;
+  nftCount: number;
+  isArchived: boolean;
+  createdAt: string;
+  tags: string[];
+}
+
+// Demo fallback data used when no wallet is connected or the contract is unreachable.
+const SAMPLE_COLLECTIONS: CollectionItem[] = [
   {
     id: '1',
     name: 'Digital Artworks',
@@ -31,26 +43,60 @@ const SAMPLE_COLLECTIONS = [
 ];
 
 export default function CollectionsPage() {
-  const { isConnected, connect } = useWallet();
+  const { isConnected, connect, address } = useWallet();
   const { showSuccess } = useToast();
   const [showCreate, setShowCreate] = useState(false);
-  const [collections, setCollections] = useState(SAMPLE_COLLECTIONS);
+  const [collections, setCollections] = useState<CollectionItem[]>(SAMPLE_COLLECTIONS);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Simulate initial load
-  useState(() => {
-    const t = setTimeout(() => setIsLoading(false), 100);
-    return () => clearTimeout(t);
-  });
+  // Load real on-chain collections for the connected wallet.
+  useEffect(() => {
+    if (!isConnected || !address) {
+      setCollections(SAMPLE_COLLECTIONS);
+      setIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoading(true);
+
+    (async () => {
+      const ids = await getCollectionsByCreator(address);
+      if (cancelled) return;
+
+      if (ids.length > 0) {
+        setCollections(
+          ids.map((id, i) => ({
+            id: String(id),
+            name: `Collection #${id}`,
+            imageUri: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400',
+            category: 'art',
+            nftCount: 0,
+            isArchived: false,
+            createdAt: `${i + 1} on-chain`,
+            tags: ['on-chain'],
+          })),
+        );
+      } else {
+        // No collections on-chain yet — show empty demo grid with samples hidden.
+        setCollections([]);
+      }
+      setIsLoading(false);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, address]);
 
   const handleCreate = useCallback(
     async (data: CollectionFormState) => {
       setIsSubmitting(true);
-      // In production: call collection contract to create collection
+      // In production: invoke the Collection contract's create_collection.
       await new Promise((r) => setTimeout(r, 1500));
 
-      const newCollection = {
+      const newCollection: CollectionItem = {
         id: String(collections.length + 1),
         name: data.name,
         imageUri: data.imageUri,
@@ -110,11 +156,23 @@ export default function CollectionsPage() {
         </div>
       )}
 
-      <CollectionGrid
-        collections={collections}
-        onCreateClick={() => setShowCreate(true)}
-        isConnected={isConnected}
-      />
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="card animate-pulse">
+              <div className="w-full aspect-video bg-bezamint-muted/40 rounded-lg mb-4" />
+              <div className="h-5 w-3/4 bg-bezamint-muted/40 rounded mb-2" />
+              <div className="h-4 w-1/2 bg-bezamint-muted/30 rounded" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <CollectionGrid
+          collections={collections}
+          onCreateClick={() => setShowCreate(true)}
+          isConnected={isConnected}
+        />
+      )}
     </div>
   );
 }

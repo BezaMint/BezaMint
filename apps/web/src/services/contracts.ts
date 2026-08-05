@@ -180,6 +180,50 @@ export async function getTotalCollections(sourceAddress: string): Promise<number
   }
 }
 
+/**
+ * Fetch collection IDs created by a specific creator address.
+ * Returns an empty array on error so UIs can fall back gracefully.
+ */
+export async function getCollectionsByCreator(sourceAddress: string): Promise<number[]> {
+  try {
+    const creatorScVal = new Address(sourceAddress).toScVal();
+    const result = await simulateTransaction(
+      sourceAddress,
+      CONTRACT_IDS.collection,
+      'get_collections_by_creator',
+      [creatorScVal],
+    );
+    if (result.result?.retval) {
+      const ids = scValToNative(result.result.retval);
+      return Array.isArray(ids) ? ids.map(Number) : [];
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetch a single collection's on-chain data by ID.
+ */
+export async function getCollectionById(
+  sourceAddress: string,
+  collectionId: number,
+): Promise<Record<string, unknown> | null> {
+  try {
+    const idScVal = xdr.ScVal.scvU64(new xdr.Uint64(collectionId));
+    const result = await simulateTransaction(sourceAddress, CONTRACT_IDS.collection, 'get_collection', [
+      idScVal,
+    ]);
+    if (result.result?.retval) {
+      return scValToNative(result.result.retval) as Record<string, unknown>;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // ─────────────────────── Creator Contract ───────────────────────
 
 export async function getTotalCreators(sourceAddress: string): Promise<number> {
