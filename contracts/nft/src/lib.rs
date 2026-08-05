@@ -138,7 +138,7 @@ impl BezaMintNft {
     }
 
     pub fn token_data(env: Env, token_id: u64) -> NftData {
-        env.storage().persistent().get(&(String::from_str(&env, DATA), token_id)).unwrap()
+        env.storage().persistent().get(&(String::from_str(&env, DATA), token_id)).unwrap_or_else(|| panic!("NFT: data for token {} not found", token_id))
     }
 
     pub fn balance_of(env: Env, owner: Address) -> u64 {
