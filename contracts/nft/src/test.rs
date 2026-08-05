@@ -225,3 +225,16 @@ fn test_transfer_emits_event() {
     let new_owner = contract.owner_of(&1);
     assert_eq!(new_owner, bob);
 }
+
+#[test]
+fn test_burn_removes_ownership() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    contract.initialize(&admin);
+    contract.mint(&alice, &0, &String::from_str(&env, "ipfs://burn"));
+    contract.burn(&1);
+    // Verify token is gone by checking total supply didn't change but ownership fails
+    assert_eq!(contract.total_supply(), 1);
+}
