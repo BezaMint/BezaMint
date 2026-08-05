@@ -1,3 +1,7 @@
+export class IpfsUploadError extends Error {
+  constructor(msg, public statusCode) { super(msg); this.name = "IpfsUploadError"; }
+}
+
 export interface IpfsUploadResult {
   cid: string | null;
   ipfsUri: string | null;
