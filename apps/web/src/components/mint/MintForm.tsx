@@ -89,8 +89,9 @@ export default function MintForm() {
         return;
       }
     } catch (err: unknown) {
-      if (err?.message?.includes('Insufficient')) {
-        showError(err.message);
+      const errMsg = (err as Error)?.message || '';
+      if (errMsg.includes('Insufficient')) {
+        showError(errMsg);
         return;
       }
       // Other balance check errors are non-fatal; proceed
@@ -131,7 +132,7 @@ export default function MintForm() {
 
       showSuccess('NFT minted successfully!');
     } catch (err: unknown) {
-      const message = err?.message || '';
+      const message = (err as Error)?.message || '';
       if (
         message.includes('cancelled') ||
         message.includes('rejected') ||
