@@ -126,44 +126,30 @@ fn test_freeze_royalty() {
 }
 
 #[test]
+#[should_panic(expected = "frozen")]
 fn test_royalty_update_blocked_when_frozen() {
-    let env = Env::default();
-    let admin = Address::generate(&env);
-    let contract = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
-    contract.initialize(&admin);
-    let recipients = Map::new(&env);
-    contract.configure_royalty(&1, &500, &recipients, &false);
-    contract.freeze_royalty(&1, &false);
-    // Update should panic when frozen
-    let result = std::panic::catch_unwind(|| {
-        contract.update_royalty(&1, &1000, &recipients, &false);
-    });
-    assert!(result.is_err());
+    let (env, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
+
+    client.configure_royalty(&1, &500, &empty_recipients(&env), &false);
+    client.freeze_royalty(&1, &false);
+    client.update_royalty(&1, &1000, &empty_recipients(&env), &false);
 }
 
 #[test]
 fn test_get_royalty_returns_config() {
-    let env = Env::default();
-    let admin = Address::generate(&env);
-    let contract = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
-    contract.initialize(&admin);
-    let recipients = Map::new(&env);
-    contract.configure_royalty(&1, &750, &recipients, &false);
-    let config = contract.get_royalty(&1, &false);
+    let (env, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
+
+    client.configure_royalty(&1, &750, &empty_recipients(&env), &false);
+    let config = client.get_royalty(&1, &false);
     assert_eq!(config.basis_points, 750);
     assert!(!config.is_frozen);
 }
 
 #[test]
+#[should_panic(expected = "basis points must be")]
 fn test_validate_basis_points_limit() {
-    let env = Env::default();
-    let admin = Address::generate(&env);
-    let contract = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
-    contract.initialize(&admin);
-    let recipients = Map::new(&env);
-    // 10001 bps should panic (over 100%)
-    let result = std::panic::catch_unwind(|| {
-        contract.configure_royalty(&1, &10001, &recipients, &false);
-    });
-    assert!(result.is_err());
+    let (env, client) = setup();
+    client.configure_royalty(&1, &10001, &empty_recipients(&env), &false);
 }
