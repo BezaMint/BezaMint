@@ -84,3 +84,8 @@ export function isValidIpfsUri(uri: string): boolean {
 export function isValidEvmAddress(address: string): boolean {
   return /^0x[a-fA-F0-9]{40}$/.test(address);
 }
+
+export function isPositiveInteger(value: string | number): boolean {
+  const num = typeof value === "string" ? parseInt(value, 10) : value;
+  return Number.isInteger(num) && num > 0;
+}
