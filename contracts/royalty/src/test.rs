@@ -115,14 +115,12 @@ fn test_nft_and_collection_royalties_are_separate() {
 
 #[test]
 fn test_freeze_royalty() {
-    let env = Env::default();
-    let admin = Address::generate(&env);
-    let contract = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
-    contract.initialize(&admin);
-    let recipients = Map::new(&env);
-    contract.configure_royalty(&1, &500, &recipients, &false);
-    contract.freeze_royalty(&1, &false);
-    assert!(contract.is_frozen(&1, &false));
+    let (env, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
+
+    client.configure_royalty(&1, &500, &empty_recipients(&env), &false);
+    client.freeze_royalty(&1, &false);
+    assert!(client.is_frozen(&1, &false));
 }
 
 #[test]
