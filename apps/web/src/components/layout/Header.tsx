@@ -65,7 +65,7 @@ export default function Header() {
       setSendAmount('');
       setSendMemo('');
       refreshBalance();
-    } catch (err: any) {
+    } catch (err: unknown) {
       showError(err?.message || 'Failed to send XLM');
     } finally {
       setIsSending(false);
