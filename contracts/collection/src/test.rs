@@ -164,6 +164,30 @@ fn test_get_collections_by_creator() {
 }
 
 #[test]
+#[should_panic(expected = "not the collection creator")]
+fn test_update_collection_by_non_owner_fails() {
+    let (env, _admin, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
+    let creator = Address::generate(&env);
+    let attacker = Address::generate(&env);
+
+    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+    client.update_collection(&attacker, &id, &String::from_str(&env, "hacked"));
+}
+
+#[test]
+#[should_panic(expected = "not the collection creator")]
+fn test_archive_collection_by_non_owner_fails() {
+    let (env, _admin, client) = setup();
+    env.ledger().with_mut(|l| l.timestamp = 12345);
+    let creator = Address::generate(&env);
+    let attacker = Address::generate(&env);
+
+    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+    client.archive_collection(&attacker, &id);
+}
+
+#[test]
 #[should_panic(expected = "not found")]
 fn test_get_nonexistent_collection_panics() {
     let (_, _, client) = setup();

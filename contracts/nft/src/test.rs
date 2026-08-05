@@ -243,6 +243,46 @@ fn test_balance_of_multiple_tokens() {
 }
 
 #[test]
+#[should_panic(expected = "metadata URI cannot be empty")]
+fn test_mint_rejects_empty_metadata() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    contract.initialize(&admin);
+    contract.mint(&user, &0, &String::from_str(&env, ""));
+}
+
+#[test]
+#[should_panic(expected = "metadata URI exceeds 512 chars")]
+fn test_mint_rejects_oversized_metadata() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    contract.initialize(&admin);
+    let long_uri = "x".repeat(513);
+    contract.mint(&user, &0, &String::from_str(&env, &long_uri));
+}
+
+#[test]
+#[should_panic(expected = "cannot mint to zero address")]
+fn test_mint_rejects_zero_address() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    contract.initialize(&admin);
+    let zero = Address::from_str(
+        &env,
+        "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+    );
+    contract.mint(&zero, &0, &String::from_str(&env, "ipfs://meta"));
+}
+
+#[test]
 fn test_burn_event_emission() {
     let env = Env::default();
     env.mock_all_auths();
