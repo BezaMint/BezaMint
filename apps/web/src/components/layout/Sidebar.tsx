@@ -91,3 +91,5 @@ export default function Sidebar() {
     </aside>
   );
 }
+
+Sidebar.displayName = "Sidebar";
