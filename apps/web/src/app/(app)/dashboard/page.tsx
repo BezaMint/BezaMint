@@ -75,7 +75,8 @@ export default function DashboardPage() {
         getTotalCollections(address),
         getTotalCreators(address),
       ]);
-      if (!cancelled) setStats({ totalSupply: supply, totalCollections: collections, totalCreators: creators });
+      if (!cancelled)
+        setStats({ totalSupply: supply, totalCollections: collections, totalCreators: creators });
     })();
 
     return () => {

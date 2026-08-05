@@ -14,4 +14,3 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${baseUrl}/settings`, lastModified: new Date() },
   ];
 }
-

@@ -17,7 +17,7 @@ export default function CreatorProfileHeader({ profile, actions }: CreatorProfil
       {/* Banner */}
       {profile.bannerUri && (
         <div className="h-48 lg:h-64 rounded-2xl overflow-hidden bg-bezamint-muted/50 border border-bezamint-border mb-8">
-                    <img src={profile.bannerUri} alt="Banner" className="w-full h-full object-cover" />
+          <img src={profile.bannerUri} alt="Banner" className="w-full h-full object-cover" />
         </div>
       )}
 
