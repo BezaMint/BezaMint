@@ -59,3 +59,18 @@ fn test_unauthorized_set_contracts() {
 
     client.set_contracts(&attacker, &nft, &collection, &royalty, &creator);
 }
+
+#[test]
+fn test_factory_set_contracts() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let nft = Address::generate(&env);
+    let col = Address::generate(&env);
+    let roy = Address::generate(&env);
+    let cre = Address::generate(&env);
+    let contract = BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, ()));
+    contract.initialize(&admin);
+    contract.set_contracts(&admin, &nft, &col, &roy, &cre);
+    assert_eq!(contract.get_nft_contract(), nft);
+    assert_eq!(contract.get_collection_contract(), col);
+}
