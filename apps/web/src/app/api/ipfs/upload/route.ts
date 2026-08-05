@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
       gatewayUrl: `https://gateway.pinata.cloud/ipfs/${result.cid}`,
       fallback: false,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     // Structured error - use proper logger in production\n  if (process.env.NODE_ENV === 'development') {\n    console.error('[IPFS Upload]', { message: error?.message });\n  }
 
     // Return proper error status so callers can detect failure
