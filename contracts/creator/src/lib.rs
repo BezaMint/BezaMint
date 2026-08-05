@@ -31,6 +31,7 @@ pub struct SocialLink {
 #[derive(Clone, Debug, PartialEq)]
 pub enum CreatorKey {
     Admin,
+    Version,
     Profile(Address),
     Counter,
 }
@@ -60,6 +61,7 @@ impl BezaMintCreator {
         admin.require_auth();
         env.storage().instance().set(&CreatorKey::Admin, &admin);
         env.storage().instance().set(&CreatorKey::Counter, &0u64);
+        env.storage().instance().set(&CreatorKey::Version, &1u32);
     }
 
     pub fn register(
