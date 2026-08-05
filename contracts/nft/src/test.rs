@@ -211,3 +211,17 @@ fn test_mint_emits_event() {
     let token_id = contract.mint(&to, &0, &String::from_str(&env, "ipfs://test"));
     assert_eq!(token_id, 1);
 }
+
+#[test]
+fn test_transfer_emits_event() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    contract.initialize(&admin);
+    contract.mint(&alice, &0, &String::from_str(&env, "ipfs://test"));
+    contract.transfer(&alice, &bob, &1);
+    let new_owner = contract.owner_of(&1);
+    assert_eq!(new_owner, bob);
+}
