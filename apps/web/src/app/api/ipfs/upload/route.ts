@@ -7,6 +7,16 @@ import { getPinataClient, isIpfsAvailable } from '@/lib/pinata';
  * Returns proper HTTP status codes so callers can distinguish success from fallback.
  */
 // Max body size: 1MB
+export async function OPTIONS() {
+  return NextResponse.json({}, {
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  });
+}
+
 export async function POST(request: NextRequest) {
   const contentLength = request.headers.get("content-length");
   if (contentLength && parseInt(contentLength) > 1_000_000) {
