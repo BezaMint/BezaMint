@@ -1,6 +1,6 @@
 /**
  * Typed Freighter browser extension API wrapper.
- * Eliminates `(window as any).stellar` scattered throughout the codebase.
+ * Eliminates `(window).stellar` scattered throughout the codebase.
  */
 
 interface FreighterApi {

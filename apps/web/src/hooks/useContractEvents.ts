@@ -81,7 +81,7 @@ export function useContractEvents(options: UseContractEventsOptions = {}): UseCo
             ],
             limit: maxEvents,
             ...(latestCursor.current ? { cursor: latestCursor.current } : {}),
-          } as any),
+          } as { events?: Array<Record<string,unknown>> }),
         ),
       );
 
