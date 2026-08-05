@@ -234,7 +234,7 @@ export default function Header() {
                   Destination Address
                 </label>
                 <input
-                  id="send-destination"
+                  id="send-destination" autoFocus
                   type="text"
                   value={sendTo}
                   onChange={(e) => setSendTo(e.target.value)}
