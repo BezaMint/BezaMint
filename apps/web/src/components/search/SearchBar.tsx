@@ -56,7 +56,7 @@ export default function SearchBar({
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder={placeholder}
+        title="Press / to search" placeholder={placeholder}
         className={`input-field pl-12 ${query ? 'pr-10' : ''} ${compact ? 'text-sm py-2' : ''}`}
       />
       {query && (
