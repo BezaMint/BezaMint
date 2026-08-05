@@ -108,7 +108,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await fetchXlmBalance(state.address);
       setBalance({ balance: result, isLoading: false, error: null });
-    } catch (err: any) {
+    } catch (err: unknown) {
       setBalance({
         balance: null,
         isLoading: false,
@@ -187,7 +187,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       });
 
       // Balance refresh is handled by the connectionState effect above
-    } catch (err: any) {
+    } catch (err: unknown) {
       setState({
         address: null,
         network: 'testnet',
