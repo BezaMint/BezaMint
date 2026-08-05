@@ -251,3 +251,16 @@ fn test_balance_of_multiple_tokens() {
     contract.mint(&alice, &0, &String::from_str(&env, "ipfs://3"));
     assert_eq!(contract.balance_of(&alice), 3);
 }
+
+#[test]
+fn test_approve_and_is_approved() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let operator = Address::generate(&env);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    contract.initialize(&admin);
+    contract.mint(&owner, &0, &String::from_str(&env, "ipfs://app"));
+    contract.approve(&owner, &operator, &1);
+    assert!(contract.is_approved(&operator, &1));
+}
