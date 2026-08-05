@@ -153,3 +153,17 @@ fn test_get_royalty_returns_config() {
     assert_eq!(config.basis_points, 750);
     assert!(!config.is_frozen);
 }
+
+#[test]
+fn test_validate_basis_points_limit() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let contract = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
+    contract.initialize(&admin);
+    let recipients = Map::new(&env);
+    // 10001 bps should panic (over 100%)
+    let result = std::panic::catch_unwind(|| {
+        contract.configure_royalty(&1, &10001, &recipients, &false);
+    });
+    assert!(result.is_err());
+}
