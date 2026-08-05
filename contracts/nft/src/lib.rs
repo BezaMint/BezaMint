@@ -1,6 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{contract, contractimpl, contracttype, Address, Env, String, Vec};
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Vec};
 
 // ── Storage ────────────────────────────────────────────────────
 
@@ -44,6 +44,20 @@ pub struct NftData {
 
 // ── Contract ───────────────────────────────────────────────────
 
+
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub enum NftEvent {
+    Minted(u64, Address),
+    Transferred(u64, Address, Address),
+    Burned(u64, Address),
+    Approved(u64, Address),
+}
+
+fn emit_nft(env: &Env, event: NftEvent) {
+    env.events().publish((symbol_short!("nft"),), event);
+}
+
 #[contract]
 pub struct BezaMintNft;
 
@@ -75,6 +89,8 @@ impl BezaMintNft {
         env.storage().persistent().set(&(String::from_str(&env, OWNER), token_id), &to);
         env.storage().persistent().set(&(String::from_str(&env, DATA), token_id), &data);
 
+        emit_nft(&env, NftEvent::Minted(token_id, to.clone()));
+
         token_id
     }
 
@@ -87,6 +103,8 @@ impl BezaMintNft {
 
         env.storage().persistent().set(&(String::from_str(&env, OWNER), token_id), &to);
         env.storage().persistent().remove(&(String::from_str(&env, APPROVAL), token_id, from));
+
+        emit_nft(&env, NftEvent::Transferred(token_id, from.clone(), to.clone()));
     }
 
     pub fn approve(env: Env, operator: Address, token_id: u64) {
@@ -107,6 +125,8 @@ impl BezaMintNft {
         owner.require_auth();
         env.storage().persistent().remove(&(String::from_str(&env, OWNER), token_id));
         env.storage().persistent().remove(&(String::from_str(&env, DATA), token_id));
+
+        emit_nft(&env, NftEvent::Burned(token_id, owner));
     }
 
     pub fn total_supply(env: Env) -> u64 {
