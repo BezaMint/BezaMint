@@ -32,7 +32,8 @@ export async function uploadMetadataToIpfs(metadata: {
     body: JSON.stringify(metadata),
   });
 
-  if (!response.ok) {
+  clearTimeout(t);
+    if (!response.ok) {
     // IPFS upload failed — fall back to placeholder
     const slug = encodeURIComponent(metadata.name).slice(0, 32);
     return {
