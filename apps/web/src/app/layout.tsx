@@ -1,7 +1,14 @@
 import type { Metadata, Viewport } from 'next';
+import { Inter } from 'next/font/google';
 import { Toaster } from 'react-hot-toast';
 import { WalletProvider, ToastProvider } from '@/context';
 import '@/styles/globals.css';
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+});
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://bezamint.vercel.app';
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'BezaMint';
@@ -55,7 +62,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className={`dark ${inter.variable}`}>
       <body className="min-h-screen flex flex-col">
         <ToastProvider>
           <WalletProvider>{children}</WalletProvider>

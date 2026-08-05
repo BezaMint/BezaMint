@@ -28,6 +28,7 @@ html {
 }
 
 body {
+  font-family: var(--font-inter), Inter, system-ui, -apple-system, sans-serif;
   background-color: var(--color-bezamint-surface);
   color: #e5e7eb;
   -webkit-font-smoothing: antialiased;
