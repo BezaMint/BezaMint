@@ -12,7 +12,7 @@ export default function ExplorePage() {
       </div>
 
       {/* Featured Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <div className="card bg-gradient-to-br from-bezamint-primary/5 to-bezamint-surface border-bezamint-primary/20">
           <div className="flex items-center gap-3">
             <div className="p-3 rounded-xl bg-bezamint-primary/10 border border-bezamint-primary/20">
