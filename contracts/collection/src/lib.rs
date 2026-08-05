@@ -34,6 +34,7 @@ pub struct CollectionData {
 pub enum ColKey {
     Admin,
     Counter,
+    Version,
     Collection(u64),
     NftCollection(u64),
     NftsInCollection(u64),
@@ -66,6 +67,7 @@ impl BezaMintCollection {
         admin.require_auth();
         env.storage().instance().set(&ColKey::Admin, &admin);
         env.storage().instance().set(&ColKey::Counter, &0u64);
+        env.storage().instance().set(&ColKey::Version, &1u32);
     }
 
     pub fn create_collection(
