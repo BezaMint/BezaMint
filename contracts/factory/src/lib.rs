@@ -121,7 +121,7 @@ impl BezaMintFactory {
             .storage()
             .instance()
             .get(&FactoryKey::CreatorContract)
-            .unwrap();
+            .unwrap_or_else(|| panic!("Factory: Creator contract not set"));
 
         // Cross-contract call 1: create the collection
         let col_args = soroban_sdk::vec![
