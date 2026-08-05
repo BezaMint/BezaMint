@@ -113,14 +113,13 @@ impl BezaMintCollection {
     ) {
         creator.require_auth();
 
-        const MAX_NFTS_PER_COLLECTION: u64 = 10_000;
-
         let mut data: CollectionData = env
             .storage()
             .persistent()
             .get(&ColKey::Collection(id))
             .unwrap_or_else(|| panic!("Collection: {} not found", id));
 
+        assert!(data.creator == creator, "Collection: caller is not the collection creator");
         assert!(!data.is_archived, "Collection: {} is archived", id);
 
         data.metadata_uri = new_metadata_uri;
@@ -134,14 +133,13 @@ impl BezaMintCollection {
     pub fn archive_collection(env: Env, creator: Address, id: u64) {
         creator.require_auth();
 
-        const MAX_NFTS_PER_COLLECTION: u64 = 10_000;
-
         let mut data: CollectionData = env
             .storage()
             .persistent()
             .get(&ColKey::Collection(id))
             .unwrap_or_else(|| panic!("Collection: {} not found", id));
 
+        assert!(data.creator == creator, "Collection: caller is not the collection creator");
         data.is_archived = true;
         data.updated_at = env.ledger().timestamp();
 
