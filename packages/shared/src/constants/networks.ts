@@ -51,3 +51,9 @@ export const STELLAR_PASSPHRASES = {
   testnet: "Test SDF Network ; September 2015",
   mainnet: "Public Global Stellar Network ; September 2015",
 } as const;
+
+/** Check if the configured network is testnet */
+export function isTestnet(): boolean {
+  const network = process.env.NEXT_PUBLIC_STELLAR_NETWORK || "testnet";
+  return network === "testnet";
+}
