@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.svg" alt="BezaMint Logo" width="420" />
+</p>
+
 # BezaMint
 
 <p align="center">
