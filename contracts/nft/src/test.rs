@@ -238,3 +238,16 @@ fn test_burn_removes_ownership() {
     // Verify token is gone by checking total supply didn't change but ownership fails
     assert_eq!(contract.total_supply(), 1);
 }
+
+#[test]
+fn test_balance_of_multiple_tokens() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    contract.initialize(&admin);
+    contract.mint(&alice, &0, &String::from_str(&env, "ipfs://1"));
+    contract.mint(&alice, &0, &String::from_str(&env, "ipfs://2"));
+    contract.mint(&alice, &0, &String::from_str(&env, "ipfs://3"));
+    assert_eq!(contract.balance_of(&alice), 3);
+}
