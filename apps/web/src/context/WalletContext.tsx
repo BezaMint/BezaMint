@@ -112,7 +112,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setBalance({
         balance: null,
         isLoading: false,
-        error: err?.message || 'Failed to fetch balance',
+        error: (err as Error)?.message || 'Failed to fetch balance',
       });
     }
   }, [state.address]);
@@ -126,6 +126,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     if (!session) return;
 
     const freighter = getFreighterApi();
+    if (!freighter) return;
     freighter
       .getPublicKey()
       .then((publicKey: string) => {
@@ -165,6 +166,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       }
 
       const freighter = getFreighterApi();
+      if (!freighter) throw new Error('Freighter not available');
       const hasAccess = await freighter.requestAccess();
 
       if (!hasAccess) {
@@ -192,7 +194,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         address: null,
         network: 'testnet',
         connectionState: 'error',
-        error: err?.message || 'Failed to connect wallet',
+        error: (err as Error)?.message || 'Failed to connect wallet',
       });
 
       throw err;
@@ -223,6 +225,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!isFreighterInstalled()) return;
     const freighter = getFreighterApi();
+    if (!freighter) return;
 
     const unsubscribe = freighter.onAccountChanged
       ? freighter.onAccountChanged(async (publicKey: string | null) => {
