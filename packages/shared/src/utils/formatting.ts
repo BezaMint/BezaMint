@@ -48,3 +48,9 @@ export function getExplorerTxUrl(txHash: string): string {
 export function getExplorerAccountUrl(address: string): string {
   return `${process.env.NEXT_PUBLIC_EXPLORER_URL || 'https://stellar.expert/explorer/testnet'}/account/${address}`;
 }
+
+/** Truncate a Stellar address for display: GABC...XYZ */
+export function truncateAddress(address: string, chars = 4): string {
+  if (address.length <= chars * 2 + 3) return address;
+  return address.slice(0, chars) + "..." + address.slice(-chars);
+}
