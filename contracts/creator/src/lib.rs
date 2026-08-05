@@ -150,7 +150,7 @@ impl BezaMintCreator {
     }
 
     pub fn verify_creator(env: Env, _admin: Address, creator: Address) {
-        let stored_admin: Address = env.storage().instance().get(&CreatorKey::Admin).unwrap();
+        let stored_admin: Address = env.storage().instance().get(&CreatorKey::Admin).unwrap_or_else(|| panic!("Creator: not initialized"));
         stored_admin.require_auth();
 
         let mut profile: CreatorProfile = env
