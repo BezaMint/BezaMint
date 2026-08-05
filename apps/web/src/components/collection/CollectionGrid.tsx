@@ -1,3 +1,5 @@
+import { EmptyState } from "@/components/ui";
+import { HiOutlineCollection } from "react-icons/hi";
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -64,6 +66,8 @@ export default function CollectionGrid({
 
     return result;
   }, [collections, search, category, showArchived]);
+
+  if (collections.length === 0) { return <EmptyState icon={HiOutlineCollection} title="No collections yet" description="Create your first collection to get started." />; }
 
   return (
     <div>
