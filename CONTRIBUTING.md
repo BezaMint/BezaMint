@@ -39,8 +39,8 @@ Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `style`, `perf`, `ci`
 
 ## Testing
 
-- Frontend: `pnpm test` (Vitest) — 100+ tests across 32 files
-- Smart Contracts: `pnpm run contract:test` (Rust) — 61 tests across 5 crates
+- Frontend: `pnpm test` (Vitest) — 100 tests across 32 files
+- Smart Contracts: `pnpm run contract:test` (Rust) — 62 tests across 5 crates
 - TypeScript: `pnpm typecheck`
 - Format check: `pnpm format:check`
 - Lint: `pnpm lint`
