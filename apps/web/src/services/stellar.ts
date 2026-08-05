@@ -242,6 +242,23 @@ export async function buildXlmPayment(
   };
 }
 
+
+// ─────────────────────── AbortController Helper ───────────────────────
+
+/**
+ * Build a contract transaction with abort signal support.
+ */
+export async function buildContractTransactionWithSignal(
+  sourcePublicKey: string,
+  contractId: string,
+  methodName: string,
+  args: xdr.ScVal[],
+  signal?: AbortSignal,
+): Promise<{ tx: string; hash: string }> {
+  if (signal?.aborted) throw new Error('Transaction aborted');
+  return buildContractTransaction(sourcePublicKey, contractId, methodName, args);
+}
+
 // ─────────────────────── Address Helpers ───────────────────────
 
 export function formatAddress(address: string): string {
