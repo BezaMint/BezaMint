@@ -15,7 +15,6 @@ export default function Sidebar() {
   return (
     <aside
       className="fixed left-0 top-0 z-40 h-screen w-64 border-r border-bezamint-border bg-bezamint-surface/95 backdrop-blur-sm flex flex-col"
-      role="complementary"
       aria-label="Main navigation"
       role="navigation"
     >
