@@ -26,11 +26,15 @@ export async function uploadMetadataToIpfs(metadata: {
   collectionId?: string;
   royalties?: unknown;
 }): Promise<{ ipfsUri: string; fallback: boolean }> {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), 30000);
   const response = await fetch('/api/ipfs/upload', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(metadata),
+    signal: ctl.signal,
   });
+  clearTimeout(t);
 
   clearTimeout(t);
     if (!response.ok) {
