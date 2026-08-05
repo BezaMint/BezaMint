@@ -27,4 +27,11 @@ const nextConfig = {
   },
 };
 
+// Enable experimental features for production
+if (process.env.NODE_ENV === "production") {
+  nextConfig.experimental = {
+    optimizePackageImports: ["react-icons"],
+  };
+}
+
 module.exports = nextConfig;
