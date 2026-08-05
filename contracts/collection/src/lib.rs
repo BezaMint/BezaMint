@@ -196,7 +196,7 @@ impl BezaMintCollection {
 
         let mut new_nfts: Vec<u64> = Vec::new(&env);
         for i in 0..nfts.len() {
-            let id = nfts.get(i).unwrap();
+            let id = nfts.get(i).unwrap_or_else(|| panic!("Collection: nft index out of bounds"));
             if id != token_id {
                 new_nfts.push_back(id);
             }
