@@ -81,7 +81,7 @@ export function useContractEvents(options: UseContractEventsOptions = {}): UseCo
             ],
             limit: maxEvents,
             ...(latestCursor.current ? { cursor: latestCursor.current } : {}),
-          } as { events?: Array<Record<string, unknown>> }),
+          }),
         ),
       );
 
@@ -89,18 +89,18 @@ export function useContractEvents(options: UseContractEventsOptions = {}): UseCo
 
       for (const response of responses) {
         if (response.status === 'fulfilled') {
-          for (const evt of (response.value as { events?: Array<Record<string, unknown>> })
-            .events || []) {
+          const eventsList = (response.value as any)?.events || [];
+          for (const evt of eventsList) {
             newEvents.push({
-              contractId: evt.contractId || '',
-              topics: evt.topic || [],
-              data: evt.value?.xdr || '',
-              ledger: evt.ledger,
-              ledgerClosedAt: evt.ledgerClosedAt || '',
-              pagingToken: evt.pagingToken || '',
-              txHash: evt.txHash || '',
-              type: evt.type || 'contract',
-              inSuccessfulContractCall: evt.inSuccessfulContractCall ?? true,
+              contractId: (evt as any).contractId || '',
+              topics: (evt as any).topic || [],
+              data: (evt as any).value?.xdr || '',
+              ledger: (evt as any).ledger as number,
+              ledgerClosedAt: (evt as any).ledgerClosedAt || '',
+              pagingToken: (evt as any).pagingToken || '',
+              txHash: (evt as any).txHash || '',
+              type: (evt as any).type || 'contract',
+              inSuccessfulContractCall: (evt as any).inSuccessfulContractCall ?? true,
             });
           }
         }
