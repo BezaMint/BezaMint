@@ -106,7 +106,7 @@ export default function SettingsPage() {
                 <span className="text-sm text-gray-400">{label}</span>
                 {id ? (
                   <a
-                    href={`https://stellar.expert/explorer/testnet/contract/${id}`}
+                    href={`${process.env.NEXT_PUBLIC_EXPLORER_URL || 'https://stellar.expert/explorer/testnet'}/contract/${id}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-xs font-mono text-bezamint-secondary hover:text-bezamint-primary transition-colors"
