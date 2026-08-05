@@ -73,8 +73,12 @@ impl BezaMintNft {
     }
 
     pub fn mint(env: Env, to: Address, collection_id: u64, metadata_uri: String) -> u64 {
-        let admin: Address = env.storage().instance().get(&String::from_str(&env, ADMIN)).unwrap_or_else(|| panic!("NFT: not initialized"));
-        admin.require_auth();
+        // Verify the contract has been initialized before use.
+        env.storage().instance().get::<String, Address>(&String::from_str(&env, ADMIN))
+            .unwrap_or_else(|| panic!("NFT: not initialized"));
+        // Recipient-gated: the recipient authorizes the mint so any user can
+        // mint through the Factory instead of requiring the contract admin.
+        to.require_auth();
 
         assert!(metadata_uri.len() > 0, "NFT: metadata URI cannot be empty");
         assert!(metadata_uri.len() <= 512, "NFT: metadata URI exceeds 512 chars");
