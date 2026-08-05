@@ -57,6 +57,7 @@ body {
 }
 
 .card {
+  @apply hover:border-gray-600;
   @apply bg-[var(--color-bezamint-card)] border border-[var(--color-bezamint-border)] rounded-2xl p-6
          transition-all duration-200;
 }
