@@ -70,7 +70,7 @@ export function useTransaction() {
 
         setStatus('success');
         return { txHash, tokenId };
-      } catch (err: any) {
+      } catch (err: unknown) {
         const message = err?.message || 'Transaction failed';
         setError(message);
         throw err;
