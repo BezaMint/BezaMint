@@ -10,24 +10,30 @@ on:
       - 'pnpm-lock.yaml'
       - 'apps/**/package.json'
       - 'packages/**/package.json'
+  workflow_dispatch:
 
 jobs:
   dependency-audit:
     name: Dependency Audit
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Run cargo audit
-        run: cargo install cargo-audit && cargo audit || true
-        working-directory: contracts
 
       - uses: pnpm/action-setup@v4
         with:
           version: 9
 
-      - name: Audit dependencies
+      - name: Audit npm dependencies
         run: pnpm audit --audit-level=high
         continue-on-error: true
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Audit Rust dependencies
+        uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          working-directory: contracts
