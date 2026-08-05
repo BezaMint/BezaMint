@@ -1,4 +1,5 @@
 import { xdr, Address, scValToNative } from '@stellar/stellar-sdk';
+import type { SocialLink } from '@bezamint/shared';
 import {
   buildContractTransaction,
   simulateTransaction,
@@ -233,7 +234,7 @@ export interface OnChainCreatorProfile {
   avatarUri: string;
   bannerUri: string;
   isVerified: boolean;
-  socialLinks: Array<{ platform: string; url: string }>;
+  socialLinks: SocialLink[];
 }
 
 /**
@@ -259,7 +260,7 @@ export async function getCreatorProfile(
         avatarUri: String(raw.avatar_uri ?? ''),
         bannerUri: String(raw.banner_uri ?? ''),
         isVerified: Boolean(raw.is_verified),
-        socialLinks: socialLinks.map((l) => ({ platform: l.platform, url: l.url })),
+        socialLinks: socialLinks.map((l) => ({ platform: l.platform, url: l.url }) as SocialLink),
       };
     }
     return null;
