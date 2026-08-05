@@ -1,7 +1,7 @@
+'use client';
+
 import { EmptyState } from '@/components/ui';
 import { HiOutlineCollection } from 'react-icons/hi';
-('use client');
-
 import { useState, useMemo } from 'react';
 import { HiOutlinePlus, HiOutlineSearch, HiOutlineFilter } from 'react-icons/hi';
 import CollectionCard from './CollectionCard';
