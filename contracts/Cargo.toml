@@ -13,6 +13,8 @@ version = "0.1.0"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/BezaMint/BezaMint"
+description = "Soroban smart contracts for the BezaMint NFT platform"
+authors = ["BezaMint Contributors"]
 
 [workspace.dependencies]
 soroban-sdk = "22.0.11"
