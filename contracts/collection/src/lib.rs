@@ -113,6 +113,8 @@ impl BezaMintCollection {
     ) {
         creator.require_auth();
 
+        const MAX_NFTS_PER_COLLECTION: u64 = 10_000;
+
         let mut data: CollectionData = env
             .storage()
             .persistent()
@@ -132,6 +134,8 @@ impl BezaMintCollection {
     pub fn archive_collection(env: Env, creator: Address, id: u64) {
         creator.require_auth();
 
+        const MAX_NFTS_PER_COLLECTION: u64 = 10_000;
+
         let mut data: CollectionData = env
             .storage()
             .persistent()
@@ -150,6 +154,8 @@ impl BezaMintCollection {
         let stored_admin: Address = env.storage().instance().get(&ColKey::Admin).unwrap_or_else(|| panic!("Collection: not initialized"));
         stored_admin.require_auth();
 
+        const MAX_NFTS_PER_COLLECTION: u64 = 10_000;
+
         let mut data: CollectionData = env
             .storage()
             .persistent()
@@ -157,6 +163,7 @@ impl BezaMintCollection {
             .unwrap_or_else(|| panic!("Collection: {} not found", collection_id));
 
         assert!(!data.is_archived, "Collection: {} is archived", collection_id);
+        assert!(data.nft_count < MAX_NFTS_PER_COLLECTION, "Collection: {} is full", collection_id);
 
         env.storage()
             .persistent()
@@ -183,6 +190,8 @@ impl BezaMintCollection {
     pub fn remove_nft(env: Env, _admin: Address, collection_id: u64, token_id: u64) {
         let stored_admin: Address = env.storage().instance().get(&ColKey::Admin).unwrap_or_else(|| panic!("Collection: not initialized"));
         stored_admin.require_auth();
+
+        const MAX_NFTS_PER_COLLECTION: u64 = 10_000;
 
         let mut data: CollectionData = env
             .storage()
