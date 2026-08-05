@@ -5,6 +5,15 @@ import {
   submitSignedTransaction,
   waitForTransaction,
 } from './stellar';
+import {
+  isFreighterInstalled,
+  getFreighterApi,
+  signFreighterTransaction,
+} from '@/lib/freighter';
+import { STELLAR_NETWORK_PASSPHRASE } from '@/lib/constants';
+
+// Re-export for convenience
+export { isFreighterInstalled } from '@/lib/freighter';
 
 // ─────────────────────── Contract IDs ───────────────────────
 
@@ -15,6 +24,57 @@ export const CONTRACT_IDS = {
   creator: process.env.NEXT_PUBLIC_CREATOR_CONTRACT_ID || '',
   factory: process.env.NEXT_PUBLIC_FACTORY_CONTRACT_ID || '',
 };
+
+// ─────────────────────── Error Types ───────────────────────
+
+/** Categorized error types for user-friendly messaging */
+export enum TxErrorType {
+  WalletNotInstalled = 'WALLET_NOT_INSTALLED',
+  ConnectionRejected = 'CONNECTION_REJECTED',
+  UserCancelled = 'USER_CANCELLED',
+  InsufficientBalance = 'INSUFFICIENT_BALANCE',
+  ContractError = 'CONTRACT_ERROR',
+  NetworkError = 'NETWORK_ERROR',
+  Timeout = 'TIMEOUT',
+  Unknown = 'UNKNOWN',
+}
+
+export class TxError extends Error {
+  constructor(
+    message: string,
+    public readonly type: TxErrorType,
+    public readonly originalError?: unknown,
+  ) {
+    super(message);
+    this.name = 'TxError';
+  }
+}
+
+function categorizeError(err: unknown): TxError {
+  const message = (err as { message?: string })?.message || '';
+
+  if (message.includes('not installed') || message.includes('Freighter')) {
+    return new TxError(
+      'Freighter wallet is not installed. Please install the Freighter browser extension.',
+      TxErrorType.WalletNotInstalled,
+      err,
+    );
+  }
+  if (message.includes('cancelled') || message.includes('rejected') || message.includes('denied') || message.includes('user')) {
+    return new TxError('Transaction was cancelled by user.', TxErrorType.UserCancelled, err);
+  }
+  if (message.includes('insufficient') || message.includes('balance')) {
+    return new TxError(message, TxErrorType.InsufficientBalance, err);
+  }
+  if (message.includes('timeout') || message.includes('not finalized')) {
+    return new TxError(message, TxErrorType.Timeout, err);
+  }
+  if (message.includes('network') || message.includes('fetch')) {
+    return new TxError(message, TxErrorType.NetworkError, err);
+  }
+
+  return new TxError(message || 'Transaction failed', TxErrorType.Unknown, err);
+}
 
 // ─────────────────────── NFT Contract ───────────────────────
 
@@ -105,47 +165,35 @@ export async function getTotalCreators(sourceAddress: string): Promise<number> {
 
 // ─────────────────────── Transaction Flow ───────────────────────
 
-import { isFreighterInstalled } from '@/lib/freighter';
-
-// ─────────────────────── Transaction Flow ───────────────────────
-
 export async function signAndSubmit(
   txXdr: string,
   onStatus?: (status: string) => void,
-): Promise<{ txHash: string; result: any }> {
+): Promise<{ txHash: string; result: unknown }> {
   if (!isFreighterInstalled()) {
-    throw new Error(
+    throw new TxError(
       'Freighter wallet is not installed. Please install the Freighter browser extension.',
+      TxErrorType.WalletNotInstalled,
     );
   }
-
-  const freighter = (window as any).stellar;
 
   onStatus?.('signing');
   let signedXdr: string;
   try {
-    signedXdr = await freighter.signTransaction(txXdr, {
-      networkPassphrase: 'Test SDF Network ; September 2015',
+    signedXdr = await signFreighterTransaction(txXdr, {
+      networkPassphrase: STELLAR_NETWORK_PASSPHRASE,
     });
-  } catch (err: any) {
-    // Handle user-cancelled signing gracefully
-    const message = err?.message || '';
-    if (
-      message.includes('cancelled') ||
-      message.includes('rejected') ||
-      message.includes('denied') ||
-      message.includes('user')
-    ) {
-      throw new Error('Transaction was cancelled by user.');
-    }
-    throw new Error(`Signing failed: ${message || 'Unknown error'}`);
+  } catch (err: unknown) {
+    throw categorizeError(err);
   }
 
   onStatus?.('submitting');
   const submitResult = await submitSignedTransaction(signedXdr);
 
   if (submitResult.status === 'ERROR') {
-    throw new Error(`Submission failed: ${(submitResult as any).errorResultXdr}`);
+    throw new TxError(
+      `Submission failed: ${(submitResult as { errorResultXdr?: string }).errorResultXdr || 'Unknown error'}`,
+      TxErrorType.ContractError,
+    );
   }
 
   const txHash = submitResult.hash;
