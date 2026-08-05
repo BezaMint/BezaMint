@@ -73,7 +73,7 @@ impl BezaMintCollection {
         creator: Address,
         metadata_uri: String,
     ) -> u64 {
-        let admin: Address = env.storage().instance().get(&ColKey::Admin).unwrap();
+        let admin: Address = env.storage().instance().get(&ColKey::Admin).unwrap_or_else(|| panic!("Collection: not initialized"));
         admin.require_auth();
 
         let counter: u64 = env
