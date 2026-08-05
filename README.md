@@ -452,9 +452,8 @@ All captured from the live deployment at [web-kappa-lac-27.vercel.app](https://w
 | **Wallet Connected + Balance** | ![Connected](screenshots/audit-10-wallet-connected-desktop.png) | ![Connected](screenshots/audit-10-wallet-connected-mobile.png) |
 | **Mint Form Filled**           | ![Form](screenshots/audit-11-tx-form-filled-desktop.png)        | –                                                              |
 | **CI/CD Pipeline**             | ![CI](screenshots/audit-12-ci-pipeline.png)                     | –                                                              |
-| **Test Output (68 passing)**   | ![Tests](screenshots/audit-13-test-output.png)                  | –                                                              |
 
-> **23 screenshots** — 13 unique views spanning all pages, wallet states, CI, and test evidence.
+> **21 screenshots** — 11 unique views spanning all pages, wallet states, CI, and test evidence.
 
 ---
 
