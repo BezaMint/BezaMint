@@ -179,3 +179,18 @@ fn test_prevent_duplicate_registration() {
     });
     assert!(result.is_err());
 }
+
+#[test]
+fn test_set_social_links() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let contract = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
+    contract.initialize(&admin);
+    contract.register(&creator, &String::from_str(&env, "Test"), &String::from_str(&env, "bio"), &String::from_str(&env, ""), &String::from_str(&env, ""));
+    let link = SocialLink { platform: String::from_str(&env, "twitter"), url: String::from_str(&env, "https://x.com/test") };
+    let links = vec![&env, link];
+    contract.set_social_links(&creator, &links);
+    let profile = contract.get_profile(&creator);
+    assert_eq!(profile.social_links.len(), 1);
+}
