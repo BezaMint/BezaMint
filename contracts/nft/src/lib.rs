@@ -75,6 +75,9 @@ impl BezaMintNft {
         let admin: Address = env.storage().instance().get(&String::from_str(&env, ADMIN)).unwrap_or_else(|| panic!("NFT: not initialized"));
         admin.require_auth();
 
+        assert!(metadata_uri.len() > 0, "NFT: metadata URI cannot be empty");
+        assert!(metadata_uri.len() <= 512, "NFT: metadata URI exceeds 512 chars");
+
         let counter: u64 = env.storage().instance().get(&String::from_str(&env, COUNTER)).unwrap_or(0);
         let token_id = counter + 1;
         let ledger = env.ledger();
