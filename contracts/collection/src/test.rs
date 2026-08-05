@@ -173,6 +173,7 @@ fn test_get_nonexistent_collection_panics() {
 #[test]
 fn test_collection_version_tracking() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let creator = Address::generate(&env);
     let contract = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
@@ -186,6 +187,7 @@ fn test_collection_version_tracking() {
 #[test]
 fn test_collection_archive() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let creator = Address::generate(&env);
     let contract = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));

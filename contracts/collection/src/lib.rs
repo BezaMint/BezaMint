@@ -75,8 +75,15 @@ impl BezaMintCollection {
         creator: Address,
         metadata_uri: String,
     ) -> u64 {
-        let admin: Address = env.storage().instance().get(&ColKey::Admin).unwrap_or_else(|| panic!("Collection: not initialized"));
-        admin.require_auth();
+        // Verify the contract has been initialized before use.
+        env.storage().instance().get::<ColKey, Address>(&ColKey::Admin)
+            .unwrap_or_else(|| panic!("Collection: not initialized"));
+        // Creator-gated: the collection creator authorizes creation so any user
+        // can create collections through the Factory instead of requiring admin.
+        creator.require_auth();
+
+        assert!(metadata_uri.len() > 0, "Collection: metadata URI cannot be empty");
+        assert!(metadata_uri.len() <= 512, "Collection: metadata URI exceeds 512 chars");
 
         let counter: u64 = env
             .storage()
