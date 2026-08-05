@@ -20,7 +20,7 @@ jobs:
           targets: wasm32-unknown-unknown
 
       - name: Build optimized contracts
-        run: cd contracts && cargo build --workspace --release
+        run: cd contracts && cargo build --workspace --release --target wasm32-unknown-unknown
 
       - name: Upload contract artifacts
         uses: actions/upload-artifact@v4
