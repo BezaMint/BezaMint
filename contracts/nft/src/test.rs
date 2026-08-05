@@ -200,3 +200,14 @@ fn test_token_data_stores_correct_info() {
     assert_eq!(data.collection_id, 5);
     assert_eq!(data.creator, user);
 }
+
+#[test]
+fn test_mint_emits_event() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let to = Address::generate(&env);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    contract.initialize(&admin);
+    let token_id = contract.mint(&to, &0, &String::from_str(&env, "ipfs://test"));
+    assert_eq!(token_id, 1);
+}
