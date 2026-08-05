@@ -149,10 +149,12 @@ impl BezaMintFactory {
         // Cross-contract call 3: register creator if not already
         if !registered {
             let empty: String = String::from_str(&env, "");
+            // register() requires a non-empty display name, so pass a default.
+            let default_name: String = String::from_str(&env, "Creator");
             let reg_args = soroban_sdk::vec![
                 &env,
                 caller.clone().into_val(&env),
-                empty.clone().into_val(&env),
+                default_name.into_val(&env),
                 empty.clone().into_val(&env),
                 empty.clone().into_val(&env),
                 empty.clone().into_val(&env),

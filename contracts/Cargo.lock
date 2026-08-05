@@ -200,6 +200,10 @@ dependencies = [
 name = "bezamint-factory"
 version = "0.1.0"
 dependencies = [
+ "bezamint-collection",
+ "bezamint-creator",
+ "bezamint-nft",
+ "bezamint-royalty",
  "ed25519-dalek",
  "soroban-sdk",
 ]

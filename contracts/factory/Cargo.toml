@@ -14,3 +14,7 @@ soroban-sdk.workspace = true
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
 ed25519-dalek.workspace = true
+bezamint-nft = { path = "../nft" }
+bezamint-royalty = { path = "../royalty" }
+bezamint-collection = { path = "../collection" }
+bezamint-creator = { path = "../creator" }
