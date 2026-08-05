@@ -89,7 +89,7 @@ export function useContractEvents(options: UseContractEventsOptions = {}): UseCo
 
       for (const response of responses) {
         if (response.status === 'fulfilled') {
-          for (const evt of (response.value as any).events || []) {
+          for (const evt of (response.value as { events?: Array<Record<string,unknown>> }).events || []) {
             newEvents.push({
               contractId: evt.contractId || '',
               topics: evt.topic || [],
