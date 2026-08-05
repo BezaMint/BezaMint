@@ -45,7 +45,7 @@ impl BezaMintFactory {
         royalty: Address,
         creator: Address,
     ) {
-        let stored_admin: Address = env.storage().instance().get(&FactoryKey::Admin).unwrap();
+        let stored_admin: Address = env.storage().instance().get(&FactoryKey::Admin).unwrap_or_else(|| panic!("Factory: not initialized"));
         stored_admin.require_auth();
 
         env.storage().instance().set(&FactoryKey::NftContract, &nft);
