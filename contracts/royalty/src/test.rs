@@ -112,3 +112,15 @@ fn test_nft_and_collection_royalties_are_separate() {
     assert_eq!(client.get_royalty(&1, &false).basis_points, 300);
     assert_eq!(client.get_royalty(&1, &true).basis_points, 700);
 }
+
+#[test]
+fn test_freeze_royalty() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let contract = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
+    contract.initialize(&admin);
+    let recipients = Map::new(&env);
+    contract.configure_royalty(&1, &500, &recipients, &false);
+    contract.freeze_royalty(&1, &false);
+    assert!(contract.is_frozen(&1, &false));
+}
