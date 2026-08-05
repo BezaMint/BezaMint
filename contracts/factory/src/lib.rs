@@ -9,6 +9,7 @@ use soroban_sdk::{
 #[derive(Clone, Debug, PartialEq)]
 pub enum FactoryKey {
     Admin,
+    Version,
     NftContract,
     CollectionContract,
     RoyaltyContract,
@@ -35,6 +36,7 @@ impl BezaMintFactory {
     pub fn initialize(env: Env, admin: Address) {
         admin.require_auth();
         env.storage().instance().set(&FactoryKey::Admin, &admin);
+        env.storage().instance().set(&FactoryKey::Version, &1u32);
     }
 
     pub fn set_contracts(
