@@ -65,3 +65,14 @@ export function validateDisplayName(name: string): { valid: boolean; error?: str
     };
   return { valid: true };
 }
+
+export function validateRoyaltyRecipients(recipients: { address: string; share: number }[]): { valid: boolean; error?: string } {
+  if (!recipients || recipients.length === 0) return { valid: true };
+  if (recipients.length > 10) return { valid: false, error: 'Max 10 royalty recipients' };
+  const total = recipients.reduce((s, r) => s + r.share, 0);
+  if (total !== 100) return { valid: false, error: 'Royalty shares must total 100%' };
+  for (const r of recipients) {
+    if (r.share < 0 || r.share > 100) return { valid: false, error: 'Each share must be 0-100%' };
+  }
+  return { valid: true };
+}
