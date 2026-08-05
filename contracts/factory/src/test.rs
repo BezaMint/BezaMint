@@ -63,6 +63,7 @@ fn test_unauthorized_set_contracts() {
 #[test]
 fn test_factory_set_contracts() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let nft = Address::generate(&env);
     let col = Address::generate(&env);
@@ -78,6 +79,7 @@ fn test_factory_set_contracts() {
 #[test]
 fn test_mint_with_royalty_returns_token() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let caller = Address::generate(&env);
     let nft_addr = Address::generate(&env);
