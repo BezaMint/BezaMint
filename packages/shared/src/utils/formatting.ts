@@ -7,18 +7,22 @@ export function formatAddress(address: string, startLen = 4, endLen = 4): string
 }
 
 /**
- * Format a Unix timestamp to a relative time string
+ * Format a timestamp to a relative time string.
+ * Accepts either an epoch-seconds Unix timestamp or a millisecond timestamp.
+ * Values greater than 1e12 are treated as milliseconds (e.g. Date.now()).
  */
 export function formatRelativeTime(timestamp: number): string {
   const now = Date.now();
-  const diffMs = now - timestamp * 1000;
+  // Stellar ledger timestamps are epoch seconds; Date.now() is milliseconds.
+  const ms = timestamp > 1e12 ? timestamp : timestamp * 1000;
+  const diffMs = now - ms;
   const diffSecs = Math.floor(diffMs / 1000);
 
   if (diffSecs < 60) return 'just now';
   if (diffSecs < 3600) return `${Math.floor(diffSecs / 60)}m ago`;
   if (diffSecs < 86400) return `${Math.floor(diffSecs / 3600)}h ago`;
   if (diffSecs < 2592000) return `${Math.floor(diffSecs / 86400)}d ago`;
-  return new Date(timestamp * 1000).toLocaleDateString();
+  return new Date(ms).toLocaleDateString();
 }
 
 /**
