@@ -17,8 +17,7 @@ export default function CreatorProfileHeader({ profile, actions }: CreatorProfil
       {/* Banner */}
       {profile.bannerUri && (
         <div className="h-48 lg:h-64 rounded-2xl overflow-hidden bg-bezamint-muted/50 border border-bezamint-border mb-8">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={profile.bannerUri} alt="Banner" className="w-full h-full object-cover" />
+                    <img src={profile.bannerUri} alt="Banner" className="w-full h-full object-cover" />
         </div>
       )}
 
@@ -26,7 +25,6 @@ export default function CreatorProfileHeader({ profile, actions }: CreatorProfil
         {/* Avatar */}
         <div className="w-24 h-24 rounded-2xl bg-bezamint-muted/50 border-2 border-bezamint-border overflow-hidden flex-shrink-0">
           {profile.avatarUri ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={profile.avatarUri}
               alt={profile.displayName}

@@ -98,7 +98,6 @@ export default function CollectionDetailPage() {
           <div className="w-full lg:w-80 flex-shrink-0 mb-6 lg:mb-0">
             <div className="aspect-square rounded-xl bg-bezamint-muted/50 border border-bezamint-border overflow-hidden">
               {collection.imageUri ? (
-                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={collection.imageUri}
                   alt={collection.name}

@@ -1,5 +1,7 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   HiOutlineCollection,
   HiOutlinePhotograph,
@@ -13,13 +15,7 @@ import { StatCard } from '@/components/ui';
 import { ActivityTimeline } from '@/components/activity';
 import { useWallet } from '@/context';
 import { formatAddress } from '@/services';
-
-const SAMPLE_STATS = [
-  { label: 'Total NFTs', value: '—', icon: HiOutlinePhotograph },
-  { label: 'Collections', value: '—', icon: HiOutlineCollection },
-  { label: 'Royalty Earnings', value: '—', icon: HiOutlineCurrencyDollar },
-  { label: 'Creators', value: '—', icon: HiOutlineUserGroup },
-];
+import { getTotalSupply, getTotalCollections, getTotalCreators } from '@/services/contracts';
 
 const SAMPLE_ACTIVITIES = [
   {
@@ -62,6 +58,49 @@ const SAMPLE_ACTIVITIES = [
 
 export default function DashboardPage() {
   const { address, isConnected } = useWallet();
+  const [stats, setStats] = useState({
+    totalSupply: null as number | null,
+    totalCollections: null as number | null,
+    totalCreators: null as number | null,
+  });
+
+  // Fetch real on-chain stats from the deployed contracts.
+  useEffect(() => {
+    if (!address) return;
+    let cancelled = false;
+
+    (async () => {
+      const [supply, collections, creators] = await Promise.all([
+        getTotalSupply(address),
+        getTotalCollections(address),
+        getTotalCreators(address),
+      ]);
+      if (!cancelled) setStats({ totalSupply: supply, totalCollections: collections, totalCreators: creators });
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address]);
+
+  const statCards = [
+    {
+      label: 'Total NFTs',
+      value: stats.totalSupply !== null ? String(stats.totalSupply) : '—',
+      icon: HiOutlinePhotograph,
+    },
+    {
+      label: 'Collections',
+      value: stats.totalCollections !== null ? String(stats.totalCollections) : '—',
+      icon: HiOutlineCollection,
+    },
+    { label: 'Royalty Earnings', value: '—', icon: HiOutlineCurrencyDollar },
+    {
+      label: 'Creators',
+      value: stats.totalCreators !== null ? String(stats.totalCreators) : '—',
+      icon: HiOutlineUserGroup,
+    },
+  ];
 
   return (
     <div className="page-container max-w-6xl">
@@ -75,7 +114,7 @@ export default function DashboardPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        {SAMPLE_STATS.map((stat) => (
+        {statCards.map((stat) => (
           <StatCard key={stat.label} label={stat.label} value={stat.value} icon={stat.icon} />
         ))}
       </div>
@@ -84,14 +123,14 @@ export default function DashboardPage() {
         <div className="card lg:col-span-1">
           <h2 className="section-title text-lg">Quick Actions</h2>
           <div className="space-y-2">
-            <a
+            <Link
               href="/mint"
               className="flex items-center gap-3 p-3 rounded-xl bg-bezamint-primary/10 border border-bezamint-primary/20 hover:bg-bezamint-primary/20 transition-all group"
             >
               <HiOutlinePlusCircle className="w-5 h-5 text-bezamint-secondary" />
               <span className="text-sm font-medium text-gray-200">Mint New NFT</span>
-            </a>
-            <a
+            </Link>
+            <Link
               href="/collections"
               className="flex items-center gap-3 p-3 rounded-xl bg-bezamint-muted/50 border border-bezamint-border hover:border-gray-600 transition-all group"
             >
@@ -99,8 +138,8 @@ export default function DashboardPage() {
               <span className="text-sm font-medium text-gray-400 group-hover:text-gray-200">
                 Manage Collections
               </span>
-            </a>
-            <a
+            </Link>
+            <Link
               href="/explore"
               className="flex items-center gap-3 p-3 rounded-xl bg-bezamint-muted/50 border border-bezamint-border hover:border-gray-600 transition-all group"
             >
@@ -108,8 +147,8 @@ export default function DashboardPage() {
               <span className="text-sm font-medium text-gray-400 group-hover:text-gray-200">
                 Explore NFTs
               </span>
-            </a>
-            <a
+            </Link>
+            <Link
               href="/verify"
               className="flex items-center gap-3 p-3 rounded-xl bg-bezamint-muted/50 border border-bezamint-border hover:border-gray-600 transition-all group"
             >
@@ -117,7 +156,7 @@ export default function DashboardPage() {
               <span className="text-sm font-medium text-gray-400 group-hover:text-gray-200">
                 Verify Ownership
               </span>
-            </a>
+            </Link>
           </div>
         </div>
 

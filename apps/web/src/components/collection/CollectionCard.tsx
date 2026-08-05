@@ -36,7 +36,6 @@ export default function CollectionCard({
       {/* Image */}
       <div className="aspect-square rounded-xl bg-bezamint-muted/50 border border-bezamint-border overflow-hidden mb-4">
         {imageUri && !imgError ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={imageUri}
             alt={name}

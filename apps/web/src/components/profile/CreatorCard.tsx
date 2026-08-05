@@ -23,7 +23,6 @@ export default function CreatorCard({
       <div className="flex items-start gap-4 mb-4">
         <div className="w-14 h-14 rounded-xl bg-bezamint-muted/50 border border-bezamint-border overflow-hidden flex-shrink-0">
           {avatarUri ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img src={avatarUri} alt={displayName} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center">

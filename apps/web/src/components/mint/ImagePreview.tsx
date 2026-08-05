@@ -31,7 +31,6 @@ export default function ImagePreview({
         {/* Preview */}
         <div className="w-20 h-20 flex-shrink-0 rounded-xl bg-bezamint-muted/50 border border-bezamint-border overflow-hidden">
           {value && !error ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={value}
               alt="Preview"
