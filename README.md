@@ -2,7 +2,7 @@
   <img src="assets/logo.svg" alt="BezaMint Logo" width="420" />
 </p>
 
-# BezaMint
+<h1 align="center">BezaMint</h1>
 
 <p align="center">
   <a href="https://github.com/BezaMint/BezaMint/actions/workflows/ci.yml">
