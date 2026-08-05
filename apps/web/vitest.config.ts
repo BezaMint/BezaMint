@@ -3,14 +3,11 @@ import path from 'path';
 
 export default defineConfig({
   test: {
+    include: ['src/**/__tests__/**/*.test.{ts,tsx}'],
     testTimeout: 10000,
     globals: true,
-    environment: "jsdom",
-  },
-  test: {
-    include: ['src/**/__tests__/**/*.test.{ts,tsx}'],
-    globals: true,
-    environment: 'node',
+    environment: 'jsdom',
+    setupFiles: ['./src/lib/__tests__/setup.ts'],
   },
   resolve: {
     alias: {
