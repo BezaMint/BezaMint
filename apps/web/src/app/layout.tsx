@@ -22,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </ToastProvider>
         <Toaster
           position="bottom-right"
+          containerStyle={{ bottom: 20 }}
           toastOptions={{
             duration: 5000,
           }}
