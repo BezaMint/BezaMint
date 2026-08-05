@@ -106,3 +106,8 @@ jobs:
 
       - name: Build frontend
         run: cd apps/web && pnpm run build
+
+      - name: Build Summary
+        run: |
+          echo "## Build Complete" >> $GITHUB_STEP_SUMMARY
+          echo "Contracts built and tests passed" >> $GITHUB_STEP_SUMMARY
