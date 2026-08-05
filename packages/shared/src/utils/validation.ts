@@ -76,3 +76,7 @@ export function validateRoyaltyRecipients(recipients: { address: string; share: 
   }
   return { valid: true };
 }
+
+export function isValidIpfsUri(uri: string): boolean {
+  return uri.startsWith('ipfs://') || uri.startsWith('https://ipfs.io/ipfs/') || uri.startsWith('https://gateway.pinata.cloud/ipfs/');
+}
