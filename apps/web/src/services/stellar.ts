@@ -130,6 +130,35 @@ export async function waitForTransaction(
   throw new Error(`Transaction ${txHash} not finalized after ${maxRetries} attempts`);
 }
 
+
+// ─────────────────────── Retry Helper ───────────────────────
+
+/**
+ * Retry a function with exponential backoff.
+ * Useful for transient RPC failures.
+ */
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  options: { maxRetries?: number; baseDelayMs?: number } = {},
+): Promise<T> {
+  const { maxRetries = 3, baseDelayMs = 1000 } = options;
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err;
+      if (attempt < maxRetries) {
+        const delay = baseDelayMs * Math.pow(2, attempt);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
 // ─────────────────────── Explorer Helpers ───────────────────────
 
 export function getExplorerTxUrl(txHash: string): string {
