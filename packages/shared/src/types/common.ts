@@ -87,7 +87,5 @@ export enum EventType {
   CREATOR_VERIFIED = 'creator_verified',
 }
 
-export type MintStatus = 'idle' | 'uploading' | 'preparing' | 'signing' | 'submitting' | 'confirming' | 'success' | 'error';
-
 export interface CollectionFilter { category?: string; creator?: string; archived?: boolean; search?: string; }
 export interface SortOptions { field: string; direction: "asc" | "desc"; }

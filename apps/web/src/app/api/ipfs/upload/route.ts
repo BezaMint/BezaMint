@@ -10,20 +10,23 @@ import { getPinataClient, isIpfsAvailable } from '@/lib/pinata';
 export async function OPTIONS() {
   return NextResponse.json({}, {
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
     },
   });
 }
 
 export async function POST(request: NextRequest) {
-  const contentLength = request.headers.get("content-length");
+  const contentLength = request.headers.get('content-length');
   if (contentLength && parseInt(contentLength) > 1_000_000) {
-    return NextResponse.json({ error: "Request body too large" }, { status: 413 });
+    return NextResponse.json({ error: 'Request body too large' }, { status: 413 });
   }
   try {
-    const metadata = await request.json();\n\n    // Sanitize inputs\n    const safeName = String(metadata.name || "").trim().slice(0, 128);
+    const metadata = await request.json();
+
+    // Sanitize inputs
+    const safeName = String(metadata.name || '').trim().slice(0, 128);
 
     if (!metadata.name) {
       return NextResponse.json({ error: 'Metadata must include a name field' }, { status: 400 });
@@ -49,7 +52,7 @@ export async function POST(request: NextRequest) {
       image: metadata.imageUri || '',
       animation_url: metadata.animationUri || '',
       external_url: metadata.externalUrl || '',
-      attributes: (metadata.attributes || []).map((attr: Record<string,string>) => ({
+      attributes: (metadata.attributes || []).map((attr: Record<string, string>) => ({
         trait_type: attr.traitType || attr.trait_type,
         value: attr.value,
         display_type: attr.displayType || attr.display_type,
@@ -75,12 +78,15 @@ export async function POST(request: NextRequest) {
       fallback: false,
     });
   } catch (error: unknown) {
-    // Structured error - use proper logger in production\n  if (process.env.NODE_ENV === 'development') {\n    console.error('[IPFS Upload]', { message: error?.message });\n  }
+    // Structured error - use proper logger in production
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[IPFS Upload]', { message: (error as Error)?.message });
+    }
 
     // Return proper error status so callers can detect failure
     return NextResponse.json(
       {
-        error: process.env.NODE_ENV === 'development' ? error.message : 'IPFS upload failed',
+        error: process.env.NODE_ENV === 'development' ? (error as Error).message : 'IPFS upload failed',
         cid: null,
         ipfsUri: null,
         fallback: false,

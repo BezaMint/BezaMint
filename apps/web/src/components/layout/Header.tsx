@@ -73,7 +73,7 @@ export default function Header() {
   };
 
   return (
-    
+    <>
       <a href="#main-content" className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-bezamint-primary focus:text-white focus:rounded-lg">Skip to content</a>
       <header className="sticky top-0 z-30 h-16 bg-bezamint-surface/80 backdrop-blur-lg border-b border-bezamint-border flex items-center justify-between px-4 lg:px-6">
       {/* Left spacer (sidebar offset — hidden on mobile) */}
@@ -285,6 +285,7 @@ export default function Header() {
         </div>
       )}
     </header>
+    </>
   );
 }
 
