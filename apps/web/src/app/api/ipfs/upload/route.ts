@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
       fallback: false,
     });
   } catch (error: any) {
-    console.error('IPFS upload error:', error);
+    // Structured error - use proper logger in production\n  if (process.env.NODE_ENV === 'development') {\n    console.error('[IPFS Upload]', { message: error?.message });\n  }
 
     // Return proper error status so callers can detect failure
     return NextResponse.json(
