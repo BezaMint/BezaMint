@@ -204,6 +204,7 @@ fn test_token_data_stores_correct_info() {
 #[test]
 fn test_mint_emits_event() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let to = Address::generate(&env);
     let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
@@ -215,6 +216,7 @@ fn test_mint_emits_event() {
 #[test]
 fn test_transfer_emits_event() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let alice = Address::generate(&env);
     let bob = Address::generate(&env);
@@ -229,6 +231,7 @@ fn test_transfer_emits_event() {
 #[test]
 fn test_balance_of_multiple_tokens() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let alice = Address::generate(&env);
     let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
@@ -242,6 +245,7 @@ fn test_balance_of_multiple_tokens() {
 #[test]
 fn test_burn_event_emission() {
     let env = Env::default();
+    env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
