@@ -9,7 +9,7 @@ export {
 } from './freighter';
 export { getPinataClient, isIpfsAvailable } from './pinata';
 export { NAV_ITEMS } from './navigation';
-export { getAllSocialPlatforms, getSocialPlatform, getSocialIcon } from './socialPlatforms';
+export { SOCIAL_PLATFORMS, getPlatformIcon } from './socialPlatforms';
 export { createMetadata } from './metadata';
 export {
   STELLAR_NETWORK_PASSPHRASE,
