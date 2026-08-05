@@ -54,3 +54,8 @@ export function truncateAddress(address: string, chars = 4): string {
   if (address.length <= chars * 2 + 3) return address;
   return address.slice(0, chars) + "..." + address.slice(-chars);
 }
+
+export function parseTokenId(value: string | number): number | null {
+  const num = typeof value === "string" ? parseInt(value, 10) : value;
+  return Number.isInteger(num) && num > 0 ? num : null;
+}
