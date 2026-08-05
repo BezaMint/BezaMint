@@ -68,8 +68,8 @@ impl BezaMintFactory {
     ) -> u64 {
         caller.require_auth();
 
-        let nft_addr: Address = env.storage().instance().get(&FactoryKey::NftContract).unwrap();
-        let royalty_addr: Address = env.storage().instance().get(&FactoryKey::RoyaltyContract).unwrap();
+        let nft_addr: Address = env.storage().instance().get(&FactoryKey::NftContract).unwrap_or_else(|| panic!("Factory: NFT contract not set"));
+        let royalty_addr: Address = env.storage().instance().get(&FactoryKey::RoyaltyContract).unwrap_or_else(|| panic!("Factory: Royalty contract not set"));
 
         // Cross-contract call 1: mint the NFT
         let mint_args = soroban_sdk::vec![
@@ -114,7 +114,7 @@ impl BezaMintFactory {
             .storage()
             .instance()
             .get(&FactoryKey::CollectionContract)
-            .unwrap();
+            .unwrap_or_else(|| panic!("Factory: Collection contract not set"));
         let creator_addr: Address = env
             .storage()
             .instance()
