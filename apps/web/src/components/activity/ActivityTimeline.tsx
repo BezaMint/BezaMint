@@ -10,6 +10,7 @@ import {
   HiOutlinePencil,
 } from 'react-icons/hi';
 import { useRouter } from 'next/navigation';
+import { buildExplorerUrl } from '@/lib/explorer-url';
 
 export type { ActivityEventType } from '@bezamint/shared';
 
@@ -76,7 +77,7 @@ export default function ActivityTimeline({ activities, maxItems }: ActivityTimel
 
               {/* Tx hash link */}
               <a
-                href={`https://stellar.expert/explorer/testnet/tx/${activity.txHash}`}
+                href={buildExplorerUrl('testnet', 'tx', activity.txHash)}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
