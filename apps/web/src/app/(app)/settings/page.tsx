@@ -10,6 +10,8 @@ import {
 } from 'react-icons/hi';
 import { useWallet } from '@/context';
 import { formatAddress, getExplorerAccountUrl, CONTRACT_IDS } from '@/services';
+import { EXPLORER_URL } from '@/lib/constants';
+import { buildExplorerUrl } from '@/lib/explorer-url';
 
 export default function SettingsPage() {
   const { address, isConnected, network } = useWallet();
@@ -106,7 +108,7 @@ export default function SettingsPage() {
                 <span className="text-sm text-gray-400">{label}</span>
                 {id ? (
                   <a
-                    href={`${process.env.NEXT_PUBLIC_EXPLORER_URL || 'https://stellar.expert/explorer/testnet'}/contract/${id}`}
+                    href={buildExplorerUrl('testnet', 'contract', id, EXPLORER_URL)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 text-xs font-mono text-bezamint-secondary hover:text-bezamint-primary transition-colors"

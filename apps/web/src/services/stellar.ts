@@ -10,6 +10,7 @@ import {
   Horizon,
   Memo,
 } from '@stellar/stellar-sdk';
+import { buildExplorerUrl } from '@/lib/explorer-url';
 
 // ─────────────────────── Network Configuration ───────────────────────
 
@@ -161,11 +162,11 @@ export async function withRetry<T>(
 // ─────────────────────── Explorer Helpers ───────────────────────
 
 export function getExplorerTxUrl(txHash: string): string {
-  return `https://stellar.expert/explorer/testnet/tx/${txHash}`;
+  return buildExplorerUrl('testnet', 'tx', txHash);
 }
 
 export function getExplorerAccountUrl(address: string): string {
-  return `https://stellar.expert/explorer/testnet/account/${address}`;
+  return buildExplorerUrl('testnet', 'account', address);
 }
 
 // ─────────────────────── Balance Helpers ───────────────────────
