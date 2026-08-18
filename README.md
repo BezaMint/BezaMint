@@ -606,3 +606,7 @@ Built with ❤️ for the Stellar ecosystem.
 - **Next.js & Vercel** — Frontend framework & deployment
 - **Tailwind CSS** — Styling
 - **Turborepo** — Monorepo orchestration
+
+
+## Documentation
+- [[tests] No snapshot tests for shared validation limits](ISSUES.md)
