@@ -606,3 +606,7 @@ Built with ❤️ for the Stellar ecosystem.
 - **Next.js & Vercel** — Frontend framework & deployment
 - **Tailwind CSS** — Styling
 - **Turborepo** — Monorepo orchestration
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
