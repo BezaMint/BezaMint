@@ -46,6 +46,11 @@ export default function CollectionSelector({
   return (
     <div>
       <label className="input-label">Collection</label>
+      <p className="text-xs text-gray-500 mb-2">
+        {collections.length > 0
+          ? `${collections.length} ${collections.length === 1 ? 'collection' : 'collections'} available`
+          : 'No collections yet — create one below or mint standalone.'}
+      </p>
 
       {isCreating ? (
         <div className="space-y-3 p-4 rounded-xl bg-bezamint-muted/20 border border-bezamint-border">
