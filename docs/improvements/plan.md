@@ -8,26 +8,26 @@ Legend: `[x]` done · `[ ]` pending
 
 ## A. Frontend (50)
 
-- [ ] F01 Wire creator profile page to real on-chain data (remove MOCK_CREATOR)
-- [ ] F02 Wire collection detail page to real `get_collection` + NFTs (remove MOCK_COLLECTION)
-- [ ] F03 Add NFT detail route (`/nft/[id]`) with token data, owner, metadata, royalty
-- [ ] F04 Wire search to real data with loading/empty states (replace MOCK_RESULTS)
-- [ ] F05 Centralize explorer URL building from config (fix hardcoded testnet links)
-- [ ] F06 RoyaltyConfig: precise basis-point entry synced with slider
-- [ ] F07 Wallet-disconnected guard on mint + friendly connect prompt
-- [ ] F08 TransactionStatus success deep-links (explorer + asset page)
-- [ ] F09 Mint wizard: create a collection inline before minting into it
-- [ ] F10 Client-side image compression/WebP before IPFS upload
-- [ ] F11 Retry with exponential backoff on IPFS upload
-- [ ] F12 AttributeEditor inline validation (non-empty, dedupe, max count)
-- [ ] F13 Explore "Verified Creators"/"Recently Minted" cards wired to real data
-- [ ] F14 MobileMenu accessible dialog (focus trap, Escape, aria-expanded)
-- [ ] F15 Nav active states with `aria-current="page"`
-- [ ] F16 Theme toggle with persisted preference + `prefers-color-scheme`
-- [ ] F17 Consistent focus-visible rings across inputs/buttons
-- [ ] F18 Per-route error boundaries with reset UI
-- [ ] F19 Toast action buttons (e.g. "Open explorer")
-- [ ] F20 Collection grid pagination
+- [x] F01 Wire creator profile page to real on-chain data (remove MOCK_CREATOR)
+- [x] F02 Wire collection detail page to real `get_collection` + NFTs (remove MOCK_COLLECTION)
+- [x] F03 Add NFT detail route (`/nft/[id]`) with token data, owner, metadata, royalty
+- [x] F04 Wire search to real data with loading/empty states (replace MOCK_RESULTS)
+- [x] F05 Centralize explorer URL building from config (fix hardcoded testnet links)
+- [x] F06 RoyaltyConfig: precise basis-point entry synced with slider
+- [x] F07 Wallet-disconnected guard on mint + friendly connect prompt
+- [x] F08 TransactionStatus success deep-links (explorer + asset page)
+- [x] F09 Mint wizard: create a collection inline before minting into it
+- [x] F10 Client-side image compression/WebP before IPFS upload
+- [x] F11 Retry with exponential backoff on IPFS upload
+- [x] F12 AttributeEditor inline validation (non-empty, dedupe, max count)
+- [x] F13 Explore "Verified Creators"/"Recently Minted" cards wired to real data
+- [x] F14 MobileMenu accessible dialog (focus trap, Escape, aria-expanded)
+- [x] F15 Nav active states with `aria-current="page"`
+- [x] F16 Theme toggle with persisted preference + `prefers-color-scheme`
+- [x] F17 Consistent focus-visible rings across inputs/buttons
+- [x] F18 Per-route error boundaries with reset UI
+- [x] F19 Toast action buttons (e.g. "Open explorer")
+- [x] F20 Collection grid pagination
 - [ ] F21 Dashboard disconnected-state CTA
 - [ ] F22 Copy-to-clipboard on all address displays with feedback
 - [ ] F23 Image skeleton shimmer + broken-image fallback
