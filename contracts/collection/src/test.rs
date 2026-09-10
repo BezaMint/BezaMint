@@ -1,9 +1,22 @@
 use soroban_sdk::{
-    testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
-    Address, Env, IntoVal, String,
+    testutils::{Address as _, Events, Ledger, MockAuth, MockAuthInvoke},
+    Address, Env, IntoVal, String, Symbol, TryFromVal,
 };
 
-use crate::{BezaMintCollection, BezaMintCollectionClient};
+use crate::{BezaMintCollection, BezaMintCollectionClient, ColEvent};
+
+/// Decode the single most recent event and assert emitter, topic and payload.
+fn assert_single_col_event(env: &Env, emitter: &Address, expected: ColEvent) {
+    let events = env.events().all();
+    assert_eq!(events.len(), 1, "expected exactly one event");
+    let (contract, topics, data) = events.get(0).expect("one event");
+    assert_eq!(contract.clone(), emitter.clone(), "wrong emitter");
+    let topic_symbol: Symbol =
+        Symbol::try_from_val(env, &topics.get(0).expect("topic")).expect("topic is a symbol");
+    assert_eq!(topic_symbol, Symbol::new(env, "col"));
+    let decoded: ColEvent = ColEvent::try_from_val(env, &data).expect("decodable event");
+    assert_eq!(decoded, expected);
+}
 
 fn setup() -> (Env, Address, BezaMintCollectionClient<'static>) {
     let env = Env::default();
@@ -312,6 +325,30 @@ fn test_add_nft_count_matches_distinct_tokens() {
     let data = client.get_collection(&id);
     assert_eq!(data.nft_count, 2);
     assert_eq!(client.get_nfts_in_collection(&id, &0, &100).len(), 2);
+}
+
+/// Every state-changing operation must emit exactly one well-formed event with
+/// the right payload: created, updated, archived, add_nft, remove_nft.
+#[test]
+fn test_events_cover_all_mutations() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    let contract_id = client.address.clone();
+
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://events"));
+    assert_single_col_event(&env, &contract_id, ColEvent::Created(1, creator.clone()));
+
+    client.update_collection(&creator, &id, &String::from_str(&env, "ipfs://events-v2"));
+    assert_single_col_event(&env, &contract_id, ColEvent::Updated(1));
+
+    client.add_nft(&id, &7);
+    assert_single_col_event(&env, &contract_id, ColEvent::NftAdded(1, 7));
+
+    client.remove_nft(&id, &7);
+    assert_single_col_event(&env, &contract_id, ColEvent::NftRemoved(1, 7));
+
+    client.archive_collection(&creator, &id);
+    assert_single_col_event(&env, &contract_id, ColEvent::Archived(1));
 }
 
 /// Pagination: a page of the membership vector must respect start/limit and
