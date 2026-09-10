@@ -18,6 +18,7 @@ import {
   getTotalSupply,
   getCollectionsByCreator,
   createCollection,
+  getExplorerTxUrl,
 } from '@/services';
 import AttributeEditor from './AttributeEditor';
 import ImagePreview from './ImagePreview';
@@ -204,7 +205,15 @@ export default function MintForm() {
         return { txHash: result.txHash, tokenId };
       });
 
-      showSuccess('NFT minted successfully!');
+      showSuccess('NFT minted successfully!', {
+        action: {
+          label: 'View on Explorer',
+          onAction: () => {
+            const hash = tx.txHash;
+            if (hash) window.open(getExplorerTxUrl(hash), '_blank', 'noopener,noreferrer');
+          },
+        },
+      });
     } catch (err: unknown) {
       const message = (err as Error)?.message || '';
       if (
