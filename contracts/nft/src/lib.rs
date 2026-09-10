@@ -16,6 +16,16 @@ const MAX_PAGE_SIZE: u32 = 100;
 /// destinations instead of silently accepting them.
 const ZERO_ADDRESS: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
 
+/// State-expiration (TTL) policy. Soroban entries silently archive once their
+/// TTL elapses and then read as missing, so an NFT whose ownership record
+/// archived would appear to vanish from the ledger. Every write therefore
+/// refreshes the touched entries to the network maximum
+/// ([`TTL_LEDGERS`] = Stellar's `MAXIMUM_ENTRY_TTL_LEDGERS`, ~1 year at 5s
+/// per ledger), and every hot read bumps entries that have fallen below
+/// half-life so actively used NFTs stay alive indefinitely.
+const TTL_LEDGERS: u32 = 6_312_000;
+const TTL_THRESHOLD: u32 = TTL_LEDGERS / 2;
+
 // ── Storage keys ───────────────────────────────────────────────
 
 /// Typed storage keys. Using an enum instead of runtime-constructed `String`
@@ -86,6 +96,15 @@ fn emit_nft(env: &Env, event: NftEvent) {
     env.events().publish((symbol_short!("nft"),), event);
 }
 
+/// Extend the TTL of a persistent entry to [`TTL_LEDGERS`] when its remaining
+/// life is at or below [`TTL_THRESHOLD`]. Cheap no-op otherwise, so it is safe
+/// to call on every access path.
+fn bump_ttl(env: &Env, key: &NftKey) {
+    env.storage()
+        .persistent()
+        .extend_ttl(key, TTL_THRESHOLD, TTL_LEDGERS);
+}
+
 // ── Contract ───────────────────────────────────────────────────
 
 #[contract]
@@ -101,6 +120,11 @@ impl BezaMintNft {
         env.storage().instance().set(&NftKey::Admin, &admin);
         env.storage().instance().set(&NftKey::Counter, &0u64);
         env.storage().instance().set(&NftKey::Version, &1u32);
+        // Instance data and contract code share one TTL; refresh both up front
+        // so a long-dormant contract does not silently lose its admin binding.
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
     }
 
     /// Returns `true` once `initialize` has succeeded. Deploy tooling uses this
@@ -148,9 +172,14 @@ impl BezaMintNft {
         env.storage()
             .persistent()
             .set(&NftKey::Owner(token_id), &to);
+        bump_ttl(&env, &NftKey::Owner(token_id));
         env.storage()
             .persistent()
             .set(&NftKey::Data(token_id), &data);
+        bump_ttl(&env, &NftKey::Data(token_id));
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
         Self::index_add(&env, &to, token_id);
 
         emit_nft(&env, NftEvent::Minted(token_id, to.clone()));
@@ -213,9 +242,13 @@ impl BezaMintNft {
         Self::index_add(env, to, token_id);
 
         env.storage().persistent().set(&NftKey::Owner(token_id), to);
+        bump_ttl(env, &NftKey::Owner(token_id));
         env.storage()
             .persistent()
             .remove(&NftKey::Approval(token_id));
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
 
         emit_nft(
             env,
@@ -240,6 +273,9 @@ impl BezaMintNft {
         env.storage()
             .persistent()
             .set(&NftKey::OwnedCount(owner.clone()), &(count + 1));
+        bump_ttl(env, &NftKey::OwnedToken(owner.clone(), count));
+        bump_ttl(env, &NftKey::OwnedIndex(owner.clone(), token_id));
+        bump_ttl(env, &NftKey::OwnedCount(owner.clone()));
     }
 
     /// Remove `token_id` from an owner's dense index using swap-removal, which
@@ -288,6 +324,7 @@ impl BezaMintNft {
         env.storage()
             .persistent()
             .set(&NftKey::OwnedCount(owner.clone()), &last);
+        bump_ttl(env, &NftKey::OwnedCount(owner.clone()));
     }
 
     pub fn approve(env: Env, operator: Address, token_id: u64) {
@@ -298,9 +335,11 @@ impl BezaMintNft {
             .unwrap_or_else(|| panic!("NFT: cannot approve nonexistent token {}", token_id));
         owner.require_auth();
         Self::assert_not_zero(&env, &operator, "approval operator");
+        bump_ttl(&env, &NftKey::Owner(token_id));
         env.storage()
             .persistent()
             .set(&NftKey::Approval(token_id), &operator);
+        bump_ttl(&env, &NftKey::Approval(token_id));
 
         emit_nft(&env, NftEvent::Approved(token_id, operator));
     }
@@ -310,9 +349,9 @@ impl BezaMintNft {
         if approved {
             Self::assert_not_zero(&env, &operator, "approval operator");
         }
-        env.storage()
-            .persistent()
-            .set(&NftKey::OperatorApproval(owner_addr, operator), &approved);
+        let key = NftKey::OperatorApproval(owner_addr, operator);
+        env.storage().persistent().set(&key, &approved);
+        bump_ttl(&env, &key);
     }
 
     pub fn burn(env: Env, token_id: u64) {
@@ -340,17 +379,25 @@ impl BezaMintNft {
     }
 
     pub fn owner_of(env: Env, token_id: u64) -> Address {
-        env.storage()
-            .persistent()
-            .get(&NftKey::Owner(token_id))
-            .unwrap_or_else(|| panic!("NFT: token {} not found", token_id))
+        let key = NftKey::Owner(token_id);
+        match env.storage().persistent().get::<NftKey, Address>(&key) {
+            Some(owner) => {
+                bump_ttl(&env, &key);
+                owner
+            }
+            None => panic!("NFT: token {token_id} not found"),
+        }
     }
 
     pub fn token_data(env: Env, token_id: u64) -> NftData {
-        env.storage()
-            .persistent()
-            .get(&NftKey::Data(token_id))
-            .unwrap_or_else(|| panic!("NFT: data for token {} not found", token_id))
+        let key = NftKey::Data(token_id);
+        match env.storage().persistent().get::<NftKey, NftData>(&key) {
+            Some(data) => {
+                bump_ttl(&env, &key);
+                data
+            }
+            None => panic!("NFT: data for token {token_id} not found"),
+        }
     }
 
     /// Number of tokens currently held by `owner`.
@@ -360,10 +407,14 @@ impl BezaMintNft {
     /// (which grows without bound and would eventually exceed the ledger's
     /// per-invocation budget).
     pub fn balance_of(env: Env, owner: Address) -> u64 {
-        env.storage()
-            .persistent()
-            .get(&NftKey::OwnedCount(owner))
-            .unwrap_or(0)
+        let key = NftKey::OwnedCount(owner);
+        match env.storage().persistent().get::<NftKey, u64>(&key) {
+            Some(count) => {
+                bump_ttl(&env, &key);
+                count
+            }
+            None => 0,
+        }
     }
 
     /// Paginated enumeration of the token ids owned by `owner`.

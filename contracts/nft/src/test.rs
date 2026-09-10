@@ -1,6 +1,38 @@
-use soroban_sdk::{testutils::Address as _, Address, Env, String};
+use soroban_sdk::{
+    testutils::{Address as _, Ledger},
+    xdr::{self, ContractDataDurability, LedgerKey},
+    Address, Env, IntoVal, String, TryFromVal,
+};
 
 use crate::{BezaMintNft, BezaMintNftClient};
+
+/// Remaining TTL in ledgers of a specific persistent entry of the NFT
+/// contract, or `None` if the entry does not exist.
+fn ttl_of(env: &Env, contract_id: &Address, data_key: &xdr::ScVal) -> Option<u32> {
+    let contract_addr: xdr::ScAddress = contract_id.clone().into();
+    env.as_contract(contract_id, || {
+        let storage = env.host().with_mut_storage(|s| Ok(s.map.clone())).unwrap();
+        for (key, entry) in storage {
+            let LedgerKey::ContractData(data) = key.as_ref() else {
+                continue;
+            };
+            if data.contract != contract_addr {
+                continue;
+            }
+            if data.durability != ContractDataDurability::Persistent {
+                continue;
+            }
+            if &data.key != data_key {
+                continue;
+            }
+            let Some((_entry, Some(live))) = entry else {
+                continue;
+            };
+            return Some(live.saturating_sub(env.ledger().sequence()));
+        }
+        None
+    })
+}
 
 fn mint_one(client: &BezaMintNftClient, to: &Address, collection_id: u64) -> u64 {
     client.mint(
@@ -744,4 +776,82 @@ fn test_burn_event_emission() {
     contract.mint(&user, &0, &String::from_str(&env, "ipfs://burn"));
     contract.burn(&1);
     assert_eq!(contract.total_supply(), 1);
+}
+
+/// The TTL policy must actually keep NFT records alive: after a mint every
+/// persistent entry written for the NFT (owner, data, ownership index) must
+/// carry a live-until ledger at least `TTL_THRESHOLD` ledgers in the future.
+/// Without this an entry can silently archive and the NFT reads as missing
+/// even though the counter says it exists.
+#[test]
+fn test_mint_extends_persistent_ttl() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    let contract_id = env.register(BezaMintNft, ());
+    let contract = BezaMintNftClient::new(&env, &contract_id);
+    contract.initialize(&admin);
+    contract.mint(&user, &0, &String::from_str(&env, "ipfs://ttl"));
+    let contract_addr: xdr::ScAddress = contract_id.clone().into();
+    let storage = env.as_contract(&contract_id, || {
+        env.host().with_mut_storage(|s| Ok(s.map.clone())).unwrap()
+    });
+    let ledger_seq = env.ledger().sequence();
+    let mut checked = 0u32;
+    for (key, entry) in storage {
+        let LedgerKey::ContractData(data) = key.as_ref() else {
+            continue;
+        };
+        if data.contract != contract_addr {
+            continue;
+        }
+        if data.durability != ContractDataDurability::Persistent {
+            continue;
+        }
+        let Some((_entry, live_until)) = entry else {
+            continue;
+        };
+        checked += 1;
+        let live = live_until.expect("persistent entry must have a TTL");
+        assert!(
+            live.saturating_sub(ledger_seq) >= crate::TTL_THRESHOLD,
+            "entry not extended: live-until {live}, sequence {ledger_seq}"
+        );
+    }
+    assert!(
+        checked >= 1,
+        "no persistent entries found for the NFT contract"
+    );
+}
+/// A transfer is also a write: an ownership record that has lapsed past
+/// half-life must be refreshed to the full TTL again when it moves, so a
+/// long-held but actively traded NFT can never archive.
+#[test]
+fn test_transfer_refreshes_owner_ttl() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let contract_id = env.register(BezaMintNft, ());
+    let contract = BezaMintNftClient::new(&env, &contract_id);
+    contract.initialize(&admin);
+    contract.mint(&alice, &0, &String::from_str(&env, "ipfs://ttl"));
+
+    let owner_val: soroban_sdk::Val = crate::NftKey::Owner(1).into_val(&env);
+    let owner_key: xdr::ScVal = xdr::ScVal::try_from_val(&env, &owner_val).unwrap();
+
+    // Fast-forward most of the way through the TTL window so the ownership
+    // record has lapsed past half-life and would archive if left untouched.
+    env.ledger().with_mut(|l| {
+        l.sequence_number += crate::TTL_THRESHOLD;
+    });
+    let before = ttl_of(&env, &contract_id, &owner_key).expect("owner entry exists");
+    assert!(before < crate::TTL_THRESHOLD);
+
+    contract.transfer(&alice, &bob, &1);
+
+    let after = ttl_of(&env, &contract_id, &owner_key).expect("owner entry exists");
+    assert!(after >= crate::TTL_THRESHOLD);
 }
