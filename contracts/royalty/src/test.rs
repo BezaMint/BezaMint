@@ -33,6 +33,95 @@ fn empty_recipients(env: &Env) -> Map<Address, u32> {
     Map::new(env)
 }
 
+fn recipients(env: &Env, entries: &[(Address, u32)]) -> Map<Address, u32> {
+    let mut map = Map::new(env);
+    for (address, share) in entries {
+        map.set(address.clone(), *share);
+    }
+    map
+}
+
+#[test]
+fn test_recipients_summing_to_100_are_accepted() {
+    let (env, client) = setup();
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let split = recipients(&env, &[(alice.clone(), 60), (bob.clone(), 40)]);
+
+    client.configure_royalty(&1, &500, &split, &false);
+
+    let config = client.get_royalty(&1, &false);
+    assert_eq!(config.recipients.len(), 2);
+    assert_eq!(config.recipients.get(alice).unwrap(), 60);
+    assert_eq!(config.recipients.get(bob).unwrap(), 40);
+}
+
+#[test]
+fn test_empty_recipients_means_full_share_to_creator() {
+    let (env, client) = setup();
+    client.configure_royalty(&1, &500, &empty_recipients(&env), &false);
+    assert_eq!(client.get_royalty(&1, &false).recipients.len(), 0);
+}
+
+#[test]
+#[should_panic(expected = "must sum to 100")]
+fn test_recipients_summing_to_99_are_rejected() {
+    let (env, client) = setup();
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let split = recipients(&env, &[(alice, 59), (bob, 40)]);
+    client.configure_royalty(&1, &500, &split, &false);
+}
+
+#[test]
+#[should_panic(expected = "must sum to 100")]
+fn test_recipients_summing_over_100_are_rejected() {
+    let (env, client) = setup();
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let split = recipients(&env, &[(alice, 150), (bob, 100)]);
+    client.configure_royalty(&1, &500, &split, &false);
+}
+
+#[test]
+#[should_panic(expected = "greater than zero")]
+fn test_zero_share_recipient_is_rejected() {
+    let (env, client) = setup();
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let split = recipients(&env, &[(alice, 100), (bob, 0)]);
+    client.configure_royalty(&1, &500, &split, &false);
+}
+
+#[test]
+#[should_panic(expected = "at most 10 recipients")]
+fn test_too_many_recipients_are_rejected() {
+    let (env, client) = setup();
+    let mut map = Map::new(&env);
+    for _ in 0..11 {
+        map.set(Address::generate(&env), 9u32);
+    }
+    client.configure_royalty(&1, &500, &map, &false);
+}
+
+#[test]
+#[should_panic(expected = "must sum to 100")]
+fn test_update_royalty_validates_recipients() {
+    let (env, client) = setup();
+    client.configure_royalty(&1, &500, &empty_recipients(&env), &false);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let split = recipients(&env, &[(alice, 10), (bob, 10)]);
+    client.update_royalty(&1, &500, &split, &false);
+}
+
+#[test]
+fn test_basis_point_ceiling_is_10000() {
+    let (env, client) = setup();
+    client.configure_royalty(&1, &10000, &empty_recipients(&env), &false);
+    assert_eq!(client.get_royalty(&1, &false).basis_points, 10000);
+}
+
 #[test]
 fn test_validate_basis_points() {
     let (_, client) = setup();

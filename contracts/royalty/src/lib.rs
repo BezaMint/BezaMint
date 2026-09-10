@@ -2,6 +2,18 @@
 
 use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, Map};
 
+// ─────────────────────────── Constants ───────────────────────────
+
+/// Royalty rates are expressed in basis points, where 10,000 bp == 100%.
+const MAX_BASIS_POINTS: u32 = 10_000;
+
+/// Recipient shares are expressed as whole percentages that must sum to 100.
+const TOTAL_SHARE: u32 = 100;
+
+/// Bound on the number of split recipients, so a config cannot be used to
+/// create an unbounded payout fan-out.
+const MAX_RECIPIENTS: u32 = 10;
+
 // ─────────────────────────── Types ───────────────────────────
 
 #[contracttype]
@@ -73,8 +85,9 @@ impl BezaMintRoyalty {
 
         assert!(
             Self::validate_basis_points(basis_points),
-            "Royalty: basis points must be <= 10000"
+            "Royalty: basis points must be <= {MAX_BASIS_POINTS}"
         );
+        Self::validate_recipients(&recipients);
 
         let key = if is_collection {
             RoyaltyKey::ConfigCollection(target_id)
@@ -128,15 +141,15 @@ impl BezaMintRoyalty {
             .persistent()
             .get(&key)
             .unwrap_or_else(|| panic!("Royalty: no config for target {}", target_id));
-
         assert!(
             !config.is_frozen,
             "Royalty: config is frozen for {target_id}"
         );
         assert!(
             Self::validate_basis_points(basis_points),
-            "Royalty: basis points must be <= 10000"
+            "Royalty: basis points must be <= {MAX_BASIS_POINTS}"
         );
+        Self::validate_recipients(&recipients);
 
         config.basis_points = basis_points;
         config.recipients = recipients;
@@ -176,7 +189,41 @@ impl BezaMintRoyalty {
     // ── Queries ─────────────────────────────────────────────
 
     pub fn validate_basis_points(basis_points: u32) -> bool {
-        basis_points <= 10000
+        basis_points <= MAX_BASIS_POINTS
+    }
+
+    /// Validate a split map so the declared shares can actually be paid out.
+    ///
+    /// An empty map is valid and means "100% to the creator", which is the
+    /// documented default. A non-empty map must contain at most
+    /// [`MAX_RECIPIENTS`] entries, every share must be non-zero, and the shares
+    /// must sum to exactly [`TOTAL_SHARE`]. Without this a config could promise
+    /// 250% of a sale (impossible, so every payout would underflow or the
+    /// listed recipients would silently receive less than configured) or 40%
+    /// (leaving the remainder unaccounted for).
+    fn validate_recipients(recipients: &Map<Address, u32>) {
+        if recipients.is_empty() {
+            return;
+        }
+
+        assert!(
+            recipients.len() <= MAX_RECIPIENTS,
+            "Royalty: at most {MAX_RECIPIENTS} recipients are allowed"
+        );
+
+        let mut total: u32 = 0;
+        for (_, share) in recipients.iter() {
+            assert!(
+                share > 0,
+                "Royalty: every recipient share must be greater than zero"
+            );
+            total = total.saturating_add(share);
+        }
+
+        assert!(
+            total == TOTAL_SHARE,
+            "Royalty: recipient shares must sum to {TOTAL_SHARE}"
+        );
     }
 
     pub fn get_royalty(env: Env, target_id: u64, is_collection: bool) -> RoyaltyConfig {
