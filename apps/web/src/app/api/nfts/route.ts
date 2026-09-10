@@ -9,12 +9,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { refreshIndexer, getIndexedEvents } from '@/lib/server/indexer';
 import { parsePagination } from '@/lib/server/pagination';
-import { simulateRead, u64ScVal, addressScVal } from '@/lib/server/contractReader';
+import { simulateRead, u64ScVal } from '@/lib/server/contractReader';
 import { ApiError, normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
+import { TtlCache, SHORT_CACHE_CONTROL } from '@/lib/server/cache';
 import { CONTRACT_IDS } from '@/services';
 
 export const dynamic = 'force-dynamic';
+
+interface NftListItem {
+  tokenId: number;
+  creator: string | null;
+  owner: string | null;
+  collectionId: number | null;
+  metadataUri: string | null;
+  mintedAt: number | null;
+  ledger: number;
+  txHash: string;
+}
+
+// Enrichment involves one RPC round-trip per NFT; cache per filter set.
+const enrichmentCache = new TtlCache<NftListItem[]>(15_000);
 
 export async function GET(request: NextRequest) {
   const requestId = newRequestId();
@@ -53,52 +68,58 @@ export async function GET(request: NextRequest) {
     });
 
     const page = unique.slice(offset, offset + limit);
+    const cacheKey = `nfts:${creator ?? ''}:${collectionId ?? ''}:${page.map((e) => e.id).join(',')}`;
 
-    const nfts = await Promise.all(
-      page.map(async (event) => {
-        const tokenId = event.id!;
-        try {
-          const [owner, data, nftCollectionId] = await Promise.all([
-            simulateRead<string>(CONTRACT_IDS.nft, 'owner_of', [u64ScVal(tokenId)]),
-            simulateRead<{
-              token_id: number;
-              creator: string;
-              collection_id: number;
-              metadata_uri: string;
-              minted_at: number;
-            }>(CONTRACT_IDS.nft, 'token_data', [u64ScVal(tokenId)]),
-            simulateRead<number>(CONTRACT_IDS.collection, 'get_collection_for_nft', [
-              u64ScVal(tokenId),
-            ]).catch(() => null),
-          ]);
-          return {
-            tokenId,
-            creator: data.creator,
-            owner,
-            collectionId: nftCollectionId,
-            metadataUri: data.metadata_uri,
-            mintedAt: data.minted_at,
-            ledger: event.ledger,
-            txHash: event.txHash,
-          };
-        } catch {
-          return {
-            tokenId,
-            creator: event.actor ?? null,
-            owner: null,
-            collectionId: null,
-            metadataUri: null,
-            mintedAt: null,
-            ledger: event.ledger,
-            txHash: event.txHash,
-          };
-        }
-      }),
+    const nfts = await enrichmentCache.getOrSet(cacheKey, async () =>
+      Promise.all(
+        page.map(async (event) => {
+          const tokenId = event.id!;
+          try {
+            const [owner, data, nftCollectionId] = await Promise.all([
+              simulateRead<string>(CONTRACT_IDS.nft, 'owner_of', [u64ScVal(tokenId)]),
+              simulateRead<{
+                token_id: number;
+                creator: string;
+                collection_id: number;
+                metadata_uri: string;
+                minted_at: number;
+              }>(CONTRACT_IDS.nft, 'token_data', [u64ScVal(tokenId)]),
+              simulateRead<number>(CONTRACT_IDS.collection, 'get_collection_for_nft', [
+                u64ScVal(tokenId),
+              ]).catch(() => null),
+            ]);
+            return {
+              tokenId,
+              creator: data.creator,
+              owner,
+              collectionId: nftCollectionId,
+              metadataUri: data.metadata_uri,
+              mintedAt: data.minted_at,
+              ledger: event.ledger,
+              txHash: event.txHash,
+            };
+          } catch {
+            return {
+              tokenId,
+              creator: event.actor ?? null,
+              owner: null,
+              collectionId: null,
+              metadataUri: null,
+              mintedAt: null,
+              ledger: event.ledger,
+              txHash: event.txHash,
+            };
+          }
+        }),
+      ),
     );
 
     const total = unique.length;
     timer.done(200, { total, returned: nfts.length });
-    return NextResponse.json({ data: nfts, pagination: { limit, offset, total } });
+    return NextResponse.json(
+      { data: nfts, pagination: { limit, offset, total } },
+      { headers: { 'Cache-Control': SHORT_CACHE_CONTROL } },
+    );
   } catch (err) {
     const apiError = normalizeError(err);
     logger.warn('GET /api/nfts failed', { requestId, error: apiError.message });

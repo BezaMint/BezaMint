@@ -9,12 +9,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { refreshIndexer, getIndexedEvents } from '@/lib/server/indexer';
 import { parsePagination } from '@/lib/server/pagination';
-import { simulateRead, u64ScVal, addressScVal } from '@/lib/server/contractReader';
+import { simulateRead, u64ScVal } from '@/lib/server/contractReader';
 import { ApiError, normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
+import { TtlCache, SHORT_CACHE_CONTROL } from '@/lib/server/cache';
 import { CONTRACT_IDS } from '@/services';
 
 export const dynamic = 'force-dynamic';
+
+// Collection reads are per-id RPC round trips; cache by id set + filter.
+const collectionCache = new TtlCache<CollectionData[]>(15_000);
 
 interface CollectionData {
   id: number;
@@ -57,19 +61,22 @@ export async function GET(request: NextRequest) {
       collectionIds = Array.from({ length: Math.min(total, 200) }, (_, i) => total - i);
     }
 
-    const enriched = await Promise.all(
-      collectionIds.map(async (id) => {
-        try {
-          return simulateRead<CollectionData>(CONTRACT_IDS.collection, 'get_collection', [
-            u64ScVal(id),
-          ]);
-        } catch {
-          return null;
-        }
-      }),
-    );
+    const cacheKey = `collections:${collectionIds.join(',')}`;
+    const valid = await collectionCache.getOrSet(cacheKey, async () => {
+      const enriched = await Promise.all(
+        collectionIds.map(async (id) => {
+          try {
+            return simulateRead<CollectionData>(CONTRACT_IDS.collection, 'get_collection', [
+              u64ScVal(id),
+            ]);
+          } catch {
+            return null;
+          }
+        }),
+      );
+      return enriched.filter((c): c is NonNullable<typeof c> => c !== null);
+    });
 
-    const valid = enriched.filter((c): c is NonNullable<typeof c> => c !== null);
     const filtered = creator ? valid.filter((c) => c.creator === creator) : valid;
     const page = filtered.slice(offset, offset + limit);
 
@@ -84,10 +91,13 @@ export async function GET(request: NextRequest) {
     }));
 
     timer.done(200, { total: filtered.length, returned: collections.length });
-    return NextResponse.json({
-      data: collections,
-      pagination: { limit, offset, total: filtered.length },
-    });
+    return NextResponse.json(
+      {
+        data: collections,
+        pagination: { limit, offset, total: filtered.length },
+      },
+      { headers: { 'Cache-Control': SHORT_CACHE_CONTROL } },
+    );
   } catch (err) {
     const apiError = normalizeError(err);
     logger.warn('GET /api/collections failed', { requestId, error: apiError.message });

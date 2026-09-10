@@ -11,9 +11,13 @@ import { parsePagination } from '@/lib/server/pagination';
 import { simulateRead, addressScVal } from '@/lib/server/contractReader';
 import { ApiError, normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
+import { TtlCache, SHORT_CACHE_CONTROL } from '@/lib/server/cache';
 import { CONTRACT_IDS } from '@/services';
 
 export const dynamic = 'force-dynamic';
+
+// Profile reads are one RPC round-trip per creator; cache by address set.
+const profileCache = new TtlCache<(CreatorProfile & { address: string })[]>(15_000);
 
 interface CreatorProfile {
   address: string;
@@ -52,20 +56,24 @@ export async function GET(request: NextRequest) {
     );
     const addresses = [...registered];
 
-    const profiles = await Promise.all(
-      addresses.map(async (address) => {
-        try {
-          const profile = await simulateRead<CreatorProfile>(CONTRACT_IDS.creator, 'get_profile', [
-            addressScVal(address),
-          ]);
-          return { ...profile, address };
-        } catch {
-          return null;
-        }
-      }),
-    );
-
-    let valid = profiles.filter((p): p is NonNullable<typeof p> => p !== null);
+    const cacheKey = `creators:${addresses.sort().join(',')}`;
+    let valid = await profileCache.getOrSet(cacheKey, async () => {
+      const profiles = await Promise.all(
+        addresses.map(async (address) => {
+          try {
+            const profile = await simulateRead<CreatorProfile>(
+              CONTRACT_IDS.creator,
+              'get_profile',
+              [addressScVal(address)],
+            );
+            return { ...profile, address };
+          } catch {
+            return null;
+          }
+        }),
+      );
+      return profiles.filter((p): p is NonNullable<typeof p> => p !== null);
+    });
     if (verifiedOnly) valid = valid.filter((p) => p.is_verified);
     if (query) {
       valid = valid.filter(
@@ -88,10 +96,13 @@ export async function GET(request: NextRequest) {
     }));
 
     timer.done(200, { total: valid.length, returned: creators.length });
-    return NextResponse.json({
-      data: creators,
-      pagination: { limit, offset, total: valid.length },
-    });
+    return NextResponse.json(
+      {
+        data: creators,
+        pagination: { limit, offset, total: valid.length },
+      },
+      { headers: { 'Cache-Control': SHORT_CACHE_CONTROL } },
+    );
   } catch (err) {
     const apiError = normalizeError(err);
     logger.warn('GET /api/creators failed', { requestId, error: apiError.message });
