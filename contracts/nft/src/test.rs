@@ -750,6 +750,52 @@ fn test_mint_rejects_oversized_metadata() {
     contract.mint(&user, &0, &String::from_str(&env, &long_uri));
 }
 
+/// An arbitrary URI scheme is a stored-XSS vector: the frontend renders the
+/// metadata URI into the DOM. Only https/http/ipfs may be stored.
+#[test]
+#[should_panic(expected = "must use an https, http or ipfs scheme")]
+fn test_mint_rejects_javascript_uri() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    contract.initialize(&admin);
+    contract.mint(&user, &0, &String::from_str(&env, "javascript:alert(1)"));
+}
+
+#[test]
+#[should_panic(expected = "must use an https, http or ipfs scheme")]
+fn test_mint_rejects_data_uri() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    contract.initialize(&admin);
+    contract.mint(
+        &user,
+        &0,
+        &String::from_str(&env, "data:text/html,<script>1</script>"),
+    );
+}
+
+#[test]
+fn test_mint_accepts_http_uri() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    contract.initialize(&admin);
+    contract.mint(
+        &user,
+        &0,
+        &String::from_str(&env, "https://cdn.example.com/1.json"),
+    );
+    assert_eq!(contract.total_supply(), 1);
+}
+
 #[test]
 #[should_panic(expected = "zero address is not allowed as mint recipient")]
 fn test_mint_rejects_zero_address() {

@@ -11,6 +11,11 @@ const MAX_SUPPLY: u64 = 1_000_000;
 /// cannot make the call unaffordable.
 const MAX_PAGE_SIZE: u32 = 100;
 
+/// Maximum accepted length of an NFT metadata URI, in bytes. Mirrors the
+/// Collection contract's limit so a URI is never valid in one place and
+/// rejected in the other.
+const MAX_METADATA_URI_LEN: u32 = 512;
+
 /// The Stellar "zero" account (all-zero ed25519 public key). Soroban has no
 /// native null address, so this sentinel is used to reject obviously invalid
 /// destinations instead of silently accepting them.
@@ -105,6 +110,19 @@ fn bump_ttl(env: &Env, key: &NftKey) {
         .extend_ttl(key, TTL_THRESHOLD, TTL_LEDGERS);
 }
 
+/// True when `s` begins with `prefix`. Soroban's `String` has no
+/// `starts_with`, so the string is copied into a stack buffer (bounded by
+/// [`MAX_METADATA_URI_LEN`]) and compared at the byte level.
+fn starts_with(s: &String, prefix: &[u8]) -> bool {
+    if s.len() < prefix.len() as u32 {
+        return false;
+    }
+    let mut buf = [0u8; MAX_METADATA_URI_LEN as usize];
+    let slice = &mut buf[..s.len() as usize];
+    s.copy_into_slice(slice);
+    slice.starts_with(prefix)
+}
+
 // ── Contract ───────────────────────────────────────────────────
 
 #[contract]
@@ -148,8 +166,17 @@ impl BezaMintNft {
             "NFT: metadata URI cannot be empty"
         );
         assert!(
-            metadata_uri.len() <= 512,
-            "NFT: metadata URI exceeds 512 chars"
+            metadata_uri.len() <= MAX_METADATA_URI_LEN,
+            "NFT: metadata URI exceeds {MAX_METADATA_URI_LEN} chars"
+        );
+        // Only real web/IPFS URLs are accepted. The frontend renders this
+        // string into the DOM, so an arbitrary scheme (javascript:, data:) is a
+        // stored-XSS vector, and the Collection contract applies the same rule.
+        assert!(
+            starts_with(&metadata_uri, b"https://")
+                || starts_with(&metadata_uri, b"http://")
+                || starts_with(&metadata_uri, b"ipfs://"),
+            "NFT: metadata URI must use an https, http or ipfs scheme"
         );
         Self::assert_not_zero(&env, &to, "mint recipient");
 
