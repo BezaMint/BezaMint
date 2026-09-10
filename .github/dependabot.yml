@@ -1,0 +1,74 @@
+version: 2
+
+updates:
+  # JavaScript / TypeScript workspace (root lockfile covers apps/* and packages/*).
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      # Patch and minor bumps arrive as one reviewable pull request instead of
+      # a wall of single-package PRs that nobody reads.
+      js-minor-patch:
+        applies-to: version-updates
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+      # Security fixes stay ungrouped: they should be reviewed on their own.
+      js-security:
+        applies-to: security-updates
+        patterns:
+          - '*'
+
+  # Soroban contracts. The Rust dependencies are pinned deliberately (see the
+  # ed25519-dalek note in contracts/Cargo.toml), so updates are limited.
+  - package-ecosystem: cargo
+    directory: /contracts
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - contracts
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      rust-minor-patch:
+        applies-to: version-updates
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+
+  # Workflow actions: these run with repository credentials, so drifting behind
+  # on an action version is a supply-chain concern.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: '06:00'
+      timezone: Etc/UTC
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+      - ci
+    commit-message:
+      prefix: ci
+      include: scope
