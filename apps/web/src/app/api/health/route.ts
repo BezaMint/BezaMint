@@ -1,29 +1,106 @@
 import { NextResponse } from 'next/server';
+import { getRpcClient } from '@/services/stellar';
+import { CONTRACT_IDS } from '@/services';
+import { isIpfsAvailable } from '@/lib/pinata';
 
 // Module-level constant so uptime is measured from first request handling.
 const SERVER_START_TIME = Date.now();
 
+const PROBE_TIMEOUT_MS = 5_000;
+
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('probe timed out')), ms);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Probe the Soroban RPC: latest ledger + latency. */
+async function probeRpc(): Promise<{
+  ok: boolean;
+  latencyMs: number;
+  latestLedger?: number;
+  error?: string;
+}> {
+  const started = Date.now();
+  try {
+    const ledger = await withTimeout(getRpcClient().getLatestLedger(), PROBE_TIMEOUT_MS);
+    return { ok: true, latencyMs: Date.now() - started, latestLedger: ledger.sequence };
+  } catch (err) {
+    return {
+      ok: false,
+      latencyMs: Date.now() - started,
+      error: err instanceof Error ? err.message : 'RPC unreachable',
+    };
+  }
+}
+
+/** Probe the Pinata gateway: HEAD the gateway root with a short timeout. */
+async function probeIpfs(): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
+  const gateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud';
+  const started = Date.now();
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+    try {
+      const response = await fetch(
+        `${gateway}/ipfs/QmW2WQi7j6c7UgJTarActp7tDNikE4B2qXtFCfLPdsgaTQ`,
+        {
+          method: 'HEAD',
+          signal: controller.signal,
+        },
+      );
+      return {
+        ok: response.ok || response.status === 404, // 404 still proves reachability
+        latencyMs: Date.now() - started,
+        error: response.ok ? undefined : `gateway responded ${response.status}`,
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      latencyMs: Date.now() - started,
+      error: err instanceof Error ? err.message : 'gateway unreachable',
+    };
+  }
+}
+
 export async function GET() {
   const uptimeSeconds = Math.floor((Date.now() - SERVER_START_TIME) / 1000);
 
+  const [rpc, ipfs] = await Promise.all([probeRpc(), probeIpfs()]);
+
+  const contracts = {
+    nft: !!CONTRACT_IDS.nft,
+    collection: !!CONTRACT_IDS.collection,
+    royalty: !!CONTRACT_IDS.royalty,
+    creator: !!CONTRACT_IDS.creator,
+    factory: !!CONTRACT_IDS.factory,
+  };
+  const allContracts = Object.values(contracts).every(Boolean);
+  const healthy = rpc.ok && (!isIpfsAvailable() || ipfs.ok);
+
   return NextResponse.json(
     {
-      status: 'healthy',
+      status: healthy ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
       uptime: uptimeSeconds + 's',
       environment: process.env.NODE_ENV || 'development',
       network: process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'testnet',
       checks: {
-        contractsConfigured: !!(
-          process.env.NEXT_PUBLIC_NFT_CONTRACT_ID &&
-          process.env.NEXT_PUBLIC_COLLECTION_CONTRACT_ID &&
-          process.env.NEXT_PUBLIC_ROYALTY_CONTRACT_ID &&
-          process.env.NEXT_PUBLIC_CREATOR_CONTRACT_ID &&
-          process.env.NEXT_PUBLIC_FACTORY_CONTRACT_ID
-        ),
-        ipfsAvailable: !!process.env.PINATA_JWT,
+        rpc: rpc,
+        ipfs: { configured: isIpfsAvailable(), ...ipfs },
+        contractsConfigured: allContracts,
+        contracts,
       },
     },
-    { status: 200 },
+    { status: healthy ? 200 : 503 },
   );
 }
