@@ -2,7 +2,7 @@
 
 import { EmptyState } from '@/components/ui';
 import { HiOutlineCollection } from 'react-icons/hi';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { HiOutlinePlus, HiOutlineSearch, HiOutlineFilter } from 'react-icons/hi';
 import CollectionCard from './CollectionCard';
 
@@ -22,6 +22,8 @@ interface CollectionGridProps {
   onCreateClick: () => void;
   isConnected: boolean;
 }
+
+const PAGE_SIZE = 12;
 
 const CATEGORY_FILTERS = [
   'all',
@@ -45,6 +47,7 @@ export default function CollectionGrid({
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
   const [showArchived, setShowArchived] = useState(false);
+  const [page, setPage] = useState(1);
 
   const filtered = useMemo(() => {
     let result = collections;
@@ -66,6 +69,15 @@ export default function CollectionGrid({
 
     return result;
   }, [collections, search, category, showArchived]);
+
+  // Reset to the first page whenever filters change.
+  useEffect(() => {
+    setPage(1);
+  }, [search, category, showArchived]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paged = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   if (collections.length === 0) {
     return (
@@ -127,11 +139,36 @@ export default function CollectionGrid({
 
       {/* Grid */}
       {filtered.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map((col) => (
-            <CollectionCard key={col.id} {...col} />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {paged.map((col) => (
+              <CollectionCard key={col.id} {...col} />
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-8">
+              <button
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={safePage <= 1}
+                className="btn-secondary py-2 px-3 text-sm disabled:opacity-30"
+              >
+                Previous
+              </button>
+              <span className="text-xs text-gray-500 px-2">
+                Page {safePage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={safePage >= totalPages}
+                className="btn-secondary py-2 px-3 text-sm disabled:opacity-30"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
       ) : (
         <div className="card text-center py-12">
           <HiOutlineSearch className="w-12 h-12 text-gray-600 mx-auto mb-3" />
