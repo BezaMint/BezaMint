@@ -116,10 +116,7 @@ impl BezaMintNft {
             metadata_uri.len() <= 512,
             "NFT: metadata URI exceeds 512 chars"
         );
-        assert!(
-            to != Address::from_str(&env, ZERO_ADDRESS),
-            "NFT: cannot mint to zero address"
-        );
+        Self::assert_not_zero(&env, &to, "mint recipient");
 
         let counter: u64 = env.storage().instance().get(&NftKey::Counter).unwrap_or(0);
         assert!(
@@ -149,7 +146,6 @@ impl BezaMintNft {
 
         token_id
     }
-
     pub fn transfer(env: Env, from: Address, to: Address, token_id: u64) {
         from.require_auth();
         let current: Address = env
@@ -158,6 +154,8 @@ impl BezaMintNft {
             .get(&NftKey::Owner(token_id))
             .unwrap_or_else(|| panic!("NFT: token {} does not exist", token_id));
         assert!(current == from, "NFT: caller not owner");
+        Self::assert_not_zero(&env, &to, "transfer recipient");
+
         Self::move_token(&env, &from, &to, token_id);
     }
 
@@ -180,6 +178,7 @@ impl BezaMintNft {
         let authorised = Self::is_approved(env.clone(), spender.clone(), token_id)
             || Self::is_approved_for_all(env.clone(), from.clone(), spender.clone());
         assert!(authorised, "NFT: spender is not approved for token");
+        Self::assert_not_zero(&env, &to, "transfer recipient");
 
         Self::move_token(&env, &from, &to, token_id);
     }
@@ -189,6 +188,16 @@ impl BezaMintNft {
     /// A transfer invalidates any approval the previous owner granted for this
     /// token; without this the old operator could move the token straight back
     /// out of the new owner's wallet.
+    /// Soroban has no null address, so the all-zero account is rejected as an
+    /// explicit sentinel. Without this a typo, a truncated input or an
+    /// uninitialised value can permanently strand an asset.
+    fn assert_not_zero(env: &Env, address: &Address, context: &str) {
+        assert!(
+            address != &Address::from_str(env, ZERO_ADDRESS),
+            "NFT: zero address is not allowed as {context}"
+        );
+    }
+
     fn move_token(env: &Env, from: &Address, to: &Address, token_id: u64) {
         env.storage().persistent().set(&NftKey::Owner(token_id), to);
         env.storage()
@@ -208,6 +217,7 @@ impl BezaMintNft {
             .get(&NftKey::Owner(token_id))
             .unwrap_or_else(|| panic!("NFT: cannot approve nonexistent token {}", token_id));
         owner.require_auth();
+        Self::assert_not_zero(&env, &operator, "approval operator");
         env.storage()
             .persistent()
             .set(&NftKey::Approval(token_id), &operator);
@@ -217,6 +227,9 @@ impl BezaMintNft {
 
     pub fn set_approval_for_all(env: Env, owner_addr: Address, operator: Address, approved: bool) {
         owner_addr.require_auth();
+        if approved {
+            Self::assert_not_zero(&env, &operator, "approval operator");
+        }
         env.storage()
             .persistent()
             .set(&NftKey::OperatorApproval(owner_addr, operator), &approved);

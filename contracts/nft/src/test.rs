@@ -98,6 +98,79 @@ fn test_burn_clears_approval() {
     assert!(!client.is_approved(&operator, &token_id));
 }
 
+const ZERO: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+
+#[test]
+#[should_panic(expected = "zero address")]
+fn test_transfer_rejects_zero_recipient() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+
+    let token_id = mint_one(&client, &owner, 0);
+    client.transfer(&owner, &Address::from_str(&env, ZERO), &token_id);
+}
+
+#[test]
+#[should_panic(expected = "zero address")]
+fn test_transfer_from_rejects_zero_recipient() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let operator = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+
+    let token_id = mint_one(&client, &owner, 0);
+    client.approve(&operator, &token_id);
+    client.transfer_from(&operator, &owner, &Address::from_str(&env, ZERO), &token_id);
+}
+
+#[test]
+#[should_panic(expected = "zero address")]
+fn test_approve_rejects_zero_operator() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+
+    let token_id = mint_one(&client, &owner, 0);
+    client.approve(&Address::from_str(&env, ZERO), &token_id);
+}
+
+#[test]
+#[should_panic(expected = "zero address")]
+fn test_set_approval_for_all_rejects_zero_operator_when_granting() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+    client.set_approval_for_all(&owner, &Address::from_str(&env, ZERO), &true);
+}
+
+/// Revoking blanket approval from the sentinel must stay allowed, so a bad
+/// grant can always be cleaned up.
+#[test]
+fn test_set_approval_for_all_allows_zero_when_revoking() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+    let zero = Address::from_str(&env, ZERO);
+    client.set_approval_for_all(&owner, &zero, &false);
+    assert!(!client.is_approved_for_all(&owner, &zero));
+}
+
 /// A per-token approval must actually let the operator move the token.
 #[test]
 fn test_transfer_from_with_per_token_approval() {
@@ -508,7 +581,7 @@ fn test_mint_rejects_oversized_metadata() {
 }
 
 #[test]
-#[should_panic(expected = "cannot mint to zero address")]
+#[should_panic(expected = "zero address is not allowed as mint recipient")]
 fn test_mint_rejects_zero_address() {
     let env = Env::default();
     env.mock_all_auths();
