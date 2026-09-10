@@ -1,6 +1,10 @@
 import Link from 'next/link';
 import { t } from '@/lib/i18n';
 
+// Public marketing page: safe to pre-render and revalidate periodically
+// instead of rendering on every request (see docs/caching-strategy.md).
+export const revalidate = 60;
+
 export default function HomePage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-8">
