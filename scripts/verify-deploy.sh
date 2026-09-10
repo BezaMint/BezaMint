@@ -67,6 +67,29 @@ for contract in "${CONTRACTS[@]}"; do
 done
 
 echo "────────────────────────────────────────────────────────────"
+
+# Cross-contract wiring: the Factory's whole point is that its sub-calls
+# authenticate as the Royalty admin, so verify the hand-off actually happened.
+FACTORY_ID=$(grep -E "^NEXT_PUBLIC_FACTORY_CONTRACT_ID=" "$ENV_FILE" | cut -d= -f2 | tr -d '[:space:]')
+ROYALTY_ID=$(grep -E "^NEXT_PUBLIC_ROYALTY_CONTRACT_ID=" "$ENV_FILE" | cut -d= -f2 | tr -d '[:space:]')
+if [ -n "$FACTORY_ID" ] && [ -n "$ROYALTY_ID" ]; then
+  ROYALTY_ADMIN=$(soroban contract invoke \
+    --id "$ROYALTY_ID" \
+    --source "$SOURCE_KEY" \
+    "${CLI_ARGS[@]}" \
+    -- get_admin 2>/dev/null | tr -d '"' | tr -d '[:space:]')
+  if [ "$ROYALTY_ADMIN" = "$FACTORY_ID" ]; then
+    echo "✅ wiring: Royalty admin is the Factory"
+  else
+    echo "❌ wiring: Royalty admin is '$ROYALTY_ADMIN', expected the Factory '$FACTORY_ID'"
+    echo "   Run scripts/deploy.sh (or factory.set_contracts) to complete the hand-off."
+    FAILURES=$((FAILURES + 1))
+  fi
+else
+  echo "⚠️  wiring: contract ids missing from $ENV_FILE — skipping check"
+fi
+
+echo "────────────────────────────────────────────────────────────"
 if [ "$FAILURES" -eq 0 ]; then
   echo "✅ All configured contracts verified on Stellar Testnet."
 else

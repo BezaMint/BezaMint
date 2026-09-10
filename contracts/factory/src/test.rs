@@ -692,3 +692,26 @@ fn test_upgrade_requires_initialization() {
     let client = BezaMintFactoryClient::new(&env, &contract_id);
     client.upgrade(&soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
 }
+
+/// The admin query must report who was stored at initialization, and fail
+/// loudly on an uninitialized contract rather than returning a zero address.
+#[test]
+fn test_get_admin_reports_initialized_admin() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(BezaMintFactory, ());
+    let client = BezaMintFactoryClient::new(&env, &contract_id);
+    client.initialize(&admin);
+    assert_eq!(client.get_admin(), admin);
+}
+
+#[test]
+#[should_panic(expected = "not initialized")]
+fn test_get_admin_requires_initialization() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(BezaMintFactory, ());
+    let client = BezaMintFactoryClient::new(&env, &contract_id);
+    client.get_admin();
+}

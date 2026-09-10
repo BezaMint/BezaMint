@@ -215,6 +215,16 @@ impl BezaMintNft {
             .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
     }
 
+    /// Current admin address. Panics when the contract is not initialized.
+    /// Exposed so deployment tooling can verify who actually controls a
+    /// deployed contract (for example that the Royalty admin is the Factory).
+    pub fn get_admin(env: Env) -> Address {
+        env.storage()
+            .instance()
+            .get(&NftKey::Admin)
+            .unwrap_or_else(|| panic!("NFT: not initialized"))
+    }
+
     /// Returns `true` once `initialize` has succeeded. Deploy tooling uses this
     /// to decide whether a contract still needs initializing.
     pub fn is_initialized(env: Env) -> bool {

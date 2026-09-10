@@ -81,6 +81,16 @@ impl BezaMintFactory {
             .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
     }
 
+    /// Current admin address. Panics when the contract is not initialized.
+    /// Exposed so deployment tooling can verify who actually controls a
+    /// deployed contract (for example that the Royalty admin is the Factory).
+    pub fn get_admin(env: Env) -> Address {
+        env.storage()
+            .instance()
+            .get(&FactoryKey::Admin)
+            .unwrap_or_else(|| panic!("Factory: not initialized"))
+    }
+
     /// Returns `true` once `initialize` has succeeded.
     pub fn is_initialized(env: Env) -> bool {
         env.storage().instance().has(&FactoryKey::Admin)
