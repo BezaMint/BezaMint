@@ -61,22 +61,22 @@ Legend: `[x]` done · `[ ]` pending
 
 ## B. Backend / API (50)
 
-- [ ] B01 Minimal on-chain event indexer (mints, transfers, collections, creators)
-- [ ] B02 `GET /api/nfts` endpoint backed by indexer/chain
-- [ ] B03 `GET /api/collections` endpoint with filters
-- [ ] B04 `GET /api/creators` endpoint with filters
-- [ ] B05 Upload route: file-size cap enforcement
-- [ ] B06 Upload route: MIME type allowlist
-- [ ] B07 Upload route: per-IP rate limiting
-- [ ] B08 Health route: Pinata + RPC reachability checks
-- [ ] B09 Structured logger with request IDs and durations
-- [ ] B10 Central error-normalization module for Soroban/Horizon errors
+- [x] B01 Minimal on-chain event indexer (mints, transfers, collections, creators)
+- [x] B02 `GET /api/nfts` endpoint backed by indexer/chain
+- [x] B03 `GET /api/collections` endpoint with filters
+- [x] B04 `GET /api/creators` endpoint with filters
+- [x] B05 Upload route: file-size cap enforcement
+- [x] B06 Upload route: MIME type allowlist
+- [x] B07 Upload route: per-IP rate limiting
+- [x] B08 Health route: Pinata + RPC reachability checks
+- [x] B09 Structured logger with request IDs and durations
+- [x] B10 Central error-normalization module for Soroban/Horizon errors
 - [ ] B11 Metadata caching with TTL (HTTP cache headers + memory)
 - [ ] B12 Rate-limiting middleware for all API routes
 - [ ] B13 Boot-time env/contract-ID validation with clear errors
 - [ ] B14 `GET /api/wallet/transactions` history endpoint
 - [ ] B15 Pinata key rotation guidance + startup presence check
-- [ ] B16 Upload route: request-body schema validation (400s, no 500s)
+- [x] B16 Upload route: request-body schema validation (400s, no 500s)
 - [ ] B17 CORS allowlist middleware
 - [ ] B18 ISR/revalidate strategy for public pages
 - [ ] B19 Server-side metadata JSON schema validation
