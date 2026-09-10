@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getRpcClient } from '@/services/stellar';
 import { CONTRACT_IDS } from '@/services';
 import { isIpfsAvailable } from '@/lib/pinata';
+import { collectStartupIssues } from '@/lib/startup';
 
 // Module-level constant so uptime is measured from first request handling.
 const SERVER_START_TIME = Date.now();
@@ -75,6 +76,8 @@ async function probeIpfs(): Promise<{ ok: boolean; latencyMs: number; error?: st
 export async function GET() {
   const uptimeSeconds = Math.floor((Date.now() - SERVER_START_TIME) / 1000);
 
+  const startupIssues = collectStartupIssues();
+
   const [rpc, ipfs] = await Promise.all([probeRpc(), probeIpfs()]);
 
   const contracts = {
@@ -99,6 +102,7 @@ export async function GET() {
         ipfs: { configured: isIpfsAvailable(), ...ipfs },
         contractsConfigured: allContracts,
         contracts,
+        startup: startupIssues,
       },
     },
     { status: healthy ? 200 : 503 },
