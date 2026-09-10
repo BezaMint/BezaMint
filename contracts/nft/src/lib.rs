@@ -2,16 +2,31 @@
 
 use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Vec};
 
-// ── Storage ────────────────────────────────────────────────────
+// ── Constants ──────────────────────────────────────────────────
 
-const COUNTER: &str = "counter";
-const VERSION: &str = "version";
 const MAX_SUPPLY: u64 = 1_000_000;
-const ADMIN: &str = "admin";
-const OWNER: &str = "owner";
-const DATA: &str = "data";
-const APPROVAL: &str = "approval";
-const OP_APPROVAL: &str = "op_approv";
+
+/// The Stellar "zero" account (all-zero ed25519 public key). Soroban has no
+/// native null address, so this sentinel is used to reject obviously invalid
+/// destinations instead of silently accepting them.
+const ZERO_ADDRESS: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+
+// ── Storage keys ───────────────────────────────────────────────
+
+/// Typed storage keys. Using an enum instead of runtime-constructed `String`
+/// keys removes a heap allocation from every storage access and makes key
+/// typos a compile-time error rather than a silently missing entry.
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub enum NftKey {
+    Admin,
+    Counter,
+    Version,
+    Owner(u64),
+    Data(u64),
+    Approval(u64, Address),
+    OperatorApproval(Address, Address),
+}
 
 // ── Types ──────────────────────────────────────────────────────
 
@@ -44,8 +59,6 @@ pub struct NftData {
     pub minted_at: u64,
 }
 
-// ── Contract ───────────────────────────────────────────────────
-
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum NftEvent {
@@ -59,6 +72,8 @@ fn emit_nft(env: &Env, event: NftEvent) {
     env.events().publish((symbol_short!("nft"),), event);
 }
 
+// ── Contract ───────────────────────────────────────────────────
+
 #[contract]
 pub struct BezaMintNft;
 
@@ -69,28 +84,22 @@ impl BezaMintNft {
             panic!("NFT: already initialized");
         }
         admin.require_auth();
-        env.storage()
-            .instance()
-            .set(&String::from_str(&env, ADMIN), &admin);
-        env.storage()
-            .instance()
-            .set(&String::from_str(&env, COUNTER), &0u64);
-        env.storage()
-            .instance()
-            .set(&String::from_str(&env, VERSION), &1u32);
+        env.storage().instance().set(&NftKey::Admin, &admin);
+        env.storage().instance().set(&NftKey::Counter, &0u64);
+        env.storage().instance().set(&NftKey::Version, &1u32);
     }
 
     /// Returns `true` once `initialize` has succeeded. Deploy tooling uses this
     /// to decide whether a contract still needs initializing.
     pub fn is_initialized(env: Env) -> bool {
-        env.storage().instance().has(&String::from_str(&env, ADMIN))
+        env.storage().instance().has(&NftKey::Admin)
     }
 
     pub fn mint(env: Env, to: Address, collection_id: u64, metadata_uri: String) -> u64 {
         // Verify the contract has been initialized before use.
         env.storage()
             .instance()
-            .get::<String, Address>(&String::from_str(&env, ADMIN))
+            .get::<NftKey, Address>(&NftKey::Admin)
             .unwrap_or_else(|| panic!("NFT: not initialized"));
         // Recipient-gated: the recipient authorizes the mint so any user can
         // mint through the Factory instead of requiring the contract admin.
@@ -105,18 +114,11 @@ impl BezaMintNft {
             "NFT: metadata URI exceeds 512 chars"
         );
         assert!(
-            to != Address::from_str(
-                &env,
-                "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"
-            ),
+            to != Address::from_str(&env, ZERO_ADDRESS),
             "NFT: cannot mint to zero address"
         );
 
-        let counter: u64 = env
-            .storage()
-            .instance()
-            .get(&String::from_str(&env, COUNTER))
-            .unwrap_or(0);
+        let counter: u64 = env.storage().instance().get(&NftKey::Counter).unwrap_or(0);
         assert!(
             counter < MAX_SUPPLY,
             "NFT: max supply of {MAX_SUPPLY} reached"
@@ -132,15 +134,13 @@ impl BezaMintNft {
             minted_at: ledger.timestamp(),
         };
 
-        env.storage()
-            .instance()
-            .set(&String::from_str(&env, COUNTER), &token_id);
+        env.storage().instance().set(&NftKey::Counter, &token_id);
         env.storage()
             .persistent()
-            .set(&(String::from_str(&env, OWNER), token_id), &to);
+            .set(&NftKey::Owner(token_id), &to);
         env.storage()
             .persistent()
-            .set(&(String::from_str(&env, DATA), token_id), &data);
+            .set(&NftKey::Data(token_id), &data);
 
         emit_nft(&env, NftEvent::Minted(token_id, to.clone()));
 
@@ -152,18 +152,16 @@ impl BezaMintNft {
         let current: Address = env
             .storage()
             .persistent()
-            .get(&(String::from_str(&env, OWNER), token_id))
+            .get(&NftKey::Owner(token_id))
             .unwrap_or_else(|| panic!("NFT: token {} does not exist", token_id));
         assert!(current == from, "NFT: caller not owner");
 
         env.storage()
             .persistent()
-            .set(&(String::from_str(&env, OWNER), token_id), &to);
-        env.storage().persistent().remove(&(
-            String::from_str(&env, APPROVAL),
-            token_id,
-            from.clone(),
-        ));
+            .set(&NftKey::Owner(token_id), &to);
+        env.storage()
+            .persistent()
+            .remove(&NftKey::Approval(token_id, from.clone()));
 
         emit_nft(
             &env,
@@ -175,58 +173,49 @@ impl BezaMintNft {
         let owner: Address = env
             .storage()
             .persistent()
-            .get(&(String::from_str(&env, OWNER), token_id))
+            .get(&NftKey::Owner(token_id))
             .unwrap_or_else(|| panic!("NFT: cannot approve nonexistent token {}", token_id));
         owner.require_auth();
-        env.storage().persistent().set(
-            &(String::from_str(&env, APPROVAL), token_id, operator.clone()),
-            &true,
-        );
+        env.storage()
+            .persistent()
+            .set(&NftKey::Approval(token_id, operator.clone()), &true);
     }
 
     pub fn set_approval_for_all(env: Env, owner_addr: Address, operator: Address, approved: bool) {
         owner_addr.require_auth();
-        env.storage().persistent().set(
-            &(String::from_str(&env, OP_APPROVAL), owner_addr, operator),
-            &approved,
-        );
+        env.storage()
+            .persistent()
+            .set(&NftKey::OperatorApproval(owner_addr, operator), &approved);
     }
 
     pub fn burn(env: Env, token_id: u64) {
         let owner: Address = env
             .storage()
             .persistent()
-            .get(&(String::from_str(&env, OWNER), token_id))
+            .get(&NftKey::Owner(token_id))
             .unwrap_or_else(|| panic!("NFT: cannot burn nonexistent token {}", token_id));
         owner.require_auth();
-        env.storage()
-            .persistent()
-            .remove(&(String::from_str(&env, OWNER), token_id));
-        env.storage()
-            .persistent()
-            .remove(&(String::from_str(&env, DATA), token_id));
+        env.storage().persistent().remove(&NftKey::Owner(token_id));
+        env.storage().persistent().remove(&NftKey::Data(token_id));
 
         emit_nft(&env, NftEvent::Burned(token_id, owner));
     }
 
     pub fn total_supply(env: Env) -> u64 {
-        env.storage()
-            .instance()
-            .get(&String::from_str(&env, COUNTER))
-            .unwrap_or(0)
+        env.storage().instance().get(&NftKey::Counter).unwrap_or(0)
     }
 
     pub fn owner_of(env: Env, token_id: u64) -> Address {
         env.storage()
             .persistent()
-            .get(&(String::from_str(&env, OWNER), token_id))
+            .get(&NftKey::Owner(token_id))
             .unwrap_or_else(|| panic!("NFT: token {} not found", token_id))
     }
 
     pub fn token_data(env: Env, token_id: u64) -> NftData {
         env.storage()
             .persistent()
-            .get(&(String::from_str(&env, DATA), token_id))
+            .get(&NftKey::Data(token_id))
             .unwrap_or_else(|| panic!("NFT: data for token {} not found", token_id))
     }
 
@@ -237,7 +226,7 @@ impl BezaMintNft {
             if let Some(addr) = env
                 .storage()
                 .persistent()
-                .get::<(String, u64), Address>(&(String::from_str(&env, OWNER), id))
+                .get::<NftKey, Address>(&NftKey::Owner(id))
             {
                 if addr == owner {
                     count += 1;
@@ -250,14 +239,14 @@ impl BezaMintNft {
     pub fn is_approved(env: Env, operator: Address, token_id: u64) -> bool {
         env.storage()
             .persistent()
-            .get(&(String::from_str(&env, APPROVAL), token_id, operator))
+            .get(&NftKey::Approval(token_id, operator))
             .unwrap_or(false)
     }
 
     pub fn is_approved_for_all(env: Env, owner: Address, operator: Address) -> bool {
         env.storage()
             .persistent()
-            .get(&(String::from_str(&env, OP_APPROVAL), owner, operator))
+            .get(&NftKey::OperatorApproval(owner, operator))
             .unwrap_or(false)
     }
 }
