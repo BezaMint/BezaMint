@@ -27,7 +27,9 @@
 //! persistent entries to the network-maximum TTL and hot reads bump entries
 //! past half-life, so ownership records cannot silently archive.
 
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Vec};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, String, Vec,
+};
 
 // ── Constants ──────────────────────────────────────────────────
 
@@ -217,6 +219,25 @@ impl BezaMintNft {
     /// to decide whether a contract still needs initializing.
     pub fn is_initialized(env: Env) -> bool {
         env.storage().instance().has(&NftKey::Admin)
+    }
+
+    /// Replace the contract code with a newly deployed wasm hash. Admin-only.
+    /// The canonical Soroban upgrade path: the admin deploys the new wasm,
+    /// then calls this with its hash to swap the code in place, preserving all
+    /// storage. There is no downgrade protection beyond the admin key itself,
+    /// so the admin key must be held by the platform's operational key.
+    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&NftKey::Admin)
+            .unwrap_or_else(|| panic!("NFT: not initialized"));
+        admin.require_auth();
+
+        env.deployer().update_current_contract_wasm(new_wasm_hash);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
     }
 
     /// Mint a new NFT to `to` and return its token id. Recipient-gated: `to`

@@ -24,8 +24,8 @@
 //! unlinked mints, no partial burns.
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, IntoVal, Map, String, Symbol,
-    Val,
+    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, IntoVal, Map, String,
+    Symbol, Val,
 };
 
 #[contracttype]
@@ -84,6 +84,25 @@ impl BezaMintFactory {
     /// Returns `true` once `initialize` has succeeded.
     pub fn is_initialized(env: Env) -> bool {
         env.storage().instance().has(&FactoryKey::Admin)
+    }
+
+    /// Replace the contract code with a newly deployed wasm hash. Admin-only.
+    /// The canonical Soroban upgrade path: the admin deploys the new wasm,
+    /// then calls this with its hash to swap the code in place, preserving all
+    /// storage. There is no downgrade protection beyond the admin key itself,
+    /// so the admin key must be held by the platform's operational key.
+    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&FactoryKey::Admin)
+            .unwrap_or_else(|| panic!("Factory: not initialized"));
+        admin.require_auth();
+
+        env.deployer().update_current_contract_wasm(new_wasm_hash);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
     }
 
     /// Wire the four platform contracts. Admin-only: authorization comes from
