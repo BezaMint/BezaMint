@@ -1,9 +1,38 @@
 use soroban_sdk::{
     testutils::{Address as _, Events, Ledger, MockAuth, MockAuthInvoke},
+    xdr::{self, ContractDataDurability, LedgerKey},
     Address, Env, IntoVal, String, Symbol, TryFromVal,
 };
 
-use crate::{BezaMintCollection, BezaMintCollectionClient, ColEvent};
+use crate::{BezaMintCollection, BezaMintCollectionClient, ColEvent, ColKey};
+
+/// Remaining TTL in ledgers of a specific persistent entry, or `None` when the
+/// entry does not exist.
+fn ttl_of(env: &Env, contract_id: &Address, data_key: &xdr::ScVal) -> Option<u32> {
+    let contract_addr: xdr::ScAddress = contract_id.clone().into();
+    env.as_contract(contract_id, || {
+        let storage = env.host().with_mut_storage(|s| Ok(s.map.clone())).unwrap();
+        for (key, entry) in storage {
+            let LedgerKey::ContractData(data) = key.as_ref() else {
+                continue;
+            };
+            if data.contract != contract_addr {
+                continue;
+            }
+            if data.durability != ContractDataDurability::Persistent {
+                continue;
+            }
+            if &data.key != data_key {
+                continue;
+            }
+            let Some((_entry, Some(live))) = entry else {
+                continue;
+            };
+            return Some(live.saturating_sub(env.ledger().sequence()));
+        }
+        None
+    })
+}
 
 /// Decode the single most recent event and assert emitter, topic and payload.
 fn assert_single_col_event(env: &Env, emitter: &Address, expected: ColEvent) {
@@ -371,6 +400,22 @@ fn test_get_nfts_in_collection_paginates() {
     assert_eq!(client.get_nfts_in_collection(&id, &5, &100).len(), 0);
     // The limit is clamped to MAX_PAGE_SIZE.
     assert_eq!(client.get_nfts_in_collection(&id, &0, &1_000_000).len(), 5);
+}
+
+/// The TTL policy must actually keep records alive: after create_collection
+/// every persistent entry written for the collection must carry a live-until
+/// at least half the network maximum in the future.
+#[test]
+fn test_create_collection_extends_ttl() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    let contract_id = client.address.clone();
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://ttl"));
+
+    let key: soroban_sdk::Val = ColKey::Collection(id).into_val(&env);
+    let sc_key: xdr::ScVal = xdr::ScVal::try_from_val(&env, &key).unwrap();
+    let remaining = ttl_of(&env, &contract_id, &sc_key).expect("collection entry exists");
+    assert!(remaining >= crate::TTL_THRESHOLD);
 }
 
 /// Removing a token that is not a member must not corrupt the count.

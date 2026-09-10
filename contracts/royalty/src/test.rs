@@ -1,9 +1,38 @@
 use soroban_sdk::{
     testutils::{Address as _, Events, Ledger},
-    Address, Env, Map, Symbol, TryFromVal,
+    xdr::{self, ContractDataDurability, LedgerKey},
+    Address, Env, IntoVal, Map, Symbol, TryFromVal,
 };
 
-use crate::{BezaMintRoyalty, BezaMintRoyaltyClient, RoyaltyEvent};
+use crate::{BezaMintRoyalty, BezaMintRoyaltyClient, RoyaltyEvent, RoyaltyKey};
+
+/// Remaining TTL in ledgers of a specific persistent entry, or `None` when the
+/// entry does not exist.
+fn ttl_of(env: &Env, contract_id: &Address, data_key: &xdr::ScVal) -> Option<u32> {
+    let contract_addr: xdr::ScAddress = contract_id.clone().into();
+    env.as_contract(contract_id, || {
+        let storage = env.host().with_mut_storage(|s| Ok(s.map.clone())).unwrap();
+        for (key, entry) in storage {
+            let LedgerKey::ContractData(data) = key.as_ref() else {
+                continue;
+            };
+            if data.contract != contract_addr {
+                continue;
+            }
+            if data.durability != ContractDataDurability::Persistent {
+                continue;
+            }
+            if &data.key != data_key {
+                continue;
+            }
+            let Some((_entry, Some(live))) = entry else {
+                continue;
+            };
+            return Some(live.saturating_sub(env.ledger().sequence()));
+        }
+        None
+    })
+}
 
 /// Decode the single most recent event and assert emitter, topic and payload.
 fn assert_single_royalty_event(env: &Env, emitter: &Address, expected: RoyaltyEvent) {
@@ -268,6 +297,21 @@ fn test_admin_can_update_royalty() {
     client.configure_royalty(&creator, &1, &500, &empty_recipients(&env), &false);
     client.update_royalty(&admin, &1, &1500, &empty_recipients(&env), &false);
     assert_eq!(client.get_royalty(&1, &false).basis_points, 1500);
+}
+
+/// The TTL policy must actually keep configs alive: a configured royalty entry
+/// must carry a live-until at least half the network maximum in the future.
+#[test]
+fn test_configure_royalty_extends_ttl() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    let contract_id = client.address.clone();
+    client.configure_royalty(&creator, &1, &500, &empty_recipients(&env), &false);
+
+    let key: soroban_sdk::Val = RoyaltyKey::ConfigNft(1).into_val(&env);
+    let sc_key: xdr::ScVal = xdr::ScVal::try_from_val(&env, &key).unwrap();
+    let remaining = ttl_of(&env, &contract_id, &sc_key).expect("config entry exists");
+    assert!(remaining >= crate::TTL_THRESHOLD);
 }
 
 /// Every state-changing operation must emit exactly one well-formed event:

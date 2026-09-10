@@ -1,9 +1,39 @@
 use soroban_sdk::{
     testutils::{Address as _, Events, Ledger},
-    vec, Address, Env, String, Symbol, TryFromVal,
+    vec,
+    xdr::{self, ContractDataDurability, LedgerKey},
+    Address, Env, IntoVal, String, Symbol, TryFromVal,
 };
 
-use crate::{BezaMintCreator, BezaMintCreatorClient, CreatorEvent, SocialLink};
+use crate::{BezaMintCreator, BezaMintCreatorClient, CreatorEvent, CreatorKey, SocialLink};
+
+/// Remaining TTL in ledgers of a specific persistent entry, or `None` when the
+/// entry does not exist.
+fn ttl_of(env: &Env, contract_id: &Address, data_key: &xdr::ScVal) -> Option<u32> {
+    let contract_addr: xdr::ScAddress = contract_id.clone().into();
+    env.as_contract(contract_id, || {
+        let storage = env.host().with_mut_storage(|s| Ok(s.map.clone())).unwrap();
+        for (key, entry) in storage {
+            let LedgerKey::ContractData(data) = key.as_ref() else {
+                continue;
+            };
+            if data.contract != contract_addr {
+                continue;
+            }
+            if data.durability != ContractDataDurability::Persistent {
+                continue;
+            }
+            if &data.key != data_key {
+                continue;
+            }
+            let Some((_entry, Some(live))) = entry else {
+                continue;
+            };
+            return Some(live.saturating_sub(env.ledger().sequence()));
+        }
+        None
+    })
+}
 
 /// Decode the single most recent event and assert emitter, topic and payload.
 fn assert_single_creator_event(env: &Env, emitter: &Address, expected: CreatorEvent) {
@@ -216,6 +246,21 @@ fn test_prevent_duplicate_registration() {
 
     register(&env, &client, &creator, "Test");
     register(&env, &client, &creator, "Test2");
+}
+
+/// The TTL policy must actually keep profiles alive: a registered profile must
+/// carry a live-until at least half the network maximum in the future.
+#[test]
+fn test_register_extends_ttl() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    let contract_id = client.address.clone();
+    register(&env, &client, &creator, "Alice");
+
+    let key: soroban_sdk::Val = CreatorKey::Profile(creator).into_val(&env);
+    let sc_key: xdr::ScVal = xdr::ScVal::try_from_val(&env, &key).unwrap();
+    let remaining = ttl_of(&env, &contract_id, &sc_key).expect("profile entry exists");
+    assert!(remaining >= crate::TTL_THRESHOLD);
 }
 
 /// Every state-changing operation must emit exactly one well-formed event:
