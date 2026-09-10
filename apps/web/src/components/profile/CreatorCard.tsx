@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { HiOutlineBadgeCheck, HiOutlineUser } from 'react-icons/hi';
 import { formatAddress } from '@/services';
 import { getPlatformIcon } from '@/lib/socialPlatforms';
+import { SmartImage, CopyAddressButton } from '@/components/ui';
 import type { CreatorProfile } from '@bezamint/shared';
 
 interface CreatorCardProps extends Omit<CreatorProfile, 'createdAt' | 'updatedAt' | 'bannerUri'> {}
@@ -22,13 +23,12 @@ export default function CreatorCard({
     <Link href={`/creators/${address}`} className="card block card-interactive group">
       <div className="flex items-start gap-4 mb-4">
         <div className="w-14 h-14 rounded-xl bg-bezamint-muted/50 border border-bezamint-border overflow-hidden flex-shrink-0">
-          {avatarUri ? (
-            <img src={avatarUri} alt={displayName} className="w-full h-full object-cover" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <HiOutlineUser className="w-6 h-6 text-gray-500" />
-            </div>
-          )}
+          <SmartImage
+            src={avatarUri}
+            alt={displayName}
+            className="w-full h-full"
+            fallback={<HiOutlineUser className="w-6 h-6 text-gray-500" />}
+          />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
@@ -42,7 +42,10 @@ export default function CreatorCard({
               />
             )}
           </div>
-          <p className="text-xs text-gray-500 font-mono mt-0.5">{formatAddress(address)}</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-xs text-gray-500 font-mono">{formatAddress(address)}</p>
+            <CopyAddressButton address={address} label="Copy address" />
+          </div>
         </div>
       </div>
       {bio && <p className="text-sm text-gray-400 line-clamp-2 mb-4">{bio}</p>}
