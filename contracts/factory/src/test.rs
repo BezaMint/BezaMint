@@ -142,34 +142,19 @@ fn test_integration_mint_with_royalty() {
         invoke: &MockAuthInvoke {
             contract: &factory_id,
             fn_name: "mint_with_royalty",
-            args: (
-                user.clone(),
-                user.clone(),
-                0u64,
-                metadata.clone(),
-                500u32,
-            )
-                .into_val(&env),
-            sub_invokes: &[
-                MockAuthInvoke {
-                    contract: &nft.address,
-                    fn_name: "mint",
-                    args: (
-                        user.clone(),
-                        0u64,
-                        metadata.clone(),
-                    )
-                        .into_val(&env),
-                    sub_invokes: &[],
-                },
-            ],
+            args: (user.clone(), user.clone(), 0u64, metadata.clone(), 500u32).into_val(&env),
+            sub_invokes: &[MockAuthInvoke {
+                contract: &nft.address,
+                fn_name: "mint",
+                args: (user.clone(), 0u64, metadata.clone()).into_val(&env),
+                sub_invokes: &[],
+            }],
         },
     };
     env.mock_auths(&[auth]);
 
     // Atomic mint + royalty configuration in one factory call.
-    let token_id =
-        factory.mint_with_royalty(&user, &user, &0, &metadata, &500);
+    let token_id = factory.mint_with_royalty(&user, &user, &0, &metadata, &500);
 
     // NFT side effects.
     assert_eq!(token_id, 1);
@@ -246,8 +231,7 @@ fn test_integration_create_collection_for_creator() {
     };
     env.mock_auths(&[auth]);
 
-    let collection_id =
-        factory.create_collection_for_creator(&user, &metadata);
+    let collection_id = factory.create_collection_for_creator(&user, &metadata);
 
     assert_eq!(collection_id, 1);
     assert_eq!(collection.total_collections(), 1);

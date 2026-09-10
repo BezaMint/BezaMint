@@ -1,8 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, String, Vec,
-};
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Vec};
 
 // ─────────────────────────── Types ───────────────────────────
 
@@ -101,8 +99,12 @@ impl BezaMintCreator {
             is_verified: false,
         };
 
-        env.storage().persistent().set(&CreatorKey::Profile(creator.clone()), &profile);
-        env.storage().instance().set(&CreatorKey::Counter, &(counter + 1));
+        env.storage()
+            .persistent()
+            .set(&CreatorKey::Profile(creator.clone()), &profile);
+        env.storage()
+            .instance()
+            .set(&CreatorKey::Counter, &(counter + 1));
 
         emit(&env, CreatorEvent::Registered(creator.clone()));
     }
@@ -158,7 +160,11 @@ impl BezaMintCreator {
     }
 
     pub fn verify_creator(env: Env, _admin: Address, creator: Address) {
-        let stored_admin: Address = env.storage().instance().get(&CreatorKey::Admin).unwrap_or_else(|| panic!("Creator: not initialized"));
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&CreatorKey::Admin)
+            .unwrap_or_else(|| panic!("Creator: not initialized"));
         stored_admin.require_auth();
 
         let mut profile: CreatorProfile = env

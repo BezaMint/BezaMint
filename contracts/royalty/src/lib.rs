@@ -1,8 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, Map,
-};
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, Map};
 
 // ─────────────────────────── Types ───────────────────────────
 
@@ -58,7 +56,11 @@ impl BezaMintRoyalty {
         recipients: Map<Address, u32>,
         is_collection: bool,
     ) {
-        let admin: Address = env.storage().instance().get(&RoyaltyKey::Admin).unwrap_or_else(|| panic!("Royalty: not initialized"));
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&RoyaltyKey::Admin)
+            .unwrap_or_else(|| panic!("Royalty: not initialized"));
         admin.require_auth();
 
         assert!(
@@ -91,7 +93,11 @@ impl BezaMintRoyalty {
         recipients: Map<Address, u32>,
         is_collection: bool,
     ) {
-        let admin: Address = env.storage().instance().get(&RoyaltyKey::Admin).unwrap_or_else(|| panic!("Royalty: not initialized"));
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&RoyaltyKey::Admin)
+            .unwrap_or_else(|| panic!("Royalty: not initialized"));
         admin.require_auth();
 
         let key = if is_collection {
@@ -106,7 +112,11 @@ impl BezaMintRoyalty {
             .get(&key)
             .unwrap_or_else(|| panic!("Royalty: no config for target {}", target_id));
 
-        assert!(!config.is_frozen, "Royalty: config is frozen for {}", target_id);
+        assert!(
+            !config.is_frozen,
+            "Royalty: config is frozen for {}",
+            target_id
+        );
         assert!(
             Self::validate_basis_points(basis_points),
             "Royalty: basis points must be <= 10000"
@@ -122,7 +132,11 @@ impl BezaMintRoyalty {
     }
 
     pub fn freeze_royalty(env: Env, target_id: u64, is_collection: bool) {
-        let admin: Address = env.storage().instance().get(&RoyaltyKey::Admin).unwrap_or_else(|| panic!("Royalty: not initialized"));
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&RoyaltyKey::Admin)
+            .unwrap_or_else(|| panic!("Royalty: not initialized"));
         admin.require_auth();
 
         let key = if is_collection {

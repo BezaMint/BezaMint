@@ -221,4 +221,3 @@ fn test_collection_archive() {
     let col = contract.get_collection(&id);
     assert!(col.is_archived);
 }
-

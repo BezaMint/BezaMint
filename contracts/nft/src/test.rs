@@ -3,7 +3,11 @@ use soroban_sdk::{testutils::Address as _, Address, Env, String};
 use crate::{BezaMintNft, BezaMintNftClient};
 
 fn mint_one(client: &BezaMintNftClient, to: &Address, collection_id: u64) -> u64 {
-    client.mint(to, &collection_id, &String::from_str(&client.env, "ipfs://meta/1"))
+    client.mint(
+        to,
+        &collection_id,
+        &String::from_str(&client.env, "ipfs://meta/1"),
+    )
 }
 
 #[test]

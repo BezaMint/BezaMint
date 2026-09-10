@@ -1,8 +1,6 @@
 #![no_std]
 
-use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, String, Vec,
-};
+use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Vec};
 
 // ─────────────────────────── Types ───────────────────────────
 
@@ -70,26 +68,26 @@ impl BezaMintCollection {
         env.storage().instance().set(&ColKey::Version, &1u32);
     }
 
-    pub fn create_collection(
-        env: Env,
-        creator: Address,
-        metadata_uri: String,
-    ) -> u64 {
+    pub fn create_collection(env: Env, creator: Address, metadata_uri: String) -> u64 {
         // Verify the contract has been initialized before use.
-        env.storage().instance().get::<ColKey, Address>(&ColKey::Admin)
+        env.storage()
+            .instance()
+            .get::<ColKey, Address>(&ColKey::Admin)
             .unwrap_or_else(|| panic!("Collection: not initialized"));
         // Creator-gated: the collection creator authorizes creation so any user
         // can create collections through the Factory instead of requiring admin.
         creator.require_auth();
 
-        assert!(metadata_uri.len() > 0, "Collection: metadata URI cannot be empty");
-        assert!(metadata_uri.len() <= 512, "Collection: metadata URI exceeds 512 chars");
+        assert!(
+            metadata_uri.len() > 0,
+            "Collection: metadata URI cannot be empty"
+        );
+        assert!(
+            metadata_uri.len() <= 512,
+            "Collection: metadata URI exceeds 512 chars"
+        );
 
-        let counter: u64 = env
-            .storage()
-            .instance()
-            .get(&ColKey::Counter)
-            .unwrap_or(0);
+        let counter: u64 = env.storage().instance().get(&ColKey::Counter).unwrap_or(0);
 
         let id = counter + 1;
         let ledger = env.ledger();
@@ -105,19 +103,16 @@ impl BezaMintCollection {
         };
 
         env.storage().instance().set(&ColKey::Counter, &id);
-        env.storage().persistent().set(&ColKey::Collection(id), &data);
+        env.storage()
+            .persistent()
+            .set(&ColKey::Collection(id), &data);
 
         emit(&env, ColEvent::Created(id, creator));
 
         id
     }
 
-    pub fn update_collection(
-        env: Env,
-        creator: Address,
-        id: u64,
-        new_metadata_uri: String,
-    ) {
+    pub fn update_collection(env: Env, creator: Address, id: u64, new_metadata_uri: String) {
         creator.require_auth();
 
         let mut data: CollectionData = env
@@ -126,13 +121,18 @@ impl BezaMintCollection {
             .get(&ColKey::Collection(id))
             .unwrap_or_else(|| panic!("Collection: {} not found", id));
 
-        assert!(data.creator == creator, "Collection: caller is not the collection creator");
+        assert!(
+            data.creator == creator,
+            "Collection: caller is not the collection creator"
+        );
         assert!(!data.is_archived, "Collection: {} is archived", id);
 
         data.metadata_uri = new_metadata_uri;
         data.updated_at = env.ledger().timestamp();
 
-        env.storage().persistent().set(&ColKey::Collection(id), &data);
+        env.storage()
+            .persistent()
+            .set(&ColKey::Collection(id), &data);
 
         emit(&env, ColEvent::Updated(id));
     }
@@ -146,17 +146,26 @@ impl BezaMintCollection {
             .get(&ColKey::Collection(id))
             .unwrap_or_else(|| panic!("Collection: {} not found", id));
 
-        assert!(data.creator == creator, "Collection: caller is not the collection creator");
+        assert!(
+            data.creator == creator,
+            "Collection: caller is not the collection creator"
+        );
         data.is_archived = true;
         data.updated_at = env.ledger().timestamp();
 
-        env.storage().persistent().set(&ColKey::Collection(id), &data);
+        env.storage()
+            .persistent()
+            .set(&ColKey::Collection(id), &data);
 
         emit(&env, ColEvent::Archived(id));
     }
 
     pub fn add_nft(env: Env, _admin: Address, collection_id: u64, token_id: u64) {
-        let stored_admin: Address = env.storage().instance().get(&ColKey::Admin).unwrap_or_else(|| panic!("Collection: not initialized"));
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&ColKey::Admin)
+            .unwrap_or_else(|| panic!("Collection: not initialized"));
         stored_admin.require_auth();
 
         const MAX_NFTS_PER_COLLECTION: u64 = 10_000;
@@ -167,8 +176,16 @@ impl BezaMintCollection {
             .get(&ColKey::Collection(collection_id))
             .unwrap_or_else(|| panic!("Collection: {} not found", collection_id));
 
-        assert!(!data.is_archived, "Collection: {} is archived", collection_id);
-        assert!(data.nft_count < MAX_NFTS_PER_COLLECTION, "Collection: {} is full", collection_id);
+        assert!(
+            !data.is_archived,
+            "Collection: {} is archived",
+            collection_id
+        );
+        assert!(
+            data.nft_count < MAX_NFTS_PER_COLLECTION,
+            "Collection: {} is full",
+            collection_id
+        );
 
         env.storage()
             .persistent()
@@ -187,13 +204,19 @@ impl BezaMintCollection {
         env.storage()
             .persistent()
             .set(&ColKey::NftsInCollection(collection_id), &nfts);
-        env.storage().persistent().set(&ColKey::Collection(collection_id), &data);
+        env.storage()
+            .persistent()
+            .set(&ColKey::Collection(collection_id), &data);
 
         emit(&env, ColEvent::NftAdded(collection_id, token_id));
     }
 
     pub fn remove_nft(env: Env, _admin: Address, collection_id: u64, token_id: u64) {
-        let stored_admin: Address = env.storage().instance().get(&ColKey::Admin).unwrap_or_else(|| panic!("Collection: not initialized"));
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&ColKey::Admin)
+            .unwrap_or_else(|| panic!("Collection: not initialized"));
         stored_admin.require_auth();
 
         const MAX_NFTS_PER_COLLECTION: u64 = 10_000;
@@ -212,7 +235,9 @@ impl BezaMintCollection {
 
         let mut new_nfts: Vec<u64> = Vec::new(&env);
         for i in 0..nfts.len() {
-            let id = nfts.get(i).unwrap_or_else(|| panic!("Collection: nft index out of bounds"));
+            let id = nfts
+                .get(i)
+                .unwrap_or_else(|| panic!("Collection: nft index out of bounds"));
             if id != token_id {
                 new_nfts.push_back(id);
             }
@@ -227,7 +252,9 @@ impl BezaMintCollection {
         env.storage()
             .persistent()
             .set(&ColKey::NftsInCollection(collection_id), &new_nfts);
-        env.storage().persistent().set(&ColKey::Collection(collection_id), &data);
+        env.storage()
+            .persistent()
+            .set(&ColKey::Collection(collection_id), &data);
 
         emit(&env, ColEvent::NftRemoved(collection_id, token_id));
     }
@@ -235,10 +262,7 @@ impl BezaMintCollection {
     // ── Queries ─────────────────────────────────────────────
 
     pub fn total_collections(env: Env) -> u64 {
-        env.storage()
-            .instance()
-            .get(&ColKey::Counter)
-            .unwrap_or(0)
+        env.storage().instance().get(&ColKey::Counter).unwrap_or(0)
     }
 
     pub fn get_collection(env: Env, id: u64) -> CollectionData {

@@ -1,8 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, Env, IntoVal, Map, String,
-    Symbol, Val,
+    contract, contractimpl, contracttype, symbol_short, Address, Env, IntoVal, Map, String, Symbol,
+    Val,
 };
 
 #[contracttype]
@@ -47,15 +47,28 @@ impl BezaMintFactory {
         royalty: Address,
         creator: Address,
     ) {
-        let stored_admin: Address = env.storage().instance().get(&FactoryKey::Admin).unwrap_or_else(|| panic!("Factory: not initialized"));
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&FactoryKey::Admin)
+            .unwrap_or_else(|| panic!("Factory: not initialized"));
         stored_admin.require_auth();
 
         env.storage().instance().set(&FactoryKey::NftContract, &nft);
-        env.storage().instance().set(&FactoryKey::CollectionContract, &collection);
-        env.storage().instance().set(&FactoryKey::RoyaltyContract, &royalty);
-        env.storage().instance().set(&FactoryKey::CreatorContract, &creator);
+        env.storage()
+            .instance()
+            .set(&FactoryKey::CollectionContract, &collection);
+        env.storage()
+            .instance()
+            .set(&FactoryKey::RoyaltyContract, &royalty);
+        env.storage()
+            .instance()
+            .set(&FactoryKey::CreatorContract, &creator);
 
-        emit(&env, FactoryEvent::ContractsSet(nft, collection, royalty, creator));
+        emit(
+            &env,
+            FactoryEvent::ContractsSet(nft, collection, royalty, creator),
+        );
     }
 
     /// Cross-contract: mint NFT then configure royalty atomically
@@ -70,8 +83,16 @@ impl BezaMintFactory {
     ) -> u64 {
         caller.require_auth();
 
-        let nft_addr: Address = env.storage().instance().get(&FactoryKey::NftContract).unwrap_or_else(|| panic!("Factory: NFT contract not set"));
-        let royalty_addr: Address = env.storage().instance().get(&FactoryKey::RoyaltyContract).unwrap_or_else(|| panic!("Factory: Royalty contract not set"));
+        let nft_addr: Address = env
+            .storage()
+            .instance()
+            .get(&FactoryKey::NftContract)
+            .unwrap_or_else(|| panic!("Factory: NFT contract not set"));
+        let royalty_addr: Address = env
+            .storage()
+            .instance()
+            .get(&FactoryKey::RoyaltyContract)
+            .unwrap_or_else(|| panic!("Factory: Royalty contract not set"));
 
         // Cross-contract call 1: mint the NFT
         let mint_args = soroban_sdk::vec![
@@ -105,11 +126,7 @@ impl BezaMintFactory {
     }
 
     /// Cross-contract: create collection + auto-register creator
-    pub fn create_collection_for_creator(
-        env: Env,
-        caller: Address,
-        metadata_uri: String,
-    ) -> u64 {
+    pub fn create_collection_for_creator(env: Env, caller: Address, metadata_uri: String) -> u64 {
         caller.require_auth();
 
         let collection_addr: Address = env
@@ -137,8 +154,7 @@ impl BezaMintFactory {
         let collection_id: u64 = raw_id.into_val(&env);
 
         // Cross-contract call 2: check if creator is registered
-        let check_args =
-            soroban_sdk::vec![&env, caller.clone().into_val(&env)];
+        let check_args = soroban_sdk::vec![&env, caller.clone().into_val(&env)];
         let is_registered: Val = env.invoke_contract(
             &creator_addr,
             &Symbol::new(&env, "is_registered"),
@@ -159,17 +175,10 @@ impl BezaMintFactory {
                 empty.clone().into_val(&env),
                 empty.clone().into_val(&env),
             ];
-            env.invoke_contract::<()>(
-                &creator_addr,
-                &Symbol::new(&env, "register"),
-                reg_args,
-            );
+            env.invoke_contract::<()>(&creator_addr, &Symbol::new(&env, "register"), reg_args);
         }
 
-        emit(
-            &env,
-            FactoryEvent::CollectionCreated(collection_id, caller),
-        );
+        emit(&env, FactoryEvent::CollectionCreated(collection_id, caller));
 
         collection_id
     }
@@ -177,19 +186,31 @@ impl BezaMintFactory {
     // ── Queries ─────────────────────────────────────────────
 
     pub fn get_nft_contract(env: Env) -> Address {
-        env.storage().instance().get(&FactoryKey::NftContract).unwrap()
+        env.storage()
+            .instance()
+            .get(&FactoryKey::NftContract)
+            .unwrap()
     }
 
     pub fn get_collection_contract(env: Env) -> Address {
-        env.storage().instance().get(&FactoryKey::CollectionContract).unwrap()
+        env.storage()
+            .instance()
+            .get(&FactoryKey::CollectionContract)
+            .unwrap()
     }
 
     pub fn get_royalty_contract(env: Env) -> Address {
-        env.storage().instance().get(&FactoryKey::RoyaltyContract).unwrap()
+        env.storage()
+            .instance()
+            .get(&FactoryKey::RoyaltyContract)
+            .unwrap()
     }
 
     pub fn get_creator_contract(env: Env) -> Address {
-        env.storage().instance().get(&FactoryKey::CreatorContract).unwrap()
+        env.storage()
+            .instance()
+            .get(&FactoryKey::CreatorContract)
+            .unwrap()
     }
 }
 

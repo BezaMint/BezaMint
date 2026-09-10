@@ -70,7 +70,10 @@ fn test_update_profile() {
     );
 
     let profile = client.get_profile(&creator);
-    assert_eq!(profile.display_name, String::from_str(&env, "Alice Updated"));
+    assert_eq!(
+        profile.display_name,
+        String::from_str(&env, "Alice Updated")
+    );
     assert_eq!(profile.bio, String::from_str(&env, "New bio"));
 }
 
@@ -172,7 +175,10 @@ fn test_social_links_update_emits_profile_updated_event() {
 
     let profile = client.get_profile(&creator);
     assert_eq!(profile.social_links.len(), 1);
-    assert_eq!(profile.social_links.get(0).unwrap().platform, String::from_str(&env, "twitter"));
+    assert_eq!(
+        profile.social_links.get(0).unwrap().platform,
+        String::from_str(&env, "twitter")
+    );
 }
 
 #[test]
