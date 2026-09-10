@@ -26,17 +26,30 @@ function clientIp(request: NextRequest): string {
   return request.headers.get('cf-connecting-ip') || request.headers.get('x-real-ip') || 'unknown';
 }
 
+/** Attach standard X-RateLimit-* headers for the caller's current state. */
+function applyRateLimitHeaders(request: NextRequest, response: NextResponse): void {
+  const ip = clientIp(request);
+  response.headers.set('X-RateLimit-Limit', String(RATE_MAX_PER_WINDOW));
+  response.headers.set('X-RateLimit-Remaining', String(apiLimiter.remaining(ip)));
+  response.headers.set('X-RateLimit-Reset', String(apiLimiter.resetInSeconds(ip)));
+}
+
 /** Returns a 429 response when the caller exceeds the shared limit. */
 function rateLimit(request: NextRequest): NextResponse | null {
-  const result = apiLimiter.hit(clientIp(request));
+  const ip = clientIp(request);
+  const result = apiLimiter.hit(ip);
   if (!result.allowed) {
-    return NextResponse.json(
+    const limited = NextResponse.json(
       { error: { code: 'RATE_LIMITED', message: 'Too many requests' } },
       {
         status: 429,
         headers: { 'Retry-After': String(result.retryAfterSeconds) },
       },
     );
+    limited.headers.set('X-RateLimit-Limit', String(RATE_MAX_PER_WINDOW));
+    limited.headers.set('X-RateLimit-Remaining', '0');
+    limited.headers.set('X-RateLimit-Reset', String(result.retryAfterSeconds));
+    return limited;
   }
   return null;
 }
@@ -124,6 +137,7 @@ export function middleware(request: NextRequest) {
 
   const response = NextResponse.next();
   applyCors(request, response);
+  applyRateLimitHeaders(request, response);
   logRequest(request, response, startedAt);
   return response;
 }
