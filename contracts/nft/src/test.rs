@@ -98,6 +98,120 @@ fn test_burn_clears_approval() {
     assert!(!client.is_approved(&operator, &token_id));
 }
 
+/// A per-token approval must actually let the operator move the token.
+#[test]
+fn test_transfer_from_with_per_token_approval() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let operator = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+
+    let token_id = mint_one(&client, &owner, 0);
+    client.approve(&operator, &token_id);
+
+    client.transfer_from(&operator, &owner, &recipient, &token_id);
+
+    assert_eq!(client.owner_of(&token_id), recipient);
+    // The approval is consumed by the transfer.
+    assert!(!client.is_approved(&operator, &token_id));
+}
+
+/// Blanket approval must let the operator move any token the owner holds.
+#[test]
+fn test_transfer_from_with_operator_approval() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let operator = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+
+    let token_id = mint_one(&client, &owner, 0);
+    client.set_approval_for_all(&owner, &operator, &true);
+
+    client.transfer_from(&operator, &owner, &recipient, &token_id);
+
+    assert_eq!(client.owner_of(&token_id), recipient);
+    // Blanket approval is a standing grant and survives the transfer.
+    assert!(client.is_approved_for_all(&owner, &operator));
+}
+
+#[test]
+#[should_panic(expected = "spender is not approved")]
+fn test_transfer_from_rejects_unapproved_spender() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let attacker = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+
+    let token_id = mint_one(&client, &owner, 0);
+    client.transfer_from(&attacker, &owner, &recipient, &token_id);
+}
+
+#[test]
+#[should_panic(expected = "from is not the token owner")]
+fn test_transfer_from_rejects_wrong_from() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let operator = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+
+    let token_id = mint_one(&client, &owner, 0);
+    client.set_approval_for_all(&operator, &operator, &true);
+    // The operator holds blanket approval for itself, not for `owner`.
+    client.transfer_from(&operator, &operator, &recipient, &token_id);
+}
+
+#[test]
+#[should_panic(expected = "does not exist")]
+fn test_transfer_from_rejects_nonexistent_token() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let spender = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+    client.transfer_from(&spender, &spender, &recipient, &999);
+}
+
+/// A stale approval must not survive a change of ownership and be reused.
+#[test]
+fn test_transfer_from_cannot_reuse_consumed_approval() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let operator = Address::generate(&env);
+    let first_buyer = Address::generate(&env);
+    let second_buyer = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+
+    let token_id = mint_one(&client, &owner, 0);
+    client.approve(&operator, &token_id);
+    client.transfer_from(&operator, &owner, &first_buyer, &token_id);
+
+    // The operator was approved by `owner`, not by `first_buyer`.
+    let retry = client.try_transfer_from(&operator, &first_buyer, &second_buyer, &token_id);
+    assert!(retry.is_err());
+    assert_eq!(client.owner_of(&token_id), first_buyer);
+}
+
 /// `approve` sets a single "current" operator, matching ERC-721 `getApproved`:
 /// approving someone new replaces any previous approval.
 #[test]

@@ -158,17 +158,45 @@ impl BezaMintNft {
             .get(&NftKey::Owner(token_id))
             .unwrap_or_else(|| panic!("NFT: token {} does not exist", token_id));
         assert!(current == from, "NFT: caller not owner");
-        env.storage()
+        Self::move_token(&env, &from, &to, token_id);
+    }
+
+    /// Move `token_id` from `from` to `to` on behalf of an approved spender.
+    ///
+    /// The spender must hold either a per-token approval (`approve`) or blanket
+    /// approval (`set_approval_for_all`) from the current owner. `from` must be
+    /// the actual owner at call time, so a stale approval cannot be used to
+    /// move a token after it has changed hands.
+    pub fn transfer_from(env: Env, spender: Address, from: Address, to: Address, token_id: u64) {
+        spender.require_auth();
+
+        let current: Address = env
+            .storage()
             .persistent()
-            .set(&NftKey::Owner(token_id), &to);
-        // A transfer invalidates any approval the previous owner granted for
-        // this token; without this the old operator could move it back.
+            .get(&NftKey::Owner(token_id))
+            .unwrap_or_else(|| panic!("NFT: token {} does not exist", token_id));
+        assert!(current == from, "NFT: from is not the token owner");
+
+        let authorised = Self::is_approved(env.clone(), spender.clone(), token_id)
+            || Self::is_approved_for_all(env.clone(), from.clone(), spender.clone());
+        assert!(authorised, "NFT: spender is not approved for token");
+
+        Self::move_token(&env, &from, &to, token_id);
+    }
+
+    /// Shared ownership write path for `transfer` and `transfer_from`.
+    ///
+    /// A transfer invalidates any approval the previous owner granted for this
+    /// token; without this the old operator could move the token straight back
+    /// out of the new owner's wallet.
+    fn move_token(env: &Env, from: &Address, to: &Address, token_id: u64) {
+        env.storage().persistent().set(&NftKey::Owner(token_id), to);
         env.storage()
             .persistent()
             .remove(&NftKey::Approval(token_id));
 
         emit_nft(
-            &env,
+            env,
             NftEvent::Transferred(token_id, from.clone(), to.clone()),
         );
     }
