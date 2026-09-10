@@ -14,6 +14,7 @@ import {
   HiOutlineExternalLink,
 } from 'react-icons/hi';
 import { EmptyState, LoadingSkeleton } from '@/components/ui';
+import { formatBasisPoints } from '@bezamint/shared';
 import { useWallet } from '@/context';
 import {
   getTokenData,
@@ -133,7 +134,7 @@ export default function NftDetailPage() {
     );
   }
 
-  const royaltyPercent = ((royalty?.basisPoints ?? 0) / 100).toFixed(2);
+  const royaltyPercent = formatBasisPoints(royalty?.basisPoints ?? 0);
 
   return (
     <div className="page-container max-w-4xl">

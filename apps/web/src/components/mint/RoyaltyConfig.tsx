@@ -1,6 +1,7 @@
 'use client';
 
 import { HiOutlineCurrencyDollar, HiOutlinePlus, HiOutlineTrash } from 'react-icons/hi';
+import { formatBasisPoints } from '@bezamint/shared';
 import type { RoyaltyConfig as RoyaltyConfigType } from '@bezamint/shared';
 
 interface RoyaltyConfigProps {
@@ -13,7 +14,7 @@ export default function RoyaltyConfig({ config, onChange, userAddress }: Royalty
   const isEnabled = config !== null;
   const basisPoints = config?.basisPoints ?? 0;
   const recipients = config?.recipients ?? [];
-  const percentage = (basisPoints / 100).toFixed(2);
+  const percentage = formatBasisPoints(basisPoints);
 
   const toggleEnabled = () => {
     if (isEnabled) {
