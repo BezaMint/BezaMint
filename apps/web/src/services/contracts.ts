@@ -434,6 +434,81 @@ export async function getRoyaltyConfig(
   }
 }
 
+export interface CreatorProfileInput {
+  displayName: string;
+  bio: string;
+  avatarUri: string;
+  bannerUri: string;
+}
+
+/**
+ * Build a register() transaction for the Creator contract.
+ */
+export async function registerCreator(sourceAddress: string, profile: CreatorProfileInput) {
+  const creatorScVal = new Address(sourceAddress).toScVal();
+  const nameScVal = xdr.ScVal.scvString(profile.displayName);
+  const bioScVal = xdr.ScVal.scvString(profile.bio);
+  const avatarScVal = xdr.ScVal.scvString(profile.avatarUri);
+  const bannerScVal = xdr.ScVal.scvString(profile.bannerUri);
+
+  const { tx } = await buildContractTransaction(sourceAddress, CONTRACT_IDS.creator, 'register', [
+    creatorScVal,
+    nameScVal,
+    bioScVal,
+    avatarScVal,
+    bannerScVal,
+  ]);
+
+  return tx;
+}
+
+/**
+ * Build an update_profile() transaction for the Creator contract.
+ */
+export async function updateCreatorProfile(sourceAddress: string, profile: CreatorProfileInput) {
+  const creatorScVal = new Address(sourceAddress).toScVal();
+  const nameScVal = xdr.ScVal.scvString(profile.displayName);
+  const bioScVal = xdr.ScVal.scvString(profile.bio);
+  const avatarScVal = xdr.ScVal.scvString(profile.avatarUri);
+  const bannerScVal = xdr.ScVal.scvString(profile.bannerUri);
+
+  const { tx } = await buildContractTransaction(
+    sourceAddress,
+    CONTRACT_IDS.creator,
+    'update_profile',
+    [creatorScVal, nameScVal, bioScVal, avatarScVal, bannerScVal],
+  );
+
+  return tx;
+}
+
+/**
+ * Build a set_social_links() transaction for the Creator contract.
+ */
+export async function setCreatorSocialLinks(sourceAddress: string, links: SocialLink[]) {
+  const creatorScVal = new Address(sourceAddress).toScVal();
+  const linksScVal = xdr.ScVal.scvVec(
+    links.map((link) =>
+      xdr.ScVal.scvMap([
+        new xdr.ScMapEntry({
+          key: xdr.ScVal.scvString('platform'),
+          val: xdr.ScVal.scvString(link.platform),
+        }),
+        new xdr.ScMapEntry({ key: xdr.ScVal.scvString('url'), val: xdr.ScVal.scvString(link.url) }),
+      ]),
+    ),
+  );
+
+  const { tx } = await buildContractTransaction(
+    sourceAddress,
+    CONTRACT_IDS.creator,
+    'set_social_links',
+    [creatorScVal, linksScVal],
+  );
+
+  return tx;
+}
+
 // ─────────────────────── Transaction Flow ───────────────────────
 
 export async function signAndSubmit(

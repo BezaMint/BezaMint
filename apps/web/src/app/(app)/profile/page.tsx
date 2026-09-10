@@ -6,11 +6,17 @@ import { CreatorProfileForm, CreatorProfileHeader } from '@/components/profile';
 import { useWallet } from '@/context';
 import { useToast } from '@/context';
 import type { CreatorFormState, CreatorProfile } from '@bezamint/shared';
-import { getCreatorProfile } from '@/services/contracts';
+import {
+  getCreatorProfile,
+  registerCreator,
+  updateCreatorProfile,
+  setCreatorSocialLinks,
+  signAndSubmit,
+} from '@/services/contracts';
 
 export default function ProfilePage() {
   const { isConnected, address, connect } = useWallet();
-  const { showSuccess } = useToast();
+  const { showSuccess, showError } = useToast();
   const [profile, setProfile] = useState<CreatorProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,22 +54,52 @@ export default function ProfilePage() {
   const showCreateForm = isConnected && !profile && !isEditing;
 
   const handleSave = async (data: CreatorFormState) => {
+    if (!isConnected || !address) return;
     setIsSubmitting(true);
-    await new Promise((r) => setTimeout(r, 1000));
 
-    setProfile((prev) => ({
-      address: address!,
-      ...data,
-      isVerified: prev?.isVerified ?? false,
-      createdAt: prev?.createdAt ?? Date.now() / 1000,
-      updatedAt: Date.now() / 1000,
-      totalNftsCreated: prev?.totalNftsCreated ?? 0,
-      totalCollections: prev?.totalCollections ?? 0,
-    }));
+    try {
+      const input = {
+        displayName: data.displayName,
+        bio: data.bio,
+        avatarUri: data.avatarUri,
+        bannerUri: data.bannerUri,
+      };
 
-    setIsSubmitting(false);
-    setIsEditing(false);
-    showSuccess(displayProfile ? 'Profile updated!' : 'Profile created!');
+      // Register or update the on-chain profile.
+      const isNew = !profile;
+      const txXdr = isNew
+        ? await registerCreator(address, input)
+        : await updateCreatorProfile(address, input);
+      const result = await signAndSubmit(txXdr);
+      if (!result.txHash) throw new Error('Profile submission failed');
+
+      // Submit social links (best-effort; not fatal if it fails).
+      if (data.socialLinks.length > 0) {
+        try {
+          const linksTx = await setCreatorSocialLinks(address, data.socialLinks);
+          await signAndSubmit(linksTx);
+        } catch {
+          // Social links failed but the profile itself is saved.
+        }
+      }
+
+      setProfile((prev) => ({
+        address: address!,
+        ...data,
+        isVerified: prev?.isVerified ?? false,
+        createdAt: prev?.createdAt ?? Date.now() / 1000,
+        updatedAt: Date.now() / 1000,
+        totalNftsCreated: prev?.totalNftsCreated ?? 0,
+        totalCollections: prev?.totalCollections ?? 0,
+      }));
+
+      setIsSubmitting(false);
+      setIsEditing(false);
+      showSuccess(isNew ? 'Profile created!' : 'Profile updated!');
+    } catch (err: unknown) {
+      setIsSubmitting(false);
+      showError((err as Error)?.message || 'Failed to save profile');
+    }
   };
 
   if (!isConnected) {
