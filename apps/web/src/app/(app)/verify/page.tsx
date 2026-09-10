@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { HiOutlineSearch, HiOutlineBadgeCheck, HiOutlineShieldCheck } from 'react-icons/hi';
 import { useWallet } from '@/context';
 import { CopyAddressButton } from '@/components/ui';
@@ -26,13 +27,22 @@ export default function VerifyPage() {
   const [error, setError] = useState<string | null>(null);
 
   const handleVerify = async () => {
-    if (!tokenId.trim()) return;
+    const trimmed = tokenId.trim();
+    if (!trimmed) return;
+
+    // Client-side validation: positive integer token IDs only.
+    if (!/^\d+$/.test(trimmed) || Number(trimmed) < 1) {
+      setError('Token ID must be a positive integer');
+      setResult(null);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setResult(null);
 
     try {
-      const id = Number(tokenId.trim());
+      const id = Number(trimmed);
       const source = address || CONTRACT_FALLBACK_SOURCE;
 
       // Query the NFT contract directly for ownership + metadata.
@@ -107,6 +117,15 @@ export default function VerifyPage() {
           </div>
         </div>
 
+        {/* Loading skeleton */}
+        {loading && (
+          <div className="card space-y-3">
+            <div className="h-6 w-1/3 bg-bezamint-muted/40 rounded animate-pulse" />
+            <div className="h-4 w-1/2 bg-bezamint-muted/30 rounded animate-pulse" />
+            <div className="h-24 bg-bezamint-muted/20 rounded animate-pulse" />
+          </div>
+        )}
+
         {/* Result */}
         {result && (
           <div className="card border-bezamint-primary/30">
@@ -115,14 +134,18 @@ export default function VerifyPage() {
                 <HiOutlineBadgeCheck className="w-6 h-6 text-bezamint-secondary" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-white">Token #{result.tokenId}</h3>
+                <Link
+                  href={`/nft/${result.tokenId}`}
+                  className="text-lg font-semibold text-white hover:text-bezamint-secondary transition-colors"
+                >
+                  Token #{result.tokenId}
+                </Link>
                 <p className="text-sm text-gray-400">
                   Collection #{result.collectionId}
                   {result.metadataUri ? ` · ${result.metadataUri.slice(0, 40)}` : ''}
                 </p>
               </div>
             </div>
-
             <div className="space-y-3 p-4 rounded-xl bg-bezamint-muted/30 border border-bezamint-border">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-400">Owner</span>
