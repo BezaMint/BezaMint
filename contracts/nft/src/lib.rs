@@ -87,7 +87,10 @@ impl BezaMintNft {
         // mint through the Factory instead of requiring the contract admin.
         to.require_auth();
 
-        assert!(metadata_uri.len() > 0, "NFT: metadata URI cannot be empty");
+        assert!(
+            !metadata_uri.is_empty(),
+            "NFT: metadata URI cannot be empty"
+        );
         assert!(
             metadata_uri.len() <= 512,
             "NFT: metadata URI exceeds 512 chars"
@@ -107,8 +110,7 @@ impl BezaMintNft {
             .unwrap_or(0);
         assert!(
             counter < MAX_SUPPLY,
-            "NFT: max supply of {} reached",
-            MAX_SUPPLY
+            "NFT: max supply of {MAX_SUPPLY} reached"
         );
         let token_id = counter + 1;
         let ledger = env.ledger();
@@ -143,7 +145,7 @@ impl BezaMintNft {
             .persistent()
             .get(&(String::from_str(&env, OWNER), token_id))
             .unwrap_or_else(|| panic!("NFT: token {} does not exist", token_id));
-        assert!(&current == &from, "NFT: caller not owner");
+        assert!(current == from, "NFT: caller not owner");
 
         env.storage()
             .persistent()

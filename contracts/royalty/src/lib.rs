@@ -114,8 +114,7 @@ impl BezaMintRoyalty {
 
         assert!(
             !config.is_frozen,
-            "Royalty: config is frozen for {}",
-            target_id
+            "Royalty: config is frozen for {target_id}"
         );
         assert!(
             Self::validate_basis_points(basis_points),

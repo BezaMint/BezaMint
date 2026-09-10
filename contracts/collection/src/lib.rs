@@ -79,7 +79,7 @@ impl BezaMintCollection {
         creator.require_auth();
 
         assert!(
-            metadata_uri.len() > 0,
+            !metadata_uri.is_empty(),
             "Collection: metadata URI cannot be empty"
         );
         assert!(
@@ -125,7 +125,7 @@ impl BezaMintCollection {
             data.creator == creator,
             "Collection: caller is not the collection creator"
         );
-        assert!(!data.is_archived, "Collection: {} is archived", id);
+        assert!(!data.is_archived, "Collection: {id} is archived");
 
         data.metadata_uri = new_metadata_uri;
         data.updated_at = env.ledger().timestamp();
@@ -176,15 +176,10 @@ impl BezaMintCollection {
             .get(&ColKey::Collection(collection_id))
             .unwrap_or_else(|| panic!("Collection: {} not found", collection_id));
 
-        assert!(
-            !data.is_archived,
-            "Collection: {} is archived",
-            collection_id
-        );
+        assert!(!data.is_archived, "Collection: {collection_id} is archived");
         assert!(
             data.nft_count < MAX_NFTS_PER_COLLECTION,
-            "Collection: {} is full",
-            collection_id
+            "Collection: {collection_id} is full"
         );
 
         env.storage()
@@ -218,8 +213,6 @@ impl BezaMintCollection {
             .get(&ColKey::Admin)
             .unwrap_or_else(|| panic!("Collection: not initialized"));
         stored_admin.require_auth();
-
-        const MAX_NFTS_PER_COLLECTION: u64 = 10_000;
 
         let mut data: CollectionData = env
             .storage()

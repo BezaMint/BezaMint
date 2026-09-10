@@ -72,7 +72,7 @@ impl BezaMintCreator {
     ) {
         creator.require_auth();
 
-        assert!(display_name.len() > 0, "Creator: display name required");
+        assert!(!display_name.is_empty(), "Creator: display name required");
         assert!(display_name.len() <= 64, "Creator: display name too long");
         assert!(
             !env.storage()

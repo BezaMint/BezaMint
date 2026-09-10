@@ -86,7 +86,6 @@ fn test_mint_with_royalty_returns_token() {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
-    let caller = Address::generate(&env);
     let nft_addr = Address::generate(&env);
     let royalty_addr = Address::generate(&env);
     let factory = BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, ()));
