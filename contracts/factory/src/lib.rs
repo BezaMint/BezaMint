@@ -95,6 +95,15 @@ impl BezaMintFactory {
             .instance()
             .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
 
+        // Seize the Royalty admin role. `configure_royalty` requires the
+        // Royalty admin's auth, and every mint goes through this contract, so
+        // the Factory must hold that role for the flagship mint-with-royalty
+        // flow to authenticate in production. The deployer (current admin)
+        // authorizes this call and the sub-invoke in one transaction; after
+        // this, only the Factory can change the Royalty admin again.
+        let set_admin_args = soroban_sdk::vec![&env, env.current_contract_address().into_val(&env)];
+        env.invoke_contract::<()>(&royalty, &Symbol::new(&env, "set_admin"), set_admin_args);
+
         emit(
             &env,
             FactoryEvent::ContractsSet(nft, collection, royalty, creator),

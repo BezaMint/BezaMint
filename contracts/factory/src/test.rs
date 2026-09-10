@@ -45,14 +45,18 @@ fn test_initialize_and_set_contracts() {
 
     let nft = Address::generate(&env);
     let collection = Address::generate(&env);
-    let royalty = Address::generate(&env);
+    // set_contracts seizes the Royalty admin role, so it must receive a real,
+    // initialized Royalty contract rather than a bare address.
+    let royalty_id = env.register(BezaMintRoyalty, ());
+    let royalty = BezaMintRoyaltyClient::new(&env, &royalty_id);
+    royalty.initialize(&admin);
     let creator = Address::generate(&env);
 
-    client.set_contracts(&nft, &collection, &royalty, &creator);
+    client.set_contracts(&nft, &collection, &royalty_id, &creator);
 
     assert_eq!(client.get_nft_contract(), nft);
     assert_eq!(client.get_collection_contract(), collection);
-    assert_eq!(client.get_royalty_contract(), royalty);
+    assert_eq!(client.get_royalty_contract(), royalty_id);
     assert_eq!(client.get_creator_contract(), creator);
 }
 
@@ -94,11 +98,13 @@ fn test_factory_set_contracts() {
     let admin = Address::generate(&env);
     let nft = Address::generate(&env);
     let col = Address::generate(&env);
-    let roy = Address::generate(&env);
+    let roy_id = env.register(BezaMintRoyalty, ());
+    let roy = BezaMintRoyaltyClient::new(&env, &roy_id);
+    roy.initialize(&admin);
     let cre = Address::generate(&env);
     let contract = BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, ()));
     contract.initialize(&admin);
-    contract.set_contracts(&nft, &col, &roy, &cre);
+    contract.set_contracts(&nft, &col, &roy_id, &cre);
     assert_eq!(contract.get_nft_contract(), nft);
     assert_eq!(contract.get_collection_contract(), col);
 }
@@ -109,20 +115,23 @@ fn test_mint_with_royalty_returns_token() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let nft_addr = Address::generate(&env);
-    let royalty_addr = Address::generate(&env);
+    let royalty_id = env.register(BezaMintRoyalty, ());
+    let royalty = BezaMintRoyaltyClient::new(&env, &royalty_id);
+    royalty.initialize(&admin);
     let factory = BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, ()));
     factory.initialize(&admin);
-    // Set up stub contracts
-    factory.set_contracts(&nft_addr, &nft_addr, &royalty_addr, &nft_addr);
-    // Cross-contract call will fail on real network but verifies structure
+    // set_contracts requires a live Royalty contract (it seizes the admin role).
+    factory.set_contracts(&nft_addr, &nft_addr, &royalty_id, &nft_addr);
 }
 
 /// Full-stack integration: register the real NFT, Royalty, Collection and Creator
 /// contracts and verify the Factory's atomic mint_with_royalty flow end-to-end.
 ///
-/// Production setup: the Factory is the admin of the Royalty contract so its
-/// cross-contract `configure_royalty` call passes admin auth (contract self-auth),
-/// while the user authorizes the root call and the NFT `mint` sub-invoke.
+/// Production bootstrap: the deployer initializes every contract, then
+/// `set_contracts` seizes the Royalty admin role for the Factory, so the
+/// cross-contract `configure_royalty` call passes admin auth (contract
+/// self-auth) while the user authorizes the root call and the NFT `mint` and
+/// collection `add_nft` sub-invokes.
 #[test]
 fn test_integration_mint_with_royalty() {
     let env = Env::default();
@@ -130,7 +139,6 @@ fn test_integration_mint_with_royalty() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    // Register the Factory first so we can make it the Royalty admin.
     let factory_id = env.register(BezaMintFactory, ());
     let factory = BezaMintFactoryClient::new(&env, &factory_id);
 
@@ -139,9 +147,10 @@ fn test_integration_mint_with_royalty() {
     nft.initialize(&admin);
     let collection = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
     collection.initialize(&admin);
-    // The Factory manages royalties on behalf of users.
+    // The deployer initializes Royalty; set_contracts transfers admin to the
+    // Factory so it can manage royalties on behalf of users.
     let royalty = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
-    royalty.initialize(&factory_id);
+    royalty.initialize(&admin);
     let creator = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
     creator.initialize(&admin);
 

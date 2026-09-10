@@ -55,6 +55,7 @@ pub enum RoyaltyEvent {
     Configured(u64, u32),
     Updated(u64, u32),
     Frozen(u64),
+    AdminChanged(Address),
 }
 
 fn emit(env: &Env, event: RoyaltyEvent) {
@@ -94,6 +95,27 @@ impl BezaMintRoyalty {
     /// Returns `true` once `initialize` has succeeded.
     pub fn is_initialized(env: Env) -> bool {
         env.storage().instance().has(&RoyaltyKey::Admin)
+    }
+
+    /// Transfer the admin role. Only the current admin may call. Deployment
+    /// uses this to hand the role to the Factory once contracts are wired: the
+    /// Factory's cross-contract `configure_royalty` calls authenticate as the
+    /// admin, so without this transfer the flagship mint-with-royalty flow can
+    /// only ever be authorized by a human deployer who is never present.
+    pub fn set_admin(env: Env, new_admin: Address) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&RoyaltyKey::Admin)
+            .unwrap_or_else(|| panic!("Royalty: not initialized"));
+        admin.require_auth();
+
+        env.storage().instance().set(&RoyaltyKey::Admin, &new_admin);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
+
+        emit(&env, RoyaltyEvent::AdminChanged(new_admin));
     }
 
     /// Create the royalty terms for a target. Callable only by the royalty

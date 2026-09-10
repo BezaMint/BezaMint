@@ -257,6 +257,37 @@ fn test_admin_can_update_royalty() {
     assert_eq!(client.get_royalty(&1, &false).basis_points, 1500);
 }
 
+/// The admin role is transferable; deployment hands it to the Factory so its
+/// cross-contract `configure_royalty` calls authenticate. The new admin must
+/// be able to configure royalties afterwards.
+#[test]
+fn test_set_admin_transfers_control() {
+    let (env, _admin, client) = setup();
+    let factory = Address::generate(&env);
+
+    client.set_admin(&factory);
+
+    // The Factory (new admin) can now configure royalties.
+    let creator = Address::generate(&env);
+    client.configure_royalty(&creator, &1, &500, &empty_recipients(&env), &false);
+    assert_eq!(client.get_royalty(&1, &false).basis_points, 500);
+
+    // The old admin no longer holds the role: only the new admin may change it.
+    let another = Address::generate(&env);
+    client.set_admin(&another);
+}
+
+#[test]
+#[should_panic(expected = "not initialized")]
+fn test_set_admin_requires_initialization() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let contract_id = env.register(BezaMintRoyalty, ());
+    let client = BezaMintRoyaltyClient::new(&env, &contract_id);
+    let new_admin = Address::generate(&env);
+    client.set_admin(&new_admin);
+}
+
 #[test]
 fn test_freeze_prevents_updates() {
     let (env, _, client) = setup();
