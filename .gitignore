@@ -2,6 +2,13 @@
 node_modules/
 .pnpm-store/
 
+# This project uses pnpm only (see packageManager in package.json). Ignore
+# lockfiles emitted by other package managers so an accidental `npm install`
+# can never introduce a competing dependency graph.
+package-lock.json
+npm-shrinkwrap.json
+yarn.lock
+
 # Turborepo
 .turbo/
 
