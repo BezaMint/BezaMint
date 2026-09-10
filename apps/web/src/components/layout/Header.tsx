@@ -155,6 +155,15 @@ export default function Header({ sidebarCollapsed = false }: { sidebarCollapsed?
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
                     />
                   </svg>
+                ) : balance.error ? (
+                  <span
+                    className="text-red-400 font-mono text-xs"
+                    title={balance.error}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    Balance unavailable
+                  </span>
                 ) : (
                   <span className="text-bezamint-secondary font-mono text-xs">
                     {balance.balance ? parseFloat(balance.balance).toFixed(2) : '—'} XLM
