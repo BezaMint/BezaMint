@@ -4,6 +4,9 @@ const nextConfig = {
   output: 'standalone',
   outputFileTracingRoot: process.cwd(),
   poweredByHeader: false,
+  // gzip compression for the self-hosted server; CDN deployments (Vercel)
+  // compress at the edge instead.
+  compress: true,
   async headers() {
     return [
       {
