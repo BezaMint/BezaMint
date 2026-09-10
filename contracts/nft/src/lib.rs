@@ -6,6 +6,11 @@ use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, E
 
 const MAX_SUPPLY: u64 = 1_000_000;
 
+/// Hard cap on how many token ids a single `tokens_of_owner` page may return.
+/// Bounds the ledger read/write footprint of one invocation so a large holder
+/// cannot make the call unaffordable.
+const MAX_PAGE_SIZE: u32 = 100;
+
 /// The Stellar "zero" account (all-zero ed25519 public key). Soroban has no
 /// native null address, so this sentinel is used to reject obviously invalid
 /// destinations instead of silently accepting them.
@@ -29,6 +34,12 @@ pub enum NftKey {
     Approval(u64),
     /// Blanket operator approval granted by an owner.
     OperatorApproval(Address, Address),
+    /// Number of tokens currently owned by an address.
+    OwnedCount(Address),
+    /// Dense ownership index: `OwnedToken(owner, index) -> token_id`.
+    OwnedToken(Address, u64),
+    /// Reverse ownership index: `OwnedIndex(owner, token_id) -> index`.
+    OwnedIndex(Address, u64),
 }
 
 // ── Types ──────────────────────────────────────────────────────
@@ -133,7 +144,6 @@ impl BezaMintNft {
             metadata_uri,
             minted_at: ledger.timestamp(),
         };
-
         env.storage().instance().set(&NftKey::Counter, &token_id);
         env.storage()
             .persistent()
@@ -141,6 +151,7 @@ impl BezaMintNft {
         env.storage()
             .persistent()
             .set(&NftKey::Data(token_id), &data);
+        Self::index_add(&env, &to, token_id);
 
         emit_nft(&env, NftEvent::Minted(token_id, to.clone()));
 
@@ -197,8 +208,10 @@ impl BezaMintNft {
             "NFT: zero address is not allowed as {context}"
         );
     }
-
     fn move_token(env: &Env, from: &Address, to: &Address, token_id: u64) {
+        Self::index_remove(env, from, token_id);
+        Self::index_add(env, to, token_id);
+
         env.storage().persistent().set(&NftKey::Owner(token_id), to);
         env.storage()
             .persistent()
@@ -208,6 +221,73 @@ impl BezaMintNft {
             env,
             NftEvent::Transferred(token_id, from.clone(), to.clone()),
         );
+    }
+
+    /// Append `token_id` to an owner's dense index.
+    fn index_add(env: &Env, owner: &Address, token_id: u64) {
+        let count: u64 = env
+            .storage()
+            .persistent()
+            .get(&NftKey::OwnedCount(owner.clone()))
+            .unwrap_or(0);
+
+        env.storage()
+            .persistent()
+            .set(&NftKey::OwnedToken(owner.clone(), count), &token_id);
+        env.storage()
+            .persistent()
+            .set(&NftKey::OwnedIndex(owner.clone(), token_id), &count);
+        env.storage()
+            .persistent()
+            .set(&NftKey::OwnedCount(owner.clone()), &(count + 1));
+    }
+
+    /// Remove `token_id` from an owner's dense index using swap-removal, which
+    /// keeps the index dense in O(1) storage operations instead of shifting the
+    /// tail of a vector.
+    fn index_remove(env: &Env, owner: &Address, token_id: u64) {
+        let count: u64 = env
+            .storage()
+            .persistent()
+            .get(&NftKey::OwnedCount(owner.clone()))
+            .unwrap_or(0);
+        if count == 0 {
+            return;
+        }
+
+        let index: u64 = match env
+            .storage()
+            .persistent()
+            .get(&NftKey::OwnedIndex(owner.clone(), token_id))
+        {
+            Some(index) => index,
+            None => return,
+        };
+        let last = count - 1;
+
+        if index != last {
+            let moved: u64 = env
+                .storage()
+                .persistent()
+                .get(&NftKey::OwnedToken(owner.clone(), last))
+                .unwrap_or_else(|| panic!("NFT: ownership index is inconsistent"));
+            env.storage()
+                .persistent()
+                .set(&NftKey::OwnedToken(owner.clone(), index), &moved);
+            env.storage()
+                .persistent()
+                .set(&NftKey::OwnedIndex(owner.clone(), moved), &index);
+        }
+
+        env.storage()
+            .persistent()
+            .remove(&NftKey::OwnedToken(owner.clone(), last));
+        env.storage()
+            .persistent()
+            .remove(&NftKey::OwnedIndex(owner.clone(), token_id));
+        env.storage()
+            .persistent()
+            .set(&NftKey::OwnedCount(owner.clone()), &last);
     }
 
     pub fn approve(env: Env, operator: Address, token_id: u64) {
@@ -242,6 +322,7 @@ impl BezaMintNft {
             .get(&NftKey::Owner(token_id))
             .unwrap_or_else(|| panic!("NFT: cannot burn nonexistent token {}", token_id));
         owner.require_auth();
+        Self::index_remove(&env, &owner, token_id);
         env.storage().persistent().remove(&NftKey::Owner(token_id));
         env.storage().persistent().remove(&NftKey::Data(token_id));
         // Burn must not leave a dangling operator approval behind: token ids
@@ -272,21 +353,50 @@ impl BezaMintNft {
             .unwrap_or_else(|| panic!("NFT: data for token {} not found", token_id))
     }
 
+    /// Number of tokens currently held by `owner`.
+    ///
+    /// Backed by the dense per-owner index, so this is a single storage read
+    /// rather than the previous scan of every token id up to `total_supply`
+    /// (which grows without bound and would eventually exceed the ledger's
+    /// per-invocation budget).
     pub fn balance_of(env: Env, owner: Address) -> u64 {
-        let total = Self::total_supply(env.clone());
-        let mut count = 0u64;
-        for id in 1..=total {
-            if let Some(addr) = env
+        env.storage()
+            .persistent()
+            .get(&NftKey::OwnedCount(owner))
+            .unwrap_or(0)
+    }
+
+    /// Paginated enumeration of the token ids owned by `owner`.
+    ///
+    /// `start` is a zero-based index into the owner's holdings and `limit` is
+    /// clamped to [`MAX_PAGE_SIZE`]. Returns an empty vector when `start` is at
+    /// or past the end of the owner's holdings.
+    pub fn tokens_of_owner(env: Env, owner: Address, start: u64, limit: u32) -> Vec<u64> {
+        let mut tokens = Vec::new(&env);
+        let count: u64 = env
+            .storage()
+            .persistent()
+            .get(&NftKey::OwnedCount(owner.clone()))
+            .unwrap_or(0);
+        if start >= count {
+            return tokens;
+        }
+
+        let page = core::cmp::min(limit, MAX_PAGE_SIZE);
+        let end = core::cmp::min(start.saturating_add(page as u64), count);
+
+        let mut index = start;
+        while index < end {
+            if let Some(token_id) = env
                 .storage()
                 .persistent()
-                .get::<NftKey, Address>(&NftKey::Owner(id))
+                .get(&NftKey::OwnedToken(owner.clone(), index))
             {
-                if addr == owner {
-                    count += 1;
-                }
+                tokens.push_back(token_id);
             }
+            index += 1;
         }
-        count
+        tokens
     }
 
     pub fn is_approved(env: Env, operator: Address, token_id: u64) -> bool {

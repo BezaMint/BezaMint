@@ -171,6 +171,144 @@ fn test_set_approval_for_all_allows_zero_when_revoking() {
     assert!(!client.is_approved_for_all(&owner, &zero));
 }
 
+#[test]
+fn test_tokens_of_owner_returns_all_holdings() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+
+    mint_one(&client, &owner, 0);
+    mint_one(&client, &owner, 0);
+    mint_one(&client, &owner, 0);
+
+    let tokens = client.tokens_of_owner(&owner, &0, &10);
+    assert_eq!(tokens, soroban_sdk::vec![&env, 1u64, 2u64, 3u64]);
+}
+
+#[test]
+fn test_tokens_of_owner_paginates() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+
+    for _ in 0..5 {
+        mint_one(&client, &owner, 0);
+    }
+
+    assert_eq!(
+        client.tokens_of_owner(&owner, &0, &2),
+        soroban_sdk::vec![&env, 1u64, 2u64]
+    );
+    assert_eq!(
+        client.tokens_of_owner(&owner, &2, &2),
+        soroban_sdk::vec![&env, 3u64, 4u64]
+    );
+    // Final, short page.
+    assert_eq!(
+        client.tokens_of_owner(&owner, &4, &2),
+        soroban_sdk::vec![&env, 5u64]
+    );
+}
+
+#[test]
+fn test_tokens_of_owner_empty_and_out_of_range() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let stranger = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+
+    assert_eq!(client.tokens_of_owner(&stranger, &0, &10).len(), 0);
+
+    mint_one(&client, &owner, 0);
+    assert_eq!(client.tokens_of_owner(&owner, &5, &10).len(), 0);
+}
+
+#[test]
+fn test_tokens_of_owner_clamps_limit_to_max_page_size() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+
+    for _ in 0..3 {
+        mint_one(&client, &owner, 0);
+    }
+
+    // A caller cannot force an unbounded page by passing u32::MAX.
+    let tokens = client.tokens_of_owner(&owner, &0, &u32::MAX);
+    assert_eq!(tokens.len(), 3);
+}
+
+/// Swap-removal must keep the dense index consistent through transfers.
+#[test]
+fn test_balance_and_enumeration_track_transfers() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+
+    for _ in 0..4 {
+        mint_one(&client, &alice, 0);
+    }
+    assert_eq!(client.balance_of(&alice), 4);
+
+    // Move an interior token so the swap-with-last path is exercised.
+    client.transfer(&alice, &bob, &2);
+    assert_eq!(client.balance_of(&alice), 3);
+    assert_eq!(client.balance_of(&bob), 1);
+    assert_eq!(client.owner_of(&2), bob);
+
+    let alice_tokens = client.tokens_of_owner(&alice, &0, &10);
+    assert_eq!(alice_tokens.len(), 3);
+    assert!(!alice_tokens.contains(2));
+    assert_eq!(
+        client.tokens_of_owner(&bob, &0, &10),
+        soroban_sdk::vec![&env, 2u64]
+    );
+
+    // The index must survive a second move out of the same wallet.
+    client.transfer(&alice, &bob, &4);
+    assert_eq!(client.balance_of(&alice), 2);
+    assert_eq!(client.balance_of(&bob), 2);
+    assert_eq!(client.tokens_of_owner(&bob, &0, &10).len(), 2);
+}
+
+/// Burning must remove the token from the owner index as well as from supply.
+#[test]
+fn test_balance_reflects_burn() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+
+    mint_one(&client, &owner, 0);
+    mint_one(&client, &owner, 0);
+    mint_one(&client, &owner, 0);
+
+    client.burn(&1);
+
+    assert_eq!(client.balance_of(&owner), 2);
+    let tokens = client.tokens_of_owner(&owner, &0, &10);
+    assert_eq!(tokens.len(), 2);
+    assert!(!tokens.contains(1));
+}
+
 /// A per-token approval must actually let the operator move the token.
 #[test]
 fn test_transfer_from_with_per_token_approval() {
