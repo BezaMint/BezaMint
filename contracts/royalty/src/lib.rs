@@ -19,6 +19,9 @@ const MAX_RECIPIENTS: u32 = 10;
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub struct RoyaltyConfig {
+    /// Account that owns these terms. Recorded at configure time so the creator
+    /// can amend them later without needing the deployer's admin key.
+    pub creator: Address,
     pub basis_points: u32,
     pub recipients: Map<Address, u32>,
     pub is_frozen: bool,
@@ -69,8 +72,15 @@ impl BezaMintRoyalty {
         env.storage().instance().has(&RoyaltyKey::Admin)
     }
 
+    /// Create the royalty terms for a target. Callable only by the royalty
+    /// admin (in deployment that is the Factory), exactly once per target.
+    ///
+    /// `creator` is the account the terms belong to. It is recorded, not
+    /// authenticated: the Factory configures royalties on behalf of the account
+    /// that authorized the mint, and the admin is trusted to name it accurately.
     pub fn configure_royalty(
         env: Env,
+        creator: Address,
         target_id: u64,
         basis_points: u32,
         recipients: Map<Address, u32>,
@@ -105,6 +115,7 @@ impl BezaMintRoyalty {
         );
 
         let config = RoyaltyConfig {
+            creator,
             basis_points,
             recipients,
             is_frozen: false,
@@ -116,19 +127,28 @@ impl BezaMintRoyalty {
         emit(&env, RoyaltyEvent::Configured(target_id, basis_points));
     }
 
+    /// Amend existing terms.
+    ///
+    /// Authorization: the recorded creator of the terms may update them (which
+    /// is the whole point of storing `creator`), as may the royalty admin for
+    /// operational recovery. Freezing remains admin-only. Before this only the
+    /// deployer could ever change a creator's royalty, which is exactly the
+    /// centralization a creator-first platform must avoid.
     pub fn update_royalty(
         env: Env,
+        caller: Address,
         target_id: u64,
         basis_points: u32,
         recipients: Map<Address, u32>,
         is_collection: bool,
     ) {
+        caller.require_auth();
+
         let admin: Address = env
             .storage()
             .instance()
             .get(&RoyaltyKey::Admin)
             .unwrap_or_else(|| panic!("Royalty: not initialized"));
-        admin.require_auth();
 
         let key = if is_collection {
             RoyaltyKey::ConfigCollection(target_id)
@@ -141,6 +161,11 @@ impl BezaMintRoyalty {
             .persistent()
             .get(&key)
             .unwrap_or_else(|| panic!("Royalty: no config for target {}", target_id));
+
+        assert!(
+            caller == admin || caller == config.creator,
+            "Royalty: caller cannot update this config"
+        );
         assert!(
             !config.is_frozen,
             "Royalty: config is frozen for {target_id}"
@@ -160,6 +185,8 @@ impl BezaMintRoyalty {
         emit(&env, RoyaltyEvent::Updated(target_id, basis_points));
     }
 
+    /// Permanently lock the terms for a target. Admin-only, and irreversible:
+    /// once frozen, neither the creator nor the admin can amend them.
     pub fn freeze_royalty(env: Env, target_id: u64, is_collection: bool) {
         let admin: Address = env
             .storage()

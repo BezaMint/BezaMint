@@ -113,10 +113,12 @@ impl BezaMintFactory {
             env.invoke_contract(&nft_addr, &Symbol::new(&env, "mint"), mint_args);
         let token_id: u64 = raw_token_id.into_val(&env);
 
-        // Cross-contract call 2: configure royalty on the new NFT
+        // Cross-contract call 2: configure royalty on the new NFT, recording
+        // `caller` as the creator so they can amend their own terms later.
         let empty_recipients: Map<Address, u32> = Map::new(&env);
         let royalty_args = soroban_sdk::vec![
             &env,
+            caller.clone().into_val(&env),
             token_id.into_val(&env),
             basis_points.into_val(&env),
             empty_recipients.into_val(&env),
