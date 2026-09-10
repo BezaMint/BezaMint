@@ -10,6 +10,42 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const API_PREFIX = '/api';
 
+// ─────────────────────── CORS allowlist ───────────────────────
+
+/** Origins allowed to call the API cross-origin. */
+function allowedOrigins(): string[] {
+  const configured = process.env.CORS_ALLOWED_ORIGINS;
+  if (configured) {
+    return configured
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean);
+  }
+  // Same-origin deployments need no CORS headers; a generous default is
+  // deliberately NOT used here. Add CORS_ALLOWED_ORIGINS to enable CORS.
+  return [];
+}
+
+function isAllowedOrigin(origin: string | null): boolean {
+  if (!origin) return false;
+  if (origin === 'http://localhost:3000') return true;
+  // Vercel preview deployments share the *.vercel.app suffix.
+  if (process.env.NODE_ENV !== 'production' && origin.endsWith('.vercel.app')) return true;
+  return allowedOrigins().includes(origin);
+}
+
+function applyCors(request: NextRequest, response: NextResponse): void {
+  const origin = request.headers.get('origin');
+  if (!origin) return;
+  if (isAllowedOrigin(origin)) {
+    response.headers.set('Access-Control-Allow-Origin', origin);
+    response.headers.set('Vary', 'Origin');
+    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    response.headers.set('Access-Control-Max-Age', '86400');
+  }
+}
+
 // ─────────────────────── Request logging ───────────────────────
 
 function logRequest(request: NextRequest, response: NextResponse | null, startedAt: number) {
@@ -39,7 +75,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Preflight requests get an immediate answer.
+  if (request.method === 'OPTIONS') {
+    const preflight = NextResponse.next();
+    applyCors(request, preflight);
+    return preflight;
+  }
+
   const response = NextResponse.next();
+  applyCors(request, response);
   logRequest(request, response, startedAt);
   return response;
 }
