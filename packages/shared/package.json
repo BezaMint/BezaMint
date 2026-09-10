@@ -12,6 +12,7 @@
   },
   "scripts": {
     "lint": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
