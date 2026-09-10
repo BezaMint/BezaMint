@@ -1,9 +1,22 @@
 use soroban_sdk::{
-    testutils::{Address as _, Ledger},
-    Address, Env, Map,
+    testutils::{Address as _, Events, Ledger},
+    Address, Env, Map, Symbol, TryFromVal,
 };
 
-use crate::{BezaMintRoyalty, BezaMintRoyaltyClient};
+use crate::{BezaMintRoyalty, BezaMintRoyaltyClient, RoyaltyEvent};
+
+/// Decode the single most recent event and assert emitter, topic and payload.
+fn assert_single_royalty_event(env: &Env, emitter: &Address, expected: RoyaltyEvent) {
+    let events = env.events().all();
+    assert_eq!(events.len(), 1, "expected exactly one event");
+    let (contract, topics, data) = events.get(0).expect("one event");
+    assert_eq!(contract.clone(), emitter.clone(), "wrong emitter");
+    let topic_symbol: Symbol =
+        Symbol::try_from_val(env, &topics.get(0).expect("topic")).expect("topic is a symbol");
+    assert_eq!(topic_symbol, Symbol::new(env, "royalty"));
+    let decoded: RoyaltyEvent = RoyaltyEvent::try_from_val(env, &data).expect("decodable event");
+    assert_eq!(decoded, expected);
+}
 
 fn setup() -> (Env, Address, BezaMintRoyaltyClient<'static>) {
     let env = Env::default();
@@ -255,6 +268,31 @@ fn test_admin_can_update_royalty() {
     client.configure_royalty(&creator, &1, &500, &empty_recipients(&env), &false);
     client.update_royalty(&admin, &1, &1500, &empty_recipients(&env), &false);
     assert_eq!(client.get_royalty(&1, &false).basis_points, 1500);
+}
+
+/// Every state-changing operation must emit exactly one well-formed event:
+/// configured, updated, frozen and admin changed.
+#[test]
+fn test_events_cover_all_mutations() {
+    let (env, admin, client) = setup();
+    let creator = Address::generate(&env);
+    let factory = Address::generate(&env);
+    let emitter = client.address.clone();
+
+    client.configure_royalty(&creator, &1, &500, &empty_recipients(&env), &false);
+    assert_single_royalty_event(&env, &emitter, RoyaltyEvent::Configured(1, 500));
+
+    client.update_royalty(&creator, &1, &750, &empty_recipients(&env), &false);
+    assert_single_royalty_event(&env, &emitter, RoyaltyEvent::Updated(1, 750));
+
+    client.freeze_royalty(&1, &false);
+    assert_single_royalty_event(&env, &emitter, RoyaltyEvent::Frozen(1));
+
+    client.set_admin(&factory);
+    assert_single_royalty_event(&env, &emitter, RoyaltyEvent::AdminChanged(factory));
+
+    // The old admin is no longer the admin; clean up the unused binding.
+    drop(admin);
 }
 
 /// The admin role is transferable; deployment hands it to the Factory so its
