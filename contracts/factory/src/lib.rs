@@ -96,6 +96,11 @@ impl BezaMintFactory {
             .instance()
             .get(&FactoryKey::NftContract)
             .unwrap_or_else(|| panic!("Factory: NFT contract not set"));
+        let collection_addr: Address = env
+            .storage()
+            .instance()
+            .get(&FactoryKey::CollectionContract)
+            .unwrap_or_else(|| panic!("Factory: Collection contract not set"));
         let royalty_addr: Address = env
             .storage()
             .instance()
@@ -113,7 +118,18 @@ impl BezaMintFactory {
             env.invoke_contract(&nft_addr, &Symbol::new(&env, "mint"), mint_args);
         let token_id: u64 = raw_token_id.into_val(&env);
 
-        // Cross-contract call 2: configure royalty on the new NFT, recording
+        // Cross-contract call 2: link the new NFT to its collection. The
+        // Collection contract enforces creator auth (the caller must own the
+        // collection) plus its archived/full/duplicate guards, so a mint into a
+        // collection the caller does not control fails atomically together with
+        // the mint. Before this the Factory never registered membership, so
+        // `get_nfts_in_collection` stayed empty and `get_collection_for_nft`
+        // always returned 0 for every minted NFT.
+        let add_args =
+            soroban_sdk::vec![&env, collection_id.into_val(&env), token_id.into_val(&env),];
+        env.invoke_contract::<()>(&collection_addr, &Symbol::new(&env, "add_nft"), add_args);
+
+        // Cross-contract call 3: configure royalty on the new NFT, recording
         // `caller` as the creator so they can amend their own terms later.
         let empty_recipients: Map<Address, u32> = Map::new(&env);
         let royalty_args = soroban_sdk::vec![

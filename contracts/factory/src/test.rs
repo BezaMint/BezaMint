@@ -156,36 +156,159 @@ fn test_integration_mint_with_royalty() {
     );
 
     let metadata = String::from_str(&env, "ipfs://integrated/1");
+    let collection_uri = String::from_str(&env, "ipfs://integrated-collection");
 
-    // The user authorizes the Factory root call plus the NFT mint sub-invoke.
-    // The royalty sub-invoke is covered by the Factory's own admin role.
+    // The user owns a collection that the NFT will be minted into.
+    collection.create_collection(&user, &collection_uri);
+
+    // The user authorizes the Factory root call plus the NFT mint and the
+    // collection add_nft sub-invokes. The royalty sub-invoke is covered by the
+    // Factory's own admin role.
     let auth = MockAuth {
         address: &user,
         invoke: &MockAuthInvoke {
             contract: &factory_id,
             fn_name: "mint_with_royalty",
-            args: (user.clone(), user.clone(), 0u64, metadata.clone(), 500u32).into_val(&env),
-            sub_invokes: &[MockAuthInvoke {
-                contract: &nft.address,
-                fn_name: "mint",
-                args: (user.clone(), 0u64, metadata.clone()).into_val(&env),
-                sub_invokes: &[],
-            }],
+            args: (user.clone(), user.clone(), 1u64, metadata.clone(), 500u32).into_val(&env),
+            sub_invokes: &[
+                MockAuthInvoke {
+                    contract: &nft.address,
+                    fn_name: "mint",
+                    args: (user.clone(), 1u64, metadata.clone()).into_val(&env),
+                    sub_invokes: &[],
+                },
+                MockAuthInvoke {
+                    contract: &collection.address,
+                    fn_name: "add_nft",
+                    args: (1u64, 1u64).into_val(&env),
+                    sub_invokes: &[],
+                },
+            ],
         },
     };
     env.mock_auths(&[auth]);
 
     // Atomic mint + royalty configuration in one factory call.
-    let token_id = factory.mint_with_royalty(&user, &user, &0, &metadata, &500);
+    let token_id = factory.mint_with_royalty(&user, &user, &1, &metadata, &500);
 
     // NFT side effects.
     assert_eq!(token_id, 1);
     assert_eq!(nft.owner_of(&1), user);
     assert_eq!(nft.total_supply(), 1);
 
+    // The minted NFT is now linked to its collection.
+    assert_eq!(collection.get_collection_for_nft(&1), 1);
+    let nfts = collection.get_nfts_in_collection(&1);
+    assert_eq!(nfts.len(), 1);
+    assert_eq!(nfts.get(0).unwrap(), 1);
+    assert_eq!(collection.get_collection(&1).nft_count, 1);
+
     // Royalty side effects.
     let config = royalty.get_royalty(&1, &false);
     assert_eq!(config.basis_points, 500);
+}
+
+/// A mint into a collection that does not exist must fail atomically: the NFT
+/// mint is rolled back together with the collection link, so no orphan NFT is
+/// ever created.
+#[test]
+#[should_panic(expected = "not found")]
+fn test_mint_into_missing_collection_fails() {
+    let env = Env::default();
+
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+
+    env.mock_all_auths();
+    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    nft.initialize(&admin);
+    let collection = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
+    collection.initialize(&admin);
+    let royalty = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
+    royalty.initialize(&admin);
+    let creator = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
+    creator.initialize(&admin);
+
+    let factory_id = env.register(BezaMintFactory, ());
+    let factory = BezaMintFactoryClient::new(&env, &factory_id);
+    factory.initialize(&admin);
+    factory.set_contracts(
+        &admin,
+        &nft.address,
+        &collection.address,
+        &royalty.address,
+        &creator.address,
+    );
+
+    let metadata = String::from_str(&env, "ipfs://orphan");
+    // No collection has been created, so collection 1 does not exist.
+    factory.mint_with_royalty(&user, &user, &1, &metadata, &500);
+}
+
+/// A user must not be able to mint into a collection owned by someone else:
+/// the Collection contract's creator auth for `add_nft` is not covered by the
+/// attacker's signature set, so the whole invocation must fail.
+#[test]
+#[should_panic]
+fn test_mint_into_foreign_collection_fails() {
+    let env = Env::default();
+
+    let admin = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let mallory = Address::generate(&env);
+
+    env.mock_all_auths();
+    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    nft.initialize(&admin);
+    let collection = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
+    collection.initialize(&admin);
+    let royalty = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
+    royalty.initialize(&admin);
+    let creator = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
+    creator.initialize(&admin);
+
+    let factory_id = env.register(BezaMintFactory, ());
+    let factory = BezaMintFactoryClient::new(&env, &factory_id);
+    factory.initialize(&admin);
+    factory.set_contracts(
+        &admin,
+        &nft.address,
+        &collection.address,
+        &royalty.address,
+        &creator.address,
+    );
+
+    // Alice owns collection 1.
+    collection.create_collection(&alice, &String::from_str(&env, "ipfs://alice"));
+
+    let metadata = String::from_str(&env, "ipfs://sneaky");
+
+    // Mallory authorizes her own root call and the NFT mint, but cannot
+    // authorize the collection's add_nft, which requires Alice.
+    let auth = MockAuth {
+        address: &mallory,
+        invoke: &MockAuthInvoke {
+            contract: &factory_id,
+            fn_name: "mint_with_royalty",
+            args: (
+                mallory.clone(),
+                mallory.clone(),
+                1u64,
+                metadata.clone(),
+                500u32,
+            )
+                .into_val(&env),
+            sub_invokes: &[MockAuthInvoke {
+                contract: &nft.address,
+                fn_name: "mint",
+                args: (mallory.clone(), 1u64, metadata.clone()).into_val(&env),
+                sub_invokes: &[],
+            }],
+        },
+    };
+    env.mock_auths(&[auth]);
+
+    factory.mint_with_royalty(&mallory, &mallory, &1, &metadata, &500);
 }
 
 /// Verify the Factory can create a collection AND auto-register the creator.
