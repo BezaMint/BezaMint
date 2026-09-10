@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { HiOutlineSearch, HiOutlineX } from 'react-icons/hi';
+import { debounce } from '@/lib/debounce';
 
 interface SearchBarProps {
   placeholder?: string;
@@ -31,6 +32,16 @@ export default function SearchBar({
     }
   };
 
+  // Debounced live search while typing (only when a handler is provided).
+  // The submit path is unchanged, so explicit searches stay immediate.
+  const debouncedSearch = useMemo(
+    () =>
+      debounce((q: string) => {
+        onSearch?.(q.trim());
+      }, 350),
+    [onSearch],
+  );
+
   const clear = () => {
     setQuery('');
     inputRef.current?.focus();
@@ -55,7 +66,11 @@ export default function SearchBar({
         ref={inputRef}
         type="text"
         value={query}
-        onChange={(e) => setQuery(e.target.value)}
+        onChange={(e) => {
+          const next = e.target.value;
+          setQuery(next);
+          if (next.trim()) debouncedSearch(next);
+        }}
         title="Press / to search"
         placeholder={placeholder}
         className={`input-field pl-12 ${query ? 'pr-10' : ''} ${compact ? 'text-sm py-2' : ''}`}
