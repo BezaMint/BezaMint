@@ -29,8 +29,20 @@ jobs:
         run: pnpm audit --audit-level=high
         continue-on-error: true
 
+      - name: Read the pinned Rust toolchain
+        id: rust
+        run: |
+          channel=$(sed -n 's/^channel *= *"\(.*\)"/\1/p' contracts/rust-toolchain.toml)
+          if [ -z "$channel" ]; then
+            echo "contracts/rust-toolchain.toml does not declare a channel" >&2
+            exit 1
+          fi
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.rust.outputs.channel }}
 
       - name: Audit Rust dependencies
         uses: rustsec/audit-check@v2.0.0

@@ -14,9 +14,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Read the pinned Rust toolchain
+        id: rust
+        run: |
+          channel=$(sed -n 's/^channel *= *"\(.*\)"/\1/p' contracts/rust-toolchain.toml)
+          if [ -z "$channel" ]; then
+            echo "contracts/rust-toolchain.toml does not declare a channel" >&2
+            exit 1
+          fi
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+
       - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: ${{ steps.rust.outputs.channel }}
           targets: wasm32-unknown-unknown
 
       - name: Build optimized contracts
