@@ -84,6 +84,9 @@ export default function DashboardPage() {
     };
   }, [address]);
 
+  const statsLoading =
+    stats.totalSupply === null && stats.totalCollections === null && stats.totalCreators === null;
+
   const statCards = [
     {
       label: 'Total NFTs',
@@ -135,7 +138,13 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {statCards.map((stat) => (
-          <StatCard key={stat.label} label={stat.label} value={stat.value} icon={stat.icon} />
+          <StatCard
+            key={stat.label}
+            label={stat.label}
+            value={stat.value}
+            icon={stat.icon}
+            loading={statsLoading}
+          />
         ))}
       </div>
 
