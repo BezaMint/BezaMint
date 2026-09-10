@@ -1,3 +1,5 @@
+import { withRetry } from './stellar';
+
 export class IpfsUploadError extends Error {
   constructor(
     msg: string,
@@ -32,15 +34,24 @@ export async function uploadMetadataToIpfs(metadata: {
   collectionId?: string;
   royalties?: unknown;
 }): Promise<{ ipfsUri: string; fallback: boolean }> {
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), 30000);
-  const response = await fetch('/api/ipfs/upload', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(metadata),
-    signal: ctl.signal,
-  });
-  clearTimeout(t);
+  const doUpload = async (): Promise<Response> => {
+    const ctl = new AbortController();
+    const t = setTimeout(() => ctl.abort(), 30000);
+    try {
+      return await fetch('/api/ipfs/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(metadata),
+        signal: ctl.signal,
+      });
+    } finally {
+      clearTimeout(t);
+    }
+  };
+
+  // Transient network failures are common; retry with exponential backoff
+  // so a flaky connection doesn't kill the whole mint.
+  const response = await withRetry(doUpload, { maxRetries: 2, baseDelayMs: 800 });
 
   if (!response.ok) {
     // IPFS upload failed — fall back to placeholder
