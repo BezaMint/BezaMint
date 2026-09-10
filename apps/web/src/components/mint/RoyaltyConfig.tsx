@@ -84,17 +84,39 @@ export default function RoyaltyConfig({ config, onChange, userAddress }: Royalty
               <span className="text-xs text-gray-400">Royalty Percentage</span>
               <span className="text-sm font-mono text-bezamint-secondary">{percentage}%</span>
             </div>
-            <input
-              type="range"
-              min="0"
-              max="10000"
-              step="10"
-              value={basisPoints}
-              onChange={(e) => setBasisPoints(Number(e.target.value))}
-              className="w-full h-2 rounded-lg appearance-none bg-bezamint-muted accent-bezamint-primary cursor-pointer"
-            />
+            <div className="flex items-center gap-3">
+              <input
+                type="range"
+                min="0"
+                max="10000"
+                step="25"
+                value={basisPoints}
+                onChange={(e) => setBasisPoints(Number(e.target.value))}
+                aria-label="Royalty percentage slider"
+                className="flex-1 h-2 rounded-lg appearance-none bg-bezamint-muted accent-bezamint-primary cursor-pointer"
+              />
+              <div className="relative w-24 flex-shrink-0">
+                <input
+                  type="number"
+                  min="0"
+                  max="10000"
+                  step="1"
+                  value={basisPoints}
+                  onChange={(e) => {
+                    const raw = Number(e.target.value);
+                    if (!Number.isNaN(raw)) setBasisPoints(raw);
+                  }}
+                  aria-label="Royalty percentage in basis points"
+                  className="input-field text-sm py-2 pr-10 text-right font-mono"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">
+                  bps
+                </span>
+              </div>
+            </div>
             <div className="flex justify-between text-xs text-gray-600 mt-1">
               <span>0%</span>
+              <span>{percentage}%</span>
               <span>100%</span>
             </div>
           </div>
