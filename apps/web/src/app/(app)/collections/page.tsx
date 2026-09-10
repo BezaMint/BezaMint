@@ -5,7 +5,12 @@ import type { CollectionFormState } from '@bezamint/shared';
 import { CollectionGrid, CollectionForm } from '@/components/collection';
 import { useWallet } from '@/context';
 import { useToast } from '@/context';
-import { getCollectionsByCreator, createCollection, signAndSubmit } from '@/services/contracts';
+import {
+  getCollectionsByCreator,
+  getCollectionById,
+  createCollection,
+  signAndSubmit,
+} from '@/services/contracts';
 import { uploadMetadataToIpfs } from '@/services';
 
 interface CollectionItem {
@@ -54,7 +59,7 @@ export default function CollectionsPage() {
   // Load real on-chain collections for the connected wallet.
   useEffect(() => {
     if (!isConnected || !address) {
-      setCollections(SAMPLE_COLLECTIONS);
+      setCollections([]);
       setIsLoading(false);
       return;
     }
@@ -63,27 +68,53 @@ export default function CollectionsPage() {
     setIsLoading(true);
 
     (async () => {
-      const ids = await getCollectionsByCreator(address);
-      if (cancelled) return;
+      try {
+        const ids = await getCollectionsByCreator(address);
+        if (cancelled) return;
 
-      if (ids.length > 0) {
-        setCollections(
-          ids.map((id, i) => ({
+        const items: CollectionItem[] = [];
+        for (const id of ids) {
+          const col = await getCollectionById(address, id);
+          if (cancelled) return;
+          if (!col) continue;
+
+          let name = `Collection #${id}`;
+          let imageUri = '';
+          const uri = String(col.metadata_uri ?? '');
+          if (uri.startsWith('https://') || uri.startsWith('http://')) {
+            // Best-effort: resolve display name/image from the metadata JSON.
+            try {
+              const res = await fetch(uri, { signal: AbortSignal.timeout(8000) });
+              if (res.ok) {
+                const meta = await res.json();
+                if (meta?.name) name = String(meta.name);
+                if (meta?.image) imageUri = String(meta.image);
+              }
+            } catch {
+              // Unresolvable metadata — fall back to on-chain labels.
+            }
+          }
+
+          items.push({
             id: String(id),
-            name: `Collection #${id}`,
-            imageUri: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400',
-            category: 'art',
-            nftCount: 0,
-            isArchived: false,
-            createdAt: `${i + 1} on-chain`,
-            tags: ['on-chain'],
-          })),
-        );
-      } else {
-        // No collections on-chain yet — show empty demo grid with samples hidden.
-        setCollections([]);
+            name,
+            imageUri,
+            category: 'other',
+            nftCount: Number(col.nft_count ?? 0),
+            isArchived: Boolean(col.is_archived),
+            createdAt: Number(col.created_at ?? 0)
+              ? new Date(Number(col.created_at) * 1000).toLocaleDateString()
+              : 'On-chain',
+            tags: [],
+          });
+        }
+        if (cancelled) return;
+        setCollections(items);
+      } catch {
+        if (!cancelled) setCollections([]);
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
-      setIsLoading(false);
     })();
 
     return () => {
