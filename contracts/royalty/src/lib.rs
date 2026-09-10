@@ -210,7 +210,7 @@ impl BezaMintRoyalty {
             .storage()
             .persistent()
             .get(&key)
-            .unwrap_or_else(|| panic!("Royalty: no config for target {}", target_id));
+            .unwrap_or_else(|| panic!("Royalty: no config for target {target_id}"));
 
         assert!(
             caller == admin || caller == config.creator,
@@ -256,7 +256,7 @@ impl BezaMintRoyalty {
             .storage()
             .persistent()
             .get(&key)
-            .unwrap_or_else(|| panic!("Royalty: no config for target {}", target_id));
+            .unwrap_or_else(|| panic!("Royalty: no config for target {target_id}"));
 
         config.is_frozen = true;
         env.storage().persistent().set(&key, &config);

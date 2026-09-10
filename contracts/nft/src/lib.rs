@@ -219,7 +219,7 @@ impl BezaMintNft {
             .storage()
             .persistent()
             .get(&NftKey::Owner(token_id))
-            .unwrap_or_else(|| panic!("NFT: token {} does not exist", token_id));
+            .unwrap_or_else(|| panic!("NFT: token {token_id} not found"));
         assert!(current == from, "NFT: caller not owner");
         Self::assert_not_zero(&env, &to, "transfer recipient");
 
@@ -239,7 +239,7 @@ impl BezaMintNft {
             .storage()
             .persistent()
             .get(&NftKey::Owner(token_id))
-            .unwrap_or_else(|| panic!("NFT: token {} does not exist", token_id));
+            .unwrap_or_else(|| panic!("NFT: token {token_id} not found"));
         assert!(current == from, "NFT: from is not the token owner");
 
         let authorised = Self::is_approved(env.clone(), spender.clone(), token_id)
@@ -359,7 +359,7 @@ impl BezaMintNft {
             .storage()
             .persistent()
             .get(&NftKey::Owner(token_id))
-            .unwrap_or_else(|| panic!("NFT: cannot approve nonexistent token {}", token_id));
+            .unwrap_or_else(|| panic!("NFT: token {token_id} not found"));
         owner.require_auth();
         Self::assert_not_zero(&env, &operator, "approval operator");
         bump_ttl(&env, &NftKey::Owner(token_id));
@@ -386,7 +386,7 @@ impl BezaMintNft {
             .storage()
             .persistent()
             .get(&NftKey::Owner(token_id))
-            .unwrap_or_else(|| panic!("NFT: cannot burn nonexistent token {}", token_id));
+            .unwrap_or_else(|| panic!("NFT: token {token_id} not found"));
         owner.require_auth();
         Self::index_remove(&env, &owner, token_id);
         env.storage().persistent().remove(&NftKey::Owner(token_id));

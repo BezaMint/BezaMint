@@ -189,7 +189,7 @@ impl BezaMintCollection {
             .storage()
             .persistent()
             .get(&ColKey::Collection(id))
-            .unwrap_or_else(|| panic!("Collection: {} not found", id));
+            .unwrap_or_else(|| panic!("Collection: {id} not found"));
 
         assert!(
             data.creator == creator,
@@ -219,7 +219,7 @@ impl BezaMintCollection {
             .storage()
             .persistent()
             .get(&ColKey::Collection(id))
-            .unwrap_or_else(|| panic!("Collection: {} not found", id));
+            .unwrap_or_else(|| panic!("Collection: {id} not found"));
 
         assert!(
             data.creator == creator,
@@ -271,7 +271,7 @@ impl BezaMintCollection {
             .storage()
             .persistent()
             .get(&ColKey::Collection(collection_id))
-            .unwrap_or_else(|| panic!("Collection: {} not found", collection_id));
+            .unwrap_or_else(|| panic!("Collection: {collection_id} not found"));
 
         data.creator.require_auth();
         assert!(!data.is_archived, "Collection: {collection_id} is archived");
@@ -333,7 +333,7 @@ impl BezaMintCollection {
             .storage()
             .persistent()
             .get(&ColKey::Collection(collection_id))
-            .unwrap_or_else(|| panic!("Collection: {} not found", collection_id));
+            .unwrap_or_else(|| panic!("Collection: {collection_id} not found"));
 
         data.creator.require_auth();
 

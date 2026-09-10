@@ -435,7 +435,7 @@ fn test_transfer_from_rejects_wrong_from() {
 }
 
 #[test]
-#[should_panic(expected = "does not exist")]
+#[should_panic(expected = "not found")]
 fn test_transfer_from_rejects_nonexistent_token() {
     let env = Env::default();
     env.mock_all_auths();
