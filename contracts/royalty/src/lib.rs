@@ -76,17 +76,26 @@ impl BezaMintRoyalty {
             "Royalty: basis points must be <= 10000"
         );
 
+        let key = if is_collection {
+            RoyaltyKey::ConfigCollection(target_id)
+        } else {
+            RoyaltyKey::ConfigNft(target_id)
+        };
+
+        // `configure_royalty` creates terms; it must never silently overwrite
+        // them. Before this guard a frozen config could be replaced outright,
+        // which made `freeze_royalty` advisory rather than binding, and a live
+        // config could be swapped without any `Updated` event being emitted.
+        assert!(
+            !env.storage().persistent().has(&key),
+            "Royalty: config already exists for target {target_id}; use update_royalty"
+        );
+
         let config = RoyaltyConfig {
             basis_points,
             recipients,
             is_frozen: false,
             set_at: env.ledger().timestamp(),
-        };
-
-        let key = if is_collection {
-            RoyaltyKey::ConfigCollection(target_id)
-        } else {
-            RoyaltyKey::ConfigNft(target_id)
         };
 
         env.storage().persistent().set(&key, &config);

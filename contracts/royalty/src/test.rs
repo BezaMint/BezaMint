@@ -74,6 +74,38 @@ fn test_configure_invalid_basis_points_fails() {
     client.configure_royalty(&1, &15000, &empty_recipients(&env), &false);
 }
 
+/// A frozen configuration must not be replaceable through `configure_royalty`.
+#[test]
+#[should_panic(expected = "config already exists")]
+fn test_configure_royalty_cannot_overwrite_frozen_config() {
+    let (env, client) = setup();
+    client.configure_royalty(&1, &500, &empty_recipients(&env), &false);
+    client.freeze_royalty(&1, &false);
+    client.configure_royalty(&1, &100, &empty_recipients(&env), &false);
+}
+
+/// Even an unfrozen configuration is created once; changing it is the job of
+/// `update_royalty`, which emits a distinct `Updated` event.
+#[test]
+#[should_panic(expected = "config already exists")]
+fn test_configure_royalty_cannot_overwrite_live_config() {
+    let (env, client) = setup();
+    client.configure_royalty(&1, &500, &empty_recipients(&env), &false);
+    client.configure_royalty(&1, &600, &empty_recipients(&env), &false);
+}
+
+/// The NFT and collection namespaces are independent, so creating one must not
+/// block creating the other for the same numeric id.
+#[test]
+fn test_configure_royalty_namespaces_are_independent() {
+    let (env, client) = setup();
+    client.configure_royalty(&1, &300, &empty_recipients(&env), &false);
+    client.configure_royalty(&1, &700, &empty_recipients(&env), &true);
+    client.update_royalty(&1, &400, &empty_recipients(&env), &false);
+    assert_eq!(client.get_royalty(&1, &false).basis_points, 400);
+    assert_eq!(client.get_royalty(&1, &true).basis_points, 700);
+}
+
 #[test]
 fn test_update_royalty() {
     let (env, client) = setup();
