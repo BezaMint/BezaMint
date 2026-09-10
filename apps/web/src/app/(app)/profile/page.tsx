@@ -20,28 +20,36 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<CreatorProfile | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Load the real on-chain profile for the connected wallet.
   useEffect(() => {
     if (!isConnected || !address) return;
     let cancelled = false;
+    setIsLoading(true);
 
     (async () => {
-      const onChain = await getCreatorProfile(address, address);
-      if (!cancelled && onChain) {
-        setProfile({
-          address: onChain.address,
-          displayName: onChain.displayName || 'Unnamed Creator',
-          bio: onChain.bio,
-          avatarUri: onChain.avatarUri,
-          bannerUri: onChain.bannerUri,
-          socialLinks: onChain.socialLinks,
-          createdAt: Date.now() / 1000,
-          updatedAt: Date.now() / 1000,
-          isVerified: onChain.isVerified,
-          totalNftsCreated: 0,
-          totalCollections: 0,
-        });
+      try {
+        const onChain = await getCreatorProfile(address, address);
+        if (!cancelled && onChain) {
+          setProfile({
+            address: onChain.address,
+            displayName: onChain.displayName || 'Unnamed Creator',
+            bio: onChain.bio,
+            avatarUri: onChain.avatarUri,
+            bannerUri: onChain.bannerUri,
+            socialLinks: onChain.socialLinks,
+            createdAt: Date.now() / 1000,
+            updatedAt: Date.now() / 1000,
+            isVerified: onChain.isVerified,
+            totalNftsCreated: 0,
+            totalCollections: 0,
+          });
+        }
+      } catch {
+        // Unreachable chain — treat as unregistered (create form shows).
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
     })();
 
@@ -120,6 +128,22 @@ export default function ProfilePage() {
           <button onClick={connect} className="btn-primary text-sm">
             Connect Wallet
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="page-container max-w-6xl">
+        <div className="h-48 lg:h-64 rounded-2xl bg-bezamint-muted/40 animate-pulse mb-8" />
+        <div className="flex gap-6 mb-10">
+          <div className="w-24 h-24 rounded-2xl bg-bezamint-muted/40 animate-pulse" />
+          <div className="flex-1 space-y-3">
+            <div className="h-7 w-64 bg-bezamint-muted/40 rounded animate-pulse" />
+            <div className="h-4 w-40 bg-bezamint-muted/30 rounded animate-pulse" />
+            <div className="h-4 w-72 bg-bezamint-muted/30 rounded animate-pulse" />
+          </div>
         </div>
       </div>
     );
