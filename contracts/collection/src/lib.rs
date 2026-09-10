@@ -15,6 +15,16 @@ const MAX_METADATA_URI_LEN: u32 = 512;
 /// caller cannot force an unbounded read of the creator index.
 const MAX_PAGE_SIZE: u32 = 100;
 
+/// State-expiration (TTL) policy. Soroban entries silently archive once their
+/// TTL elapses and then read as missing, so a collection whose record archived
+/// would vanish from listings while its id still exists. Every write refreshes
+/// the touched entries to the network maximum ([`TTL_LEDGERS`] = Stellar's
+/// `MAXIMUM_ENTRY_TTL_LEDGERS`, ~1 year at 5s per ledger), and the primary
+/// getters bump entries that have fallen below half-life so actively used
+/// collections stay alive indefinitely.
+const TTL_LEDGERS: u32 = 6_312_000;
+const TTL_THRESHOLD: u32 = TTL_LEDGERS / 2;
+
 // ─────────────────────────── Types ───────────────────────────
 
 #[contracttype]
@@ -69,6 +79,15 @@ fn emit(env: &Env, event: ColEvent) {
     env.events().publish((symbol_short!("col"),), event);
 }
 
+/// Extend the TTL of a persistent entry to [`TTL_LEDGERS`] when its remaining
+/// life is at or below [`TTL_THRESHOLD`]. Cheap no-op otherwise, so it is safe
+/// to call on every access path.
+fn bump_ttl(env: &Env, key: &ColKey) {
+    env.storage()
+        .persistent()
+        .extend_ttl(key, TTL_THRESHOLD, TTL_LEDGERS);
+}
+
 // ─────────────────────────── Contract ───────────────────────────
 
 #[contract]
@@ -84,6 +103,11 @@ impl BezaMintCollection {
         env.storage().instance().set(&ColKey::Admin, &admin);
         env.storage().instance().set(&ColKey::Counter, &0u64);
         env.storage().instance().set(&ColKey::Version, &1u32);
+        // Instance data and contract code share one TTL; refresh both up front
+        // so a long-dormant contract does not silently lose its admin binding.
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
     }
 
     /// Returns `true` once `initialize` has succeeded.
@@ -122,6 +146,10 @@ impl BezaMintCollection {
         env.storage()
             .persistent()
             .set(&ColKey::Collection(id), &data);
+        bump_ttl(&env, &ColKey::Collection(id));
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
 
         // Maintain a per-creator index so listing a creator's collections does
         // not require scanning every collection in the contract.
@@ -134,6 +162,7 @@ impl BezaMintCollection {
         env.storage()
             .persistent()
             .set(&ColKey::CreatorCollections(creator.clone()), &owned);
+        bump_ttl(&env, &ColKey::CreatorCollections(creator.clone()));
 
         emit(&env, ColEvent::Created(id, creator));
 
@@ -165,6 +194,7 @@ impl BezaMintCollection {
         env.storage()
             .persistent()
             .set(&ColKey::Collection(id), &data);
+        bump_ttl(&env, &ColKey::Collection(id));
 
         emit(&env, ColEvent::Updated(id));
     }
@@ -188,6 +218,7 @@ impl BezaMintCollection {
         env.storage()
             .persistent()
             .set(&ColKey::Collection(id), &data);
+        bump_ttl(&env, &ColKey::Collection(id));
 
         emit(&env, ColEvent::Archived(id));
     }
@@ -244,6 +275,7 @@ impl BezaMintCollection {
         env.storage()
             .persistent()
             .set(&ColKey::NftCollection(token_id), &collection_id);
+        bump_ttl(&env, &ColKey::NftCollection(token_id));
 
         let mut nfts: Vec<u64> = env
             .storage()
@@ -261,9 +293,11 @@ impl BezaMintCollection {
         env.storage()
             .persistent()
             .set(&ColKey::NftsInCollection(collection_id), &nfts);
+        bump_ttl(&env, &ColKey::NftsInCollection(collection_id));
         env.storage()
             .persistent()
             .set(&ColKey::Collection(collection_id), &data);
+        bump_ttl(&env, &ColKey::Collection(collection_id));
 
         emit(&env, ColEvent::NftAdded(collection_id, token_id));
     }
@@ -309,9 +343,11 @@ impl BezaMintCollection {
         env.storage()
             .persistent()
             .set(&ColKey::NftsInCollection(collection_id), &new_nfts);
+        bump_ttl(&env, &ColKey::NftsInCollection(collection_id));
         env.storage()
             .persistent()
             .set(&ColKey::Collection(collection_id), &data);
+        bump_ttl(&env, &ColKey::Collection(collection_id));
 
         emit(&env, ColEvent::NftRemoved(collection_id, token_id));
     }
@@ -323,10 +359,18 @@ impl BezaMintCollection {
     }
 
     pub fn get_collection(env: Env, id: u64) -> CollectionData {
-        env.storage()
+        let key = ColKey::Collection(id);
+        match env
+            .storage()
             .persistent()
-            .get(&ColKey::Collection(id))
-            .unwrap_or_else(|| panic!("Collection: {} not found", id))
+            .get::<ColKey, CollectionData>(&key)
+        {
+            Some(data) => {
+                bump_ttl(&env, &key);
+                data
+            }
+            None => panic!("Collection: {id} not found"),
+        }
     }
 
     pub fn get_nfts_in_collection(env: Env, collection_id: u64) -> Vec<u64> {

@@ -13,7 +13,6 @@ const MAX_URI_LEN: u32 = 512;
 const MAX_SOCIAL_LINKS: u32 = 8;
 const MAX_PLATFORM_LEN: u32 = 32;
 const MAX_SOCIAL_URL_LEN: u32 = 256;
-
 /// Social platforms accepted in `set_social_links`. Anything else is rejected
 /// so the frontend can render link badges without an unbounded allowlist, and
 /// so a platform string cannot be used to smuggle a scheme or markup.
@@ -34,6 +33,16 @@ const ALLOWED_PLATFORMS: &[&[u8]] = &[
     b"threads",
     b"website",
 ];
+
+/// State-expiration (TTL) policy. Soroban entries silently archive once their
+/// TTL elapses and then read as missing; a creator profile that archived would
+/// make `get_profile` panic even though the address demonstrably registered.
+/// Every write refreshes the touched entries to the network maximum
+/// ([`TTL_LEDGERS`] = Stellar's `MAXIMUM_ENTRY_TTL_LEDGERS`, ~1 year at 5s
+/// per ledger), and the primary getters bump entries that have fallen below
+/// half-life so actively used profiles stay alive indefinitely.
+const TTL_LEDGERS: u32 = 6_312_000;
+const TTL_THRESHOLD: u32 = TTL_LEDGERS / 2;
 
 // ─────────────────────────── Types ───────────────────────────
 
@@ -79,6 +88,15 @@ pub enum CreatorEvent {
 
 fn emit(env: &Env, event: CreatorEvent) {
     env.events().publish((symbol_short!("creator"),), event);
+}
+
+/// Extend the TTL of a persistent entry to [`TTL_LEDGERS`] when its remaining
+/// life is at or below [`TTL_THRESHOLD`]. Cheap no-op otherwise, so it is safe
+/// to call on every access path.
+fn bump_ttl(env: &Env, key: &CreatorKey) {
+    env.storage()
+        .persistent()
+        .extend_ttl(key, TTL_THRESHOLD, TTL_LEDGERS);
 }
 
 /// True when `s` begins with `prefix`. Soroban's `String` has no
@@ -173,6 +191,11 @@ impl BezaMintCreator {
         env.storage().instance().set(&CreatorKey::Admin, &admin);
         env.storage().instance().set(&CreatorKey::Counter, &0u64);
         env.storage().instance().set(&CreatorKey::Version, &1u32);
+        // Instance data and contract code share one TTL; refresh both up front
+        // so a long-dormant contract does not silently lose its admin binding.
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
     }
 
     /// Returns `true` once `initialize` has succeeded.
@@ -229,9 +252,13 @@ impl BezaMintCreator {
         env.storage()
             .persistent()
             .set(&CreatorKey::Profile(creator.clone()), &profile);
+        bump_ttl(&env, &CreatorKey::Profile(creator.clone()));
         env.storage()
             .instance()
             .set(&CreatorKey::Counter, &(counter + 1));
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
 
         emit(&env, CreatorEvent::Registered(creator.clone()));
     }
@@ -278,6 +305,7 @@ impl BezaMintCreator {
         env.storage()
             .persistent()
             .set(&CreatorKey::Profile(creator.clone()), &profile);
+        bump_ttl(&env, &CreatorKey::Profile(creator.clone()));
 
         emit(&env, CreatorEvent::ProfileUpdated(creator));
     }
@@ -299,6 +327,7 @@ impl BezaMintCreator {
         env.storage()
             .persistent()
             .set(&CreatorKey::Profile(creator.clone()), &profile);
+        bump_ttl(&env, &CreatorKey::Profile(creator.clone()));
 
         emit(&env, CreatorEvent::ProfileUpdated(creator));
     }
@@ -323,6 +352,7 @@ impl BezaMintCreator {
         env.storage()
             .persistent()
             .set(&CreatorKey::Profile(creator.clone()), &profile);
+        bump_ttl(&env, &CreatorKey::Profile(creator.clone()));
 
         emit(&env, CreatorEvent::Verified(creator));
     }
@@ -337,10 +367,18 @@ impl BezaMintCreator {
     }
 
     pub fn get_profile(env: Env, creator: Address) -> CreatorProfile {
-        env.storage()
+        let key = CreatorKey::Profile(creator);
+        match env
+            .storage()
             .persistent()
-            .get(&CreatorKey::Profile(creator.clone()))
-            .unwrap_or_else(|| panic!("Creator: profile not found"))
+            .get::<CreatorKey, CreatorProfile>(&key)
+        {
+            Some(profile) => {
+                bump_ttl(&env, &key);
+                profile
+            }
+            None => panic!("Creator: profile not found"),
+        }
     }
 
     pub fn is_registered(env: Env, creator: Address) -> bool {

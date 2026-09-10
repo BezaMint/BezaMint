@@ -14,6 +14,16 @@ const TOTAL_SHARE: u32 = 100;
 /// create an unbounded payout fan-out.
 const MAX_RECIPIENTS: u32 = 10;
 
+/// State-expiration (TTL) policy. Soroban entries silently archive once their
+/// TTL elapses and then read as missing; a royalty config that archived would
+/// make `get_royalty` panic for an NFT that demonstrably still exists. Every
+/// write refreshes the touched entries to the network maximum
+/// ([`TTL_LEDGERS`] = Stellar's `MAXIMUM_ENTRY_TTL_LEDGERS`, ~1 year at 5s
+/// per ledger), and the primary getters bump entries that have fallen below
+/// half-life so actively used configs stay alive indefinitely.
+const TTL_LEDGERS: u32 = 6_312_000;
+const TTL_THRESHOLD: u32 = TTL_LEDGERS / 2;
+
 // ─────────────────────────── Types ───────────────────────────
 
 #[contracttype]
@@ -51,6 +61,15 @@ fn emit(env: &Env, event: RoyaltyEvent) {
     env.events().publish((symbol_short!("royalty"),), event);
 }
 
+/// Extend the TTL of a persistent entry to [`TTL_LEDGERS`] when its remaining
+/// life is at or below [`TTL_THRESHOLD`]. Cheap no-op otherwise, so it is safe
+/// to call on every access path.
+fn bump_ttl(env: &Env, key: &RoyaltyKey) {
+    env.storage()
+        .persistent()
+        .extend_ttl(key, TTL_THRESHOLD, TTL_LEDGERS);
+}
+
 // ─────────────────────────── Contract ───────────────────────────
 
 #[contract]
@@ -65,6 +84,11 @@ impl BezaMintRoyalty {
         admin.require_auth();
         env.storage().instance().set(&RoyaltyKey::Admin, &admin);
         env.storage().instance().set(&RoyaltyKey::Version, &1u32);
+        // Instance data and contract code share one TTL; refresh both up front
+        // so a long-dormant contract does not silently lose its admin binding.
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
     }
 
     /// Returns `true` once `initialize` has succeeded.
@@ -123,6 +147,10 @@ impl BezaMintRoyalty {
         };
 
         env.storage().persistent().set(&key, &config);
+        bump_ttl(&env, &key);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
 
         emit(&env, RoyaltyEvent::Configured(target_id, basis_points));
     }
@@ -181,6 +209,7 @@ impl BezaMintRoyalty {
         config.set_at = env.ledger().timestamp();
 
         env.storage().persistent().set(&key, &config);
+        bump_ttl(&env, &key);
 
         emit(&env, RoyaltyEvent::Updated(target_id, basis_points));
     }
@@ -209,6 +238,7 @@ impl BezaMintRoyalty {
 
         config.is_frozen = true;
         env.storage().persistent().set(&key, &config);
+        bump_ttl(&env, &key);
 
         emit(&env, RoyaltyEvent::Frozen(target_id));
     }
@@ -260,10 +290,17 @@ impl BezaMintRoyalty {
             RoyaltyKey::ConfigNft(target_id)
         };
 
-        env.storage()
+        match env
+            .storage()
             .persistent()
-            .get(&key)
-            .unwrap_or_else(|| panic!("Royalty: no config for target {}", target_id))
+            .get::<RoyaltyKey, RoyaltyConfig>(&key)
+        {
+            Some(config) => {
+                bump_ttl(&env, &key);
+                config
+            }
+            None => panic!("Royalty: no config for target {target_id}"),
+        }
     }
 
     pub fn is_frozen(env: Env, target_id: u64, is_collection: bool) -> bool {

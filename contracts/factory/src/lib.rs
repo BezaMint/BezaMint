@@ -24,6 +24,16 @@ pub enum FactoryEvent {
     CollectionCreated(u64, Address),
 }
 
+/// State-expiration (TTL) policy. Soroban instance data and contract code are
+/// archived once their TTL elapses; the Factory's entire state lives in
+/// instance storage (admin plus the four contract pointers), so a dormant
+/// contract would silently lose its wiring and every cross-contract call would
+/// panic with "contract not set". Every write refreshes instance + code to the
+/// network maximum ([`TTL_LEDGERS`] = Stellar's `MAXIMUM_ENTRY_TTL_LEDGERS`,
+/// ~1 year at 5s per ledger).
+const TTL_LEDGERS: u32 = 6_312_000;
+const TTL_THRESHOLD: u32 = TTL_LEDGERS / 2;
+
 fn emit(env: &Env, event: FactoryEvent) {
     env.events().publish((symbol_short!("factory"),), event);
 }
@@ -40,6 +50,11 @@ impl BezaMintFactory {
         admin.require_auth();
         env.storage().instance().set(&FactoryKey::Admin, &admin);
         env.storage().instance().set(&FactoryKey::Version, &1u32);
+        // Instance data and contract code share one TTL; refresh both up front
+        // so a long-dormant contract does not silently lose its admin binding.
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
     }
 
     /// Returns `true` once `initialize` has succeeded.
@@ -72,6 +87,9 @@ impl BezaMintFactory {
         env.storage()
             .instance()
             .set(&FactoryKey::CreatorContract, &creator);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
 
         emit(
             &env,
@@ -145,6 +163,9 @@ impl BezaMintFactory {
             &Symbol::new(&env, "configure_royalty"),
             royalty_args,
         );
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
 
         emit(&env, FactoryEvent::NftMinted(token_id, caller));
 
@@ -203,6 +224,9 @@ impl BezaMintFactory {
             ];
             env.invoke_contract::<()>(&creator_addr, &Symbol::new(&env, "register"), reg_args);
         }
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
 
         emit(&env, FactoryEvent::CollectionCreated(collection_id, caller));
 
