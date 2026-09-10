@@ -55,6 +55,70 @@ fn test_initialize_attempt_does_not_reset_counter() {
     assert_eq!(second, 2);
 }
 
+/// A transfer must invalidate the previous owner's approval, otherwise the old
+/// operator could immediately move the token again.
+#[test]
+fn test_transfer_clears_approval() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let operator = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+
+    let token_id = mint_one(&client, &owner, 0);
+    client.approve(&operator, &token_id);
+    assert!(client.is_approved(&operator, &token_id));
+
+    client.transfer(&owner, &buyer, &token_id);
+
+    assert!(!client.is_approved(&operator, &token_id));
+    assert_eq!(client.owner_of(&token_id), buyer);
+}
+
+/// Burning a token must not leave a reusable operator approval behind.
+#[test]
+fn test_burn_clears_approval() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let operator = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+
+    let token_id = mint_one(&client, &owner, 0);
+    client.approve(&operator, &token_id);
+    assert!(client.is_approved(&operator, &token_id));
+
+    client.burn(&token_id);
+
+    assert!(!client.is_approved(&operator, &token_id));
+}
+
+/// `approve` sets a single "current" operator, matching ERC-721 `getApproved`:
+/// approving someone new replaces any previous approval.
+#[test]
+fn test_approve_replaces_previous_operator() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let owner = Address::generate(&env);
+    let first = Address::generate(&env);
+    let second = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+
+    let token_id = mint_one(&client, &owner, 0);
+    client.approve(&first, &token_id);
+    client.approve(&second, &token_id);
+
+    assert!(!client.is_approved(&first, &token_id));
+    assert!(client.is_approved(&second, &token_id));
+}
+
 #[test]
 fn test_initialize_sets_admin_and_counter() {
     let env = Env::default();

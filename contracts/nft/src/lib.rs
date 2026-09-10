@@ -24,7 +24,10 @@ pub enum NftKey {
     Version,
     Owner(u64),
     Data(u64),
-    Approval(u64, Address),
+    /// The single operator currently approved for a token id (ERC-721
+    /// `getApproved` semantics), if any.
+    Approval(u64),
+    /// Blanket operator approval granted by an owner.
     OperatorApproval(Address, Address),
 }
 
@@ -155,13 +158,14 @@ impl BezaMintNft {
             .get(&NftKey::Owner(token_id))
             .unwrap_or_else(|| panic!("NFT: token {} does not exist", token_id));
         assert!(current == from, "NFT: caller not owner");
-
         env.storage()
             .persistent()
             .set(&NftKey::Owner(token_id), &to);
+        // A transfer invalidates any approval the previous owner granted for
+        // this token; without this the old operator could move it back.
         env.storage()
             .persistent()
-            .remove(&NftKey::Approval(token_id, from.clone()));
+            .remove(&NftKey::Approval(token_id));
 
         emit_nft(
             &env,
@@ -178,7 +182,9 @@ impl BezaMintNft {
         owner.require_auth();
         env.storage()
             .persistent()
-            .set(&NftKey::Approval(token_id, operator.clone()), &true);
+            .set(&NftKey::Approval(token_id), &operator);
+
+        emit_nft(&env, NftEvent::Approved(token_id, operator));
     }
 
     pub fn set_approval_for_all(env: Env, owner_addr: Address, operator: Address, approved: bool) {
@@ -197,6 +203,12 @@ impl BezaMintNft {
         owner.require_auth();
         env.storage().persistent().remove(&NftKey::Owner(token_id));
         env.storage().persistent().remove(&NftKey::Data(token_id));
+        // Burn must not leave a dangling operator approval behind: token ids
+        // are not recycled today, but a stale approval would be a latent
+        // privilege grant if that ever changed.
+        env.storage()
+            .persistent()
+            .remove(&NftKey::Approval(token_id));
 
         emit_nft(&env, NftEvent::Burned(token_id, owner));
     }
@@ -239,7 +251,8 @@ impl BezaMintNft {
     pub fn is_approved(env: Env, operator: Address, token_id: u64) -> bool {
         env.storage()
             .persistent()
-            .get(&NftKey::Approval(token_id, operator))
+            .get::<NftKey, Address>(&NftKey::Approval(token_id))
+            .map(|approved| approved == operator)
             .unwrap_or(false)
     }
 
