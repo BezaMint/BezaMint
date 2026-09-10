@@ -13,8 +13,9 @@ import {
   HiOutlineLockClosed,
   HiOutlineExternalLink,
 } from 'react-icons/hi';
-import { EmptyState, LoadingSkeleton } from '@/components/ui';
+import { EmptyState, LoadingSkeleton, SmartImage } from '@/components/ui';
 import { formatBasisPoints } from '@bezamint/shared';
+import { resolveMetadataUri } from '@/lib/metadataResolver';
 import { useWallet } from '@/context';
 import {
   getTokenData,
@@ -33,6 +34,9 @@ export default function NftDetailPage() {
   const [owner, setOwner] = useState<string | null>(null);
   const [royalty, setRoyalty] = useState<Awaited<ReturnType<typeof getRoyaltyConfig>> | null>(null);
   const [collectionId, setCollectionId] = useState<number | null>(null);
+  const [resolvedMeta, setResolvedMeta] = useState<Awaited<
+    ReturnType<typeof resolveMetadataUri>
+  > | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,7 +59,18 @@ export default function NftDetailPage() {
       setOwner(ownerAddr);
       setRoyalty(royaltyCfg);
       setCollectionId(colId);
-      if (!data) setError('This token does not exist on-chain.');
+      if (data) {
+        // Best-effort resolve the metadata JSON (name, description, image).
+        resolveMetadataUri(data.metadataUri)
+          .then((meta) => {
+            if (!cancelled) setResolvedMeta(meta);
+          })
+          .catch(() => {
+            if (!cancelled) setResolvedMeta(null);
+          });
+      } else {
+        setError('This token does not exist on-chain.');
+      }
     } catch {
       if (!cancelled) setError('Failed to load this NFT. Please try again.');
     } finally {
@@ -150,15 +165,27 @@ export default function NftDetailPage() {
         <div className="flex flex-col sm:flex-row gap-8">
           <div className="w-full sm:w-64 flex-shrink-0">
             <div className="aspect-square rounded-xl bg-bezamint-muted/50 border border-bezamint-border overflow-hidden">
-              <HiOutlinePhotograph className="w-12 h-12 text-gray-600 m-auto translate-y-1/2" />
+              <SmartImage
+                src={resolvedMeta?.image}
+                alt={resolvedMeta?.name || `Token #${token.tokenId}`}
+                className="w-full h-full"
+                fallback={<HiOutlinePhotograph className="w-12 h-12 text-gray-600" />}
+              />
             </div>
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-2xl font-bold text-white">Token #{token.tokenId}</h1>
+              <h1 className="text-2xl font-bold text-white">
+                {resolvedMeta?.name || `Token #${token.tokenId}`}
+              </h1>
               <span className="badge-primary">NFT</span>
             </div>
+            {resolvedMeta?.description && (
+              <p className="text-sm text-gray-400 leading-relaxed mb-3">
+                {resolvedMeta.description.slice(0, 240)}
+              </p>
+            )}
 
             {/* Creator */}
             <div className="flex items-center gap-3 text-sm mb-3">
