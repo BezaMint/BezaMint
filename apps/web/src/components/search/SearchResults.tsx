@@ -4,6 +4,8 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import SearchBar from './SearchBar';
 import SearchFilters from './SearchFilters';
 import SearchResultCard from './SearchResultCard';
+import { HiOutlineSearch } from 'react-icons/hi';
+import { EmptyState } from '@/components/ui';
 import { filterSearchResults, hasCategoryData } from '@/lib/search';
 import { useWallet } from '@/context';
 import {
@@ -215,21 +217,18 @@ export default function SearchResults() {
           </div>
         ) : filtered.length > 0 ? (
           filtered.map((result, idx) => <SearchResultCard key={idx} {...result} />)
+        ) : searched ? (
+          <EmptyState
+            icon={HiOutlineSearch}
+            title={`No results found${query ? ` for "${query}"` : ''}`}
+            description="Try a full Stellar address (starts with G), a collection ID, or a token ID."
+          />
         ) : (
-          <div className="card text-center py-12">
-            {searched ? (
-              <>
-                <p className="text-gray-400">No results found{query ? ` for "${query}"` : ''}.</p>
-                <p className="text-xs text-gray-600 mt-2">
-                  Try a full Stellar address (starts with G), a collection ID, or a token ID.
-                </p>
-              </>
-            ) : (
-              <p className="text-gray-400">
-                Enter a Stellar address, collection ID, or token ID to search.
-              </p>
-            )}
-          </div>
+          <EmptyState
+            icon={HiOutlineSearch}
+            title="Search BezaMint"
+            description="Enter a Stellar address, collection ID, or token ID to search."
+          />
         )}
       </div>
     </div>

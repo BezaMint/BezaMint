@@ -12,7 +12,7 @@ import {
   HiOutlineShieldCheck,
 } from 'react-icons/hi';
 import { xdr, scValToNative } from '@stellar/stellar-sdk';
-import { StatCard } from '@/components/ui';
+import { StatCard, EmptyState } from '@/components/ui';
 import { ActivityTimeline } from '@/components/activity';
 import { useWallet } from '@/context';
 import { useContractEvents } from '@/hooks/useContractEvents';
@@ -225,6 +225,14 @@ export default function DashboardPage() {
                 <div key={i} className="h-12 bg-bezamint-muted/30 rounded animate-pulse" />
               ))}
             </div>
+          ) : activities.length === 0 ? (
+            <EmptyState
+              icon={HiOutlineShoppingBag}
+              title="No activity yet"
+              description="Mint an NFT or create a collection to see on-chain activity here."
+              actionLabel="Mint an NFT"
+              actionHref="/mint"
+            />
           ) : (
             <ActivityTimeline activities={activities} maxItems={8} />
           )}
