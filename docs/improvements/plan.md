@@ -48,16 +48,16 @@ Legend: `[x]` done · `[ ]` pending
 - [x] F38 Dashboard stat cards: real data with loading skeletons
 - [x] F39 Collections page: real data + pagination
 - [x] F40 ActivityTimeline: on-chain/API-backed events, not mocks
-- [ ] F41 Sidebar: collapse state persisted
-- [ ] F42 Verify page: real verification flow + states
-- [ ] F43 Settings page: env/contract status check UI
-- [ ] F44 Shared format helpers consolidated (formatBps, formatXlm, truncate)
-- [ ] F45 Header wallet menu: balance refresh + error states
-- [ ] F46 EmptyState applied across all list/result views
-- [ ] F47 Loading skeletons on all dynamic pages
-- [ ] F48 Metadata resolver: robust IPFS/gateway fallback in UI
-- [ ] F49 CreatorCard/CollectionCard: clickable + verified badges consistent
-- [ ] F50 Accessible form labels + `aria-describedby` on all inputs
+- [x] F41 Sidebar: collapse state persisted
+- [x] F42 Verify page: real verification flow + states
+- [x] F43 Settings page: env/contract status check UI
+- [x] F44 Shared format helpers consolidated (formatBps, formatXlm, truncate)
+- [x] F45 Header wallet menu: balance refresh + error states
+- [x] F46 EmptyState applied across all list/result views
+- [x] F47 Loading skeletons on all dynamic pages
+- [x] F48 Metadata resolver: robust IPFS/gateway fallback in UI
+- [x] F49 CreatorCard/CollectionCard: clickable + verified badges consistent
+- [x] F50 Accessible form labels + `aria-describedby` on all inputs
 
 ## B. Backend / API (50)
 
