@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
   HiOutlineCollection,
@@ -11,50 +11,67 @@ import {
   HiOutlineShoppingBag,
   HiOutlineShieldCheck,
 } from 'react-icons/hi';
+import { xdr, scValToNative } from '@stellar/stellar-sdk';
 import { StatCard } from '@/components/ui';
 import { ActivityTimeline } from '@/components/activity';
 import { useWallet } from '@/context';
-import { formatAddress } from '@/services';
+import { useContractEvents } from '@/hooks/useContractEvents';
+import type { ActivityItem } from '@/components/activity/ActivityTimeline';
+import { formatAddress, CONTRACT_IDS } from '@/services';
 import { getTotalSupply, getTotalCollections, getTotalCreators } from '@/services/contracts';
 
-const SAMPLE_ACTIVITIES = [
-  {
-    id: '1',
-    eventType: 'nft_minted',
-    description: 'Abstract #001 minted in collection Digital Artworks',
-    timestamp: 'Just now',
-    txHash: 'abc123def4567890123456789012345678901234567890abcd',
-  },
-  {
-    id: '2',
-    eventType: 'collection_created',
-    description: 'Created collection "Digital Artworks"',
-    timestamp: '2h ago',
-    txHash: 'def789abc0123456789012345678901234567890123456ef01',
-  },
-  {
-    id: '3',
-    eventType: 'profile_created',
-    description: 'Creator profile registered on BezaMint',
-    timestamp: '1d ago',
-    txHash: '012345abcdef78901234567890123456789012345678901234',
-    href: '/profile',
-  },
-  {
-    id: '4',
-    eventType: 'nft_transferred',
-    description: 'Gaming Sword transferred to new owner',
-    timestamp: '3d ago',
-    txHash: '567890abcdef12345678901234567890123456789012345678',
-  },
-  {
-    id: '5',
-    eventType: 'royalty_configured',
-    description: 'Set 5% royalty on collection "Music Lab"',
-    timestamp: '1w ago',
-    txHash: '890123abcdef45678901234567890123456789012345678901',
-  },
-];
+// ─────────────────────── Event decoding ───────────────────────
+
+/**
+ * Decode the Factory event variant from its topic XDR so real activity can
+ * be labeled (NftMinted / CollectionCreated / ContractsSet) instead of shown
+ * as an opaque blob.
+ */
+function decodeFactoryEventType(topics: string[]): string {
+  const topic = topics[1];
+  if (!topic) return 'contract_event';
+  try {
+    const variant = xdr.ScVal.fromXDR(topic, 'base64');
+    const v = scValToNative(variant);
+    if (typeof v === 'number') {
+      const NAMES = ['NftMinted', 'CollectionCreated', 'ContractsSet'];
+      return NAMES[v] ?? 'contract_event';
+    }
+  } catch {
+    // unparseable topic — fall through
+  }
+  return 'contract_event';
+}
+
+function eventToActivity(event: {
+  pagingToken: string;
+  topics: string[];
+  ledger: number;
+  ledgerClosedAt: string;
+  txHash: string;
+}): ActivityItem {
+  const type = decodeFactoryEventType(event.topics);
+  const eventType =
+    type === 'NftMinted'
+      ? 'nft_minted'
+      : type === 'CollectionCreated'
+        ? 'collection_created'
+        : 'contract_event';
+  return {
+    id: event.pagingToken,
+    eventType,
+    description:
+      type === 'NftMinted'
+        ? 'An NFT was minted through the BezaMint Factory'
+        : type === 'CollectionCreated'
+          ? 'A collection was created through the BezaMint Factory'
+          : `On-chain event (ledger ${event.ledger})`,
+    timestamp: event.ledgerClosedAt
+      ? new Date(event.ledgerClosedAt).toLocaleString()
+      : `Ledger ${event.ledger}`,
+    txHash: event.txHash,
+  };
+}
 
 export default function DashboardPage() {
   const { address, isConnected, connect } = useWallet();
@@ -83,6 +100,17 @@ export default function DashboardPage() {
       cancelled = true;
     };
   }, [address]);
+
+  // Real activity from the Factory contract's emitted events.
+  const { events: contractEvents, isLoading: eventsLoading } = useContractEvents({
+    contractIds: isConnected && CONTRACT_IDS.factory ? [CONTRACT_IDS.factory] : undefined,
+    pollIntervalMs: 15000,
+    maxEvents: 20,
+  });
+
+  const activities = useMemo(() => {
+    return contractEvents.map(eventToActivity).slice(0, 8);
+  }, [contractEvents]);
 
   const statsLoading =
     stats.totalSupply === null && stats.totalCollections === null && stats.totalCreators === null;
@@ -191,7 +219,15 @@ export default function DashboardPage() {
 
         <div className="card lg:col-span-2">
           <h2 className="section-title text-lg">Recent Activity</h2>
-          <ActivityTimeline activities={SAMPLE_ACTIVITIES} maxItems={8} />
+          {eventsLoading && activities.length === 0 ? (
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-12 bg-bezamint-muted/30 rounded animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <ActivityTimeline activities={activities} maxItems={8} />
+          )}
         </div>
       </div>
     </div>
