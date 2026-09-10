@@ -58,11 +58,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run frontend tests
-        run: cd apps/web && pnpm test
+      - name: Typecheck every workspace package
+        run: pnpm run typecheck
 
-      - name: Typecheck shared package
-        run: cd packages/shared && pnpm lint
+      - name: Run unit tests
+        run: pnpm run test
 
   contract-tests:
     name: Contract Tests

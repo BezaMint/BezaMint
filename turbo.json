@@ -36,8 +36,8 @@
       "dependsOn": ["^build"]
     },
     "test": {
-      "inputs": ["src/**", "test/**", "tests/**"],
-      "outputs": ["coverage/**"]
+      "inputs": ["src/**", "test/**", "tests/**", "$TURBO_DEFAULT$"],
+      "outputs": []
     },
     "lint": {
       "dependsOn": ["^build"]
