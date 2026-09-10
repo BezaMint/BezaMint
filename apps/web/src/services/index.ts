@@ -7,14 +7,19 @@ export {
   simulateTransaction,
   submitSignedTransaction,
   waitForTransaction,
-  getExplorerTxUrl,
-  getExplorerAccountUrl,
   fetchXlmBalance,
   checkBalance,
   buildXlmPayment,
   formatAddress,
   isValidStellarAddress,
 } from './stellar';
+
+export {
+  buildExplorerUrl,
+  getExplorerTxUrl,
+  getExplorerAccountUrl,
+  getExplorerContractUrl,
+} from '@/lib/explorer';
 
 export {
   CONTRACT_IDS,

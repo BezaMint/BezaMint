@@ -158,16 +158,6 @@ export async function withRetry<T>(
   throw lastError;
 }
 
-// ─────────────────────── Explorer Helpers ───────────────────────
-
-export function getExplorerTxUrl(txHash: string): string {
-  return `https://stellar.expert/explorer/testnet/tx/${txHash}`;
-}
-
-export function getExplorerAccountUrl(address: string): string {
-  return `https://stellar.expert/explorer/testnet/account/${address}`;
-}
-
 // ─────────────────────── Balance Helpers ───────────────────────
 
 const MIN_XLM_RESERVE = 1;
