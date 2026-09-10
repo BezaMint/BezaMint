@@ -392,6 +392,48 @@ export async function getTotalCreators(sourceAddress: string): Promise<number> {
   }
 }
 
+// ─────────────────────── Royalty Contract ───────────────────────
+
+export interface OnChainRoyaltyConfig {
+  basisPoints: number;
+  recipients: Array<{ address: string; share: number }>;
+  isFrozen: boolean;
+}
+
+/**
+ * Fetch a royalty config (NFT-level or collection-level).
+ * Returns null when no config exists or the contract is unreachable.
+ */
+export async function getRoyaltyConfig(
+  sourceAddress: string,
+  targetId: number,
+  isCollection = false,
+): Promise<OnChainRoyaltyConfig | null> {
+  try {
+    const idScVal = xdr.ScVal.scvU64(new xdr.Uint64(targetId));
+    const isCollectionScVal = xdr.ScVal.scvBool(isCollection);
+    const result = await simulateTransaction(sourceAddress, CONTRACT_IDS.royalty, 'get_royalty', [
+      idScVal,
+      isCollectionScVal,
+    ]);
+    if (result.result?.retval) {
+      const raw = scValToNative(result.result.retval) as Record<string, unknown>;
+      const recipients = (raw.recipients as Map<string, number>) || new Map();
+      return {
+        basisPoints: Number(raw.basis_points ?? 0),
+        recipients: Array.from(recipients.entries()).map(([address, share]) => ({
+          address,
+          share: Number(share),
+        })),
+        isFrozen: Boolean(raw.is_frozen),
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // ─────────────────────── Transaction Flow ───────────────────────
 
 export async function signAndSubmit(
