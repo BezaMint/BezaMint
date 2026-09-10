@@ -15,8 +15,7 @@ interface VerifyResult {
 // Soroban simulation reads do not require a funded account, but need a valid
 // source address. Fall back to a well-formed placeholder if no wallet is
 // connected so the verify page works standalone.
-const CONTRACT_FALLBACK_SOURCE =
-  'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
+const CONTRACT_FALLBACK_SOURCE = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
 
 export default function VerifyPage() {
   const { address } = useWallet();

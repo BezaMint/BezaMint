@@ -413,11 +413,11 @@ BezaMint implements defense-in-depth across the entire stack:
 
 ## 🧪 Testing
 
-| Suite           | Framework      | Tests | Status              |
-| --------------- | -------------- | ----- | ------------------- |
-| Smart Contracts | Rust `#[test]` | 62    | ✅ 62/62 passing    |
-| Frontend        | Vitest         | 100   | ✅ 100/100 passing  |
-| **Total**       |                | **162** | **All passing**   |
+| Suite           | Framework      | Tests   | Status             |
+| --------------- | -------------- | ------- | ------------------ |
+| Smart Contracts | Rust `#[test]` | 62      | ✅ 62/62 passing   |
+| Frontend        | Vitest         | 100     | ✅ 100/100 passing |
+| **Total**       |                | **162** | **All passing**    |
 
 ```bash
 pnpm test                # Frontend: 100/100 passing (32 files)

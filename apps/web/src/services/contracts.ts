@@ -213,9 +213,12 @@ export async function getCollectionById(
 ): Promise<Record<string, unknown> | null> {
   try {
     const idScVal = xdr.ScVal.scvU64(new xdr.Uint64(collectionId));
-    const result = await simulateTransaction(sourceAddress, CONTRACT_IDS.collection, 'get_collection', [
-      idScVal,
-    ]);
+    const result = await simulateTransaction(
+      sourceAddress,
+      CONTRACT_IDS.collection,
+      'get_collection',
+      [idScVal],
+    );
     if (result.result?.retval) {
       return scValToNative(result.result.retval) as Record<string, unknown>;
     }
