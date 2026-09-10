@@ -22,6 +22,9 @@ jobs:
       - name: Build optimized contracts
         run: cd contracts && cargo build --workspace --release --target wasm32-unknown-unknown
 
+      - name: Check wasm size budgets
+        run: bash scripts/check-wasm-size.sh
+
       - name: Upload contract artifacts
         uses: actions/upload-artifact@v4
         with:

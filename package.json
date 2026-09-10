@@ -12,6 +12,7 @@
     "contract:test": "cargo test --workspace --manifest-path contracts/Cargo.toml",
     "contract:wasm": "cargo build --workspace --release --target wasm32-unknown-unknown --manifest-path contracts/Cargo.toml",
     "contract:verify": "bash scripts/verify-deploy.sh",
+    "contract:size": "bash scripts/check-wasm-size.sh",
     "typecheck": "turbo run typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,toml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,toml,yaml}\"",
