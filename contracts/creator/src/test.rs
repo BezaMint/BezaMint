@@ -204,3 +204,141 @@ fn test_prevent_duplicate_registration() {
     register(&env, &client, &creator, "Test");
     register(&env, &client, &creator, "Test2");
 }
+
+/// A profile URI must use a real scheme. `javascript:` and `data:` are
+/// rejected because the frontend renders these strings into the DOM where they
+/// would be a stored-XSS vector.
+#[test]
+#[should_panic(expected = "must use an https, http or ipfs URL")]
+fn test_register_rejects_javascript_avatar_uri() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+
+    client.register(
+        &creator,
+        &String::from_str(&env, "Alice"),
+        &String::from_str(&env, "bio"),
+        &String::from_str(&env, "javascript:alert(1)"),
+        &String::from_str(&env, "ipfs://banner"),
+    );
+}
+
+#[test]
+#[should_panic(expected = "must use an https, http or ipfs URL")]
+fn test_register_rejects_data_uri() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+
+    client.register(
+        &creator,
+        &String::from_str(&env, "Alice"),
+        &String::from_str(&env, "bio"),
+        &String::from_str(&env, "data:text/html,<script>1</script>"),
+        &String::from_str(&env, ""),
+    );
+}
+
+#[test]
+fn test_register_accepts_http_uris() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+
+    client.register(
+        &creator,
+        &String::from_str(&env, "Alice"),
+        &String::from_str(&env, "bio"),
+        &String::from_str(&env, "https://cdn.example.com/avatar.png"),
+        &String::from_str(&env, "http://cdn.example.com/banner.png"),
+    );
+
+    assert!(client.is_registered(&creator));
+}
+
+#[test]
+#[should_panic(expected = "must use an https, http or ipfs URL")]
+fn test_update_profile_rejects_javascript_uri() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    register(&env, &client, &creator, "Alice");
+
+    client.update_profile(
+        &creator,
+        &String::from_str(&env, "Alice"),
+        &String::from_str(&env, "bio"),
+        &String::from_str(&env, "javascript:alert(1)"),
+        &String::from_str(&env, "ipfs://banner"),
+    );
+}
+
+#[test]
+#[should_panic(expected = "unsupported social platform")]
+fn test_set_social_links_rejects_unknown_platform() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    register(&env, &client, &creator, "Alice");
+
+    let links = vec![
+        &env,
+        SocialLink {
+            platform: String::from_str(&env, "myspace"),
+            url: String::from_str(&env, "https://myspace.com/alice"),
+        },
+    ];
+    client.set_social_links(&creator, &links);
+}
+
+#[test]
+#[should_panic(expected = "must use an https or http scheme")]
+fn test_set_social_links_rejects_javascript_url() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    register(&env, &client, &creator, "Alice");
+
+    let links = vec![
+        &env,
+        SocialLink {
+            platform: String::from_str(&env, "twitter"),
+            url: String::from_str(&env, "javascript:alert(1)"),
+        },
+    ];
+    client.set_social_links(&creator, &links);
+}
+
+#[test]
+#[should_panic(expected = "max 8 social links")]
+fn test_set_social_links_rejects_too_many() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    register(&env, &client, &creator, "Alice");
+
+    let mut links = vec![&env];
+    for _ in 0..9 {
+        links.push_back(SocialLink {
+            platform: String::from_str(&env, "twitter"),
+            url: String::from_str(&env, "https://twitter.com/alice"),
+        });
+    }
+    client.set_social_links(&creator, &links);
+}
+
+/// Platform names are matched case-insensitively: "Twitter" is the same
+/// platform as "twitter", so badge rendering does not depend on the creator
+/// typing the canonical casing.
+#[test]
+fn test_set_social_links_accepts_mixed_case_platform() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    register(&env, &client, &creator, "Alice");
+
+    let links = vec![
+        &env,
+        SocialLink {
+            platform: String::from_str(&env, "Twitter"),
+            url: String::from_str(&env, "https://twitter.com/alice"),
+        },
+    ];
+    client.set_social_links(&creator, &links);
+
+    let profile = client.get_profile(&creator);
+    assert_eq!(profile.social_links.len(), 1);
+}
