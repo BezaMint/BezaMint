@@ -1,3 +1,6 @@
+import Link from 'next/link';
+import { t } from '@/lib/i18n';
+
 export default function HomePage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-8">
@@ -27,34 +30,32 @@ export default function HomePage() {
         </h1>
 
         <p className="text-lg text-gray-400 max-w-xl mx-auto mb-8 leading-relaxed">
-          A comprehensive NFT creation and digital asset management platform built on the{' '}
-          <span className="text-bezamint-secondary font-medium">Stellar</span> network using{' '}
-          <span className="text-bezamint-secondary font-medium">Soroban</span> smart contracts.
+          {t('landing.tagline')}
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button className="btn-primary">Connect Wallet</button>
-          <button className="btn-secondary">Explore Collections</button>
+          <Link href="/explore" className="btn-primary">
+            {t('landing.explore')}
+          </Link>
+          <Link href="/mint" className="btn-secondary">
+            {t('landing.connect')}
+          </Link>
         </div>
 
         <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-2xl mx-auto">
           <div className="card text-center">
-            <div className="text-2xl font-bold text-gradient mb-1">Create</div>
-            <p className="text-sm text-gray-400">
-              Mint unique NFTs with custom metadata and royalties
-            </p>
+            <div className="text-2xl font-bold text-gradient mb-1">{t('landing.create.title')}</div>
+            <p className="text-sm text-gray-400">{t('landing.create.body')}</p>
           </div>
           <div className="card text-center">
-            <div className="text-2xl font-bold text-gradient mb-1">Organize</div>
-            <p className="text-sm text-gray-400">
-              Manage collections with powerful search and filtering
-            </p>
+            <div className="text-2xl font-bold text-gradient mb-1">
+              {t('landing.organize.title')}
+            </div>
+            <p className="text-sm text-gray-400">{t('landing.organize.body')}</p>
           </div>
           <div className="card text-center">
-            <div className="text-2xl font-bold text-gradient mb-1">Share</div>
-            <p className="text-sm text-gray-400">
-              Prepare assets for marketplace integration on Stellar
-            </p>
+            <div className="text-2xl font-bold text-gradient mb-1">{t('landing.share.title')}</div>
+            <p className="text-sm text-gray-400">{t('landing.share.body')}</p>
           </div>
         </div>
       </div>
