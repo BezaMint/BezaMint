@@ -57,6 +57,17 @@ async function probeIpfs(): Promise<{ ok: boolean; latencyMs: number; error?: st
   }
 }
 
+/** Best-effort build version: git SHA + app version from package.json. */
+function buildInfo(): { version: string; commitSha: string | null } {
+  const pkg = require('../../../../package.json') as { version?: string };
+  const commitSha =
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    process.env.RENDER_GIT_COMMIT ||
+    process.env.COMMIT_SHA ||
+    null;
+  return { version: pkg.version ?? '0.0.0', commitSha };
+}
+
 export async function GET() {
   const uptimeSeconds = Math.floor((Date.now() - SERVER_START_TIME) / 1000);
 
@@ -81,6 +92,8 @@ export async function GET() {
       uptime: uptimeSeconds + 's',
       environment: process.env.NODE_ENV || 'development',
       network: process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'testnet',
+      version: buildInfo().version,
+      commitSha: buildInfo().commitSha,
       checks: {
         rpc: rpc,
         ipfs: { configured: isIpfsAvailable(), ...ipfs },
