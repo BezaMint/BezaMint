@@ -1,9 +1,38 @@
 use soroban_sdk::{
-    testutils::{Address as _, MockAuth, MockAuthInvoke},
-    Address, Env, IntoVal, String,
+    testutils::{Address as _, Events, MockAuth, MockAuthInvoke},
+    Address, Env, IntoVal, String, Symbol, TryFromVal,
 };
 
-use crate::{BezaMintFactory, BezaMintFactoryClient};
+use crate::{BezaMintFactory, BezaMintFactoryClient, FactoryEvent};
+
+/// Decode the single most recent event emitted by the Factory and assert
+/// emitter, topic and payload.
+fn assert_single_factory_event(env: &Env, emitter: &Address, expected: FactoryEvent) {
+    let events = env.events().all();
+    let mut matched: Option<(
+        Address,
+        soroban_sdk::Vec<soroban_sdk::Val>,
+        soroban_sdk::Val,
+    )> = None;
+    let mut count = 0u32;
+    for i in 0..events.len() {
+        let event = events.get(i).expect("event");
+        if event.0 == emitter.clone() {
+            count += 1;
+            if count == 1 {
+                matched = Some(event);
+            }
+        }
+    }
+    assert_eq!(count, 1, "expected exactly one factory event");
+    let (contract, topics, data) = matched.expect("factory event");
+    assert_eq!(contract.clone(), emitter.clone(), "wrong emitter");
+    let topic_symbol: Symbol =
+        Symbol::try_from_val(env, &topics.get(0).expect("topic")).expect("topic is a symbol");
+    assert_eq!(topic_symbol, Symbol::new(env, "factory"));
+    let decoded: FactoryEvent = FactoryEvent::try_from_val(env, &data).expect("decodable event");
+    assert_eq!(decoded, expected);
+}
 
 use bezamint_collection::{BezaMintCollection, BezaMintCollectionClient};
 use bezamint_creator::{BezaMintCreator, BezaMintCreatorClient};
@@ -205,7 +234,7 @@ fn test_integration_mint_with_royalty() {
 
     // The minted NFT is now linked to its collection.
     assert_eq!(collection.get_collection_for_nft(&1), 1);
-    let nfts = collection.get_nfts_in_collection(&1);
+    let nfts = collection.get_nfts_in_collection(&1, &0, &100);
     assert_eq!(nfts.len(), 1);
     assert_eq!(nfts.get(0).unwrap(), 1);
     assert_eq!(collection.get_collection(&1).nft_count, 1);
@@ -213,6 +242,64 @@ fn test_integration_mint_with_royalty() {
     // Royalty side effects.
     let config = royalty.get_royalty(&1, &false);
     assert_eq!(config.basis_points, 500);
+}
+
+/// The Factory's public events (contracts set, NFT minted, NFT burned,
+/// collection created) must fire with the right payloads even during
+/// cross-contract flows.
+#[test]
+fn test_events_cover_factory_mutations() {
+    let env = Env::default();
+
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+
+    env.mock_all_auths();
+    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    nft.initialize(&admin);
+    let collection = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
+    collection.initialize(&admin);
+    let royalty = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
+    royalty.initialize(&admin);
+    let creator = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
+    creator.initialize(&admin);
+
+    let factory_id = env.register(BezaMintFactory, ());
+    let factory = BezaMintFactoryClient::new(&env, &factory_id);
+    factory.initialize(&admin);
+
+    factory.set_contracts(
+        &nft.address,
+        &collection.address,
+        &royalty.address,
+        &creator.address,
+    );
+    assert_single_factory_event(
+        &env,
+        &factory_id,
+        FactoryEvent::ContractsSet(
+            nft.address.clone(),
+            collection.address.clone(),
+            royalty.address.clone(),
+            creator.address.clone(),
+        ),
+    );
+
+    collection.create_collection(&user, &String::from_str(&env, "ipfs://events"));
+    let metadata = String::from_str(&env, "ipfs://event-nft");
+    let token_id = factory.mint_with_royalty(&user, &user, &1, &metadata, &500);
+    assert_single_factory_event(&env, &factory_id, FactoryEvent::NftMinted(1, user.clone()));
+
+    factory.burn_nft(&user, &1, &token_id);
+    assert_single_factory_event(&env, &factory_id, FactoryEvent::NftBurned(1, user.clone()));
+
+    let col_uri = String::from_str(&env, "ipfs://event-collection");
+    factory.create_collection_for_creator(&user, &col_uri);
+    assert_single_factory_event(
+        &env,
+        &factory_id,
+        FactoryEvent::CollectionCreated(2, user.clone()),
+    );
 }
 
 /// Burning through the Factory must both destroy the NFT and drop its
@@ -257,7 +344,7 @@ fn test_integration_burn_unlinks_from_collection() {
 
     assert_eq!(nft.total_supply(), 1); // counter is not recycled
     assert_eq!(collection.get_collection(&1).nft_count, 0);
-    assert_eq!(collection.get_nfts_in_collection(&1).len(), 0);
+    assert_eq!(collection.get_nfts_in_collection(&1, &0, &100).len(), 0);
     assert_eq!(collection.get_collection_for_nft(&1), 0);
 }
 
