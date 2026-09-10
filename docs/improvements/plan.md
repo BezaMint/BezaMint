@@ -71,26 +71,26 @@ Legend: `[x]` done · `[ ]` pending
 - [x] B08 Health route: Pinata + RPC reachability checks
 - [x] B09 Structured logger with request IDs and durations
 - [x] B10 Central error-normalization module for Soroban/Horizon errors
-- [ ] B11 Metadata caching with TTL (HTTP cache headers + memory)
-- [ ] B12 Rate-limiting middleware for all API routes
-- [ ] B13 Boot-time env/contract-ID validation with clear errors
-- [ ] B14 `GET /api/wallet/transactions` history endpoint
-- [ ] B15 Pinata key rotation guidance + startup presence check
+- [x] B11 Metadata caching with TTL (HTTP cache headers + memory)
+- [x] B12 Rate-limiting middleware for all API routes
+- [x] B13 Boot-time env/contract-ID validation with clear errors
+- [x] B14 `GET /api/wallet/transactions` history endpoint
+- [x] B15 Pinata key rotation guidance + startup presence check
 - [x] B16 Upload route: request-body schema validation (400s, no 500s)
-- [ ] B17 CORS allowlist middleware
-- [ ] B18 ISR/revalidate strategy for public pages
-- [ ] B19 Server-side metadata JSON schema validation
-- [ ] B20 `GET /api/search` endpoint (NFTs/collections/creators)
-- [ ] B21 `GET /api/stats` platform stats endpoint
-- [ ] B22 `GET /api/wallet/balance` (XLM + balances)
-- [ ] B23 Consistent error envelope `{ error: { code, message } }`
-- [ ] B24 Request logging middleware (method, path, status, duration)
-- [ ] B25 Shared pagination helper for API list endpoints
-- [ ] B26 API route unit tests with mocked chain/IPFS
-- [ ] B27 Metadata proxy route with caching + validation
-- [ ] B28 Upload route: verify pinata CID integrity
-- [ ] B29 Indexer schema documentation
-- [ ] B30 Timeout + abort handling for all outbound fetches
+- [x] B17 CORS allowlist middleware
+- [x] B18 ISR/revalidate strategy for public pages
+- [x] B19 Server-side metadata JSON schema validation
+- [x] B20 `GET /api/search` endpoint (NFTs/collections/creators)
+- [x] B21 `GET /api/stats` platform stats endpoint
+- [x] B22 `GET /api/wallet/balance` (XLM + balances)
+- [x] B23 Consistent error envelope `{ error: { code, message } }`
+- [x] B24 Request logging middleware (method, path, status, duration)
+- [x] B25 Shared pagination helper for API list endpoints
+- [x] B26 API route unit tests with mocked chain/IPFS
+- [x] B27 Metadata proxy route with caching + validation
+- [x] B28 Upload route: verify pinata CID integrity
+- [x] B29 Indexer schema documentation
+- [x] B30 Timeout + abort handling for all outbound fetches
 - [ ] B31 Graceful degradation when PINATA_JWT missing
 - [ ] B32 API docs (endpoints, request/response, errors)
 - [ ] B33 Cache-busting/revalidation endpoint for metadata
