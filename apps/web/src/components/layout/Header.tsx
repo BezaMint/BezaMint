@@ -23,7 +23,7 @@ import {
   signAndSubmit,
 } from '@/services';
 
-export default function Header() {
+export default function Header({ sidebarCollapsed = false }: { sidebarCollapsed?: boolean }) {
   const { address, isConnected, isConnecting, connect, disconnect, balance, refreshBalance } =
     useWallet();
   const { theme, toggle } = useTheme();
@@ -85,7 +85,9 @@ export default function Header() {
       </a>
       <header className="sticky top-0 z-30 h-16 bg-bezamint-surface/80 backdrop-blur-lg border-b border-bezamint-border flex items-center justify-between px-4 lg:px-6">
         {/* Left spacer (sidebar offset — hidden on mobile) */}
-        <div className="hidden lg:block w-64" />
+        <div
+          className={`hidden lg:block transition-all duration-200 ${sidebarCollapsed ? 'w-16' : 'w-64'}`}
+        />
 
         {/* Center — page title area */}
         <div className="flex-1 flex items-center justify-between max-w-6xl">
