@@ -10,8 +10,9 @@ import {
   HiOutlineX,
 } from 'react-icons/hi';
 import Link from 'next/link';
-import { useWallet } from '@/context';
+import { useWallet, useTheme } from '@/context';
 import { useToast } from '@/context';
+import { HiOutlineSun, HiOutlineMoon } from 'react-icons/hi';
 import {
   formatAddress,
   getExplorerAccountUrl,
@@ -24,6 +25,7 @@ import {
 export default function Header() {
   const { address, isConnected, isConnecting, connect, disconnect, balance, refreshBalance } =
     useWallet();
+  const { theme, toggle } = useTheme();
   const { showSuccess, showError } = useToast();
 
   const [showSend, setShowSend] = useState(false);
@@ -113,6 +115,20 @@ export default function Header() {
               )}
             </div>
           </div>
+
+          {/* Theme toggle */}
+          <button
+            onClick={toggle}
+            className="p-1.5 lg:p-2 rounded-lg text-gray-400 hover:text-bezamint-secondary hover:bg-bezamint-primary/10 transition-all"
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? (
+              <HiOutlineSun className="w-4 h-4" />
+            ) : (
+              <HiOutlineMoon className="w-4 h-4" />
+            )}
+          </button>
 
           {/* Wallet button */}
           {isConnected && address ? (
