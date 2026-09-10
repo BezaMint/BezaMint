@@ -61,8 +61,8 @@ fn test_create_multiple_collections() {
     let c1 = Address::generate(&env);
     let c2 = Address::generate(&env);
 
-    let id1 = client.create_collection(&c1, &String::from_str(&env, "meta1"));
-    let id2 = client.create_collection(&c2, &String::from_str(&env, "meta2"));
+    let id1 = client.create_collection(&c1, &String::from_str(&env, "ipfs://meta1"));
+    let id2 = client.create_collection(&c2, &String::from_str(&env, "ipfs://meta2"));
 
     assert_eq!(id1, 1);
     assert_eq!(id2, 2);
@@ -75,11 +75,11 @@ fn test_update_collection_metadata() {
     env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
-    let id = client.create_collection(&creator, &String::from_str(&env, "old-meta"));
-    client.update_collection(&creator, &id, &String::from_str(&env, "new-meta"));
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://old-meta"));
+    client.update_collection(&creator, &id, &String::from_str(&env, "ipfs://new-meta"));
 
     let data = client.get_collection(&id);
-    assert_eq!(data.metadata_uri, String::from_str(&env, "new-meta"));
+    assert_eq!(data.metadata_uri, String::from_str(&env, "ipfs://new-meta"));
 }
 
 #[test]
@@ -89,9 +89,9 @@ fn test_update_archived_collection_fails() {
     env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
-    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://meta"));
     client.archive_collection(&creator, &id);
-    client.update_collection(&creator, &id, &String::from_str(&env, "should-fail"));
+    client.update_collection(&creator, &id, &String::from_str(&env, "ipfs://should-fail"));
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn test_archive_collection() {
     env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
-    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://meta"));
     client.archive_collection(&creator, &id);
 
     let data = client.get_collection(&id);
@@ -113,7 +113,7 @@ fn test_add_nft_to_collection() {
     env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
-    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://meta"));
     client.add_nft(&id, &100);
     client.add_nft(&id, &101);
     client.add_nft(&id, &102);
@@ -131,7 +131,7 @@ fn test_get_collection_for_nft() {
     env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
-    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://meta"));
     client.add_nft(&id, &42);
 
     assert_eq!(client.get_collection_for_nft(&42), 1);
@@ -143,7 +143,7 @@ fn test_remove_nft_from_collection() {
     env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
-    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://meta"));
     client.add_nft(&id, &100);
     client.add_nft(&id, &101);
 
@@ -164,7 +164,7 @@ fn test_remove_nft_from_collection() {
 fn test_update_collection_rejects_empty_uri() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
-    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://meta"));
     client.update_collection(&creator, &id, &String::from_str(&env, ""));
 }
 
@@ -173,7 +173,7 @@ fn test_update_collection_rejects_empty_uri() {
 fn test_update_collection_rejects_oversized_uri() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
-    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://meta"));
     let long_uri = "x".repeat(513);
     client.update_collection(&creator, &id, &String::from_str(&env, &long_uri));
 }
@@ -184,10 +184,51 @@ fn test_update_collection_rejects_oversized_uri() {
 fn test_update_collection_accepts_boundary_uri() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
-    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
-    let boundary = "x".repeat(512);
-    client.update_collection(&creator, &id, &String::from_str(&env, &boundary));
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://meta"));
+    // 512 chars total, including a valid scheme, so only the length bound is exercised.
+    let mut bytes = b"ipfs://".to_vec();
+    bytes.extend(core::iter::repeat_n(b'x', 505));
+    let boundary = String::from_bytes(&env, &bytes);
+    client.update_collection(&creator, &id, &boundary);
     assert_eq!(client.get_collection(&id).metadata_uri.len(), 512);
+}
+
+/// An arbitrary URI scheme is a stored-XSS vector: the frontend renders
+/// collection metadata URIs into the DOM. Create and update must both reject
+/// it, consistently with the NFT and Creator contracts.
+#[test]
+#[should_panic(expected = "must use an https, http or ipfs scheme")]
+fn test_create_collection_rejects_javascript_uri() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    client.create_collection(&creator, &String::from_str(&env, "javascript:alert(1)"));
+}
+
+#[test]
+#[should_panic(expected = "must use an https, http or ipfs scheme")]
+fn test_update_collection_rejects_data_uri() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://meta"));
+    client.update_collection(
+        &creator,
+        &id,
+        &String::from_str(&env, "data:text/html,<script>1</script>"),
+    );
+}
+
+#[test]
+fn test_create_collection_accepts_http_uri() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    let id = client.create_collection(
+        &creator,
+        &String::from_str(&env, "https://example.com/meta.json"),
+    );
+    assert_eq!(
+        client.get_collection(&id).metadata_uri,
+        String::from_str(&env, "https://example.com/meta.json")
+    );
 }
 
 /// `add_nft` must require the collection creator's authorization. Only the
@@ -223,12 +264,12 @@ fn test_add_nft_requires_creator_auth() {
         invoke: &MockAuthInvoke {
             contract: &contract_id,
             fn_name: "create_collection",
-            args: (creator.clone(), String::from_str(&env, "meta")).into_val(&env),
+            args: (creator.clone(), String::from_str(&env, "ipfs://meta")).into_val(&env),
             sub_invokes: &[],
         },
     };
     env.mock_auths(&[create_auth]);
-    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://meta"));
 
     client.add_nft(&id, &1);
 }
@@ -238,7 +279,7 @@ fn test_add_nft_requires_creator_auth() {
 fn test_add_nft_rejects_duplicate_token() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
-    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://meta"));
 
     client.add_nft(&id, &100);
     client.add_nft(&id, &100);
@@ -252,8 +293,8 @@ fn test_add_nft_rejects_duplicate_token() {
 fn test_add_nft_rejects_token_in_another_collection() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
-    let first = client.create_collection(&creator, &String::from_str(&env, "first"));
-    let second = client.create_collection(&creator, &String::from_str(&env, "second"));
+    let first = client.create_collection(&creator, &String::from_str(&env, "ipfs://first"));
+    let second = client.create_collection(&creator, &String::from_str(&env, "ipfs://second"));
 
     client.add_nft(&first, &7);
     client.add_nft(&second, &7);
@@ -263,7 +304,7 @@ fn test_add_nft_rejects_token_in_another_collection() {
 fn test_add_nft_count_matches_distinct_tokens() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
-    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://meta"));
 
     client.add_nft(&id, &1);
     client.add_nft(&id, &2);
@@ -278,7 +319,7 @@ fn test_add_nft_count_matches_distinct_tokens() {
 fn test_remove_unknown_nft_is_idempotent() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
-    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://meta"));
 
     client.add_nft(&id, &1);
     client.remove_nft(&id, &999);
@@ -295,9 +336,9 @@ fn test_get_collections_by_creator() {
     let alice = Address::generate(&env);
     let bob = Address::generate(&env);
 
-    client.create_collection(&alice, &String::from_str(&env, "a1"));
-    client.create_collection(&alice, &String::from_str(&env, "a2"));
-    client.create_collection(&bob, &String::from_str(&env, "b1"));
+    client.create_collection(&alice, &String::from_str(&env, "ipfs://a1"));
+    client.create_collection(&alice, &String::from_str(&env, "ipfs://a2"));
+    client.create_collection(&bob, &String::from_str(&env, "ipfs://b1"));
 
     let alice_cols = client.get_collections_by_creator(&alice, &0, &100);
     assert_eq!(alice_cols.len(), 2);
@@ -311,7 +352,10 @@ fn test_get_collections_by_creator_paginates() {
     let (env, _admin, client) = setup();
     let alice = Address::generate(&env);
     for label in ["a1", "a2", "a3", "a4", "a5"] {
-        client.create_collection(&alice, &String::from_str(&env, label));
+        let mut bytes = b"ipfs://".to_vec();
+        bytes.extend_from_slice(label.as_bytes());
+        let uri = String::from_bytes(&env, &bytes);
+        client.create_collection(&alice, &uri);
     }
 
     assert_eq!(
@@ -330,8 +374,8 @@ fn test_get_collections_by_creator_paginates() {
 fn test_get_collections_by_creator_excludes_archived() {
     let (env, _admin, client) = setup();
     let alice = Address::generate(&env);
-    let keep = client.create_collection(&alice, &String::from_str(&env, "keep"));
-    let drop = client.create_collection(&alice, &String::from_str(&env, "drop"));
+    let keep = client.create_collection(&alice, &String::from_str(&env, "ipfs://keep"));
+    let drop = client.create_collection(&alice, &String::from_str(&env, "ipfs://drop"));
     client.archive_collection(&alice, &drop);
 
     let listed = client.get_collections_by_creator(&alice, &0, &100);
@@ -359,8 +403,8 @@ fn test_update_collection_by_non_owner_fails() {
     let creator = Address::generate(&env);
     let attacker = Address::generate(&env);
 
-    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
-    client.update_collection(&attacker, &id, &String::from_str(&env, "hacked"));
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://meta"));
+    client.update_collection(&attacker, &id, &String::from_str(&env, "ipfs://hacked"));
 }
 
 #[test]
@@ -371,7 +415,7 @@ fn test_archive_collection_by_non_owner_fails() {
     let creator = Address::generate(&env);
     let attacker = Address::generate(&env);
 
-    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://meta"));
     client.archive_collection(&attacker, &id);
 }
 
