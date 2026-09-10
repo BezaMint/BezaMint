@@ -264,24 +264,34 @@ export default function MintForm() {
           <div className="space-y-6">
             {/* Name */}
             <div>
-              <label className="input-label">
+              <label htmlFor="mint-name" className="input-label">
                 Name <span className="text-red-400">*</span>
               </label>
               <input
+                id="mint-name"
                 type="text"
                 value={form.name}
                 onChange={(e) => updateField('name', e.target.value)}
                 placeholder="My Amazing NFT"
                 maxLength={128}
+                aria-invalid={!!errors.name}
+                aria-describedby={errors.name ? 'mint-name-error' : undefined}
                 className={`input-field ${errors.name ? 'border-red-500/50 focus:ring-red-500' : ''}`}
               />
-              {errors.name && <p className="text-xs text-red-400 mt-1">{errors.name}</p>}
+              {errors.name && (
+                <p id="mint-name-error" className="text-xs text-red-400 mt-1">
+                  {errors.name}
+                </p>
+              )}
             </div>
 
             {/* Description */}
             <div>
-              <label className="input-label">Description</label>
+              <label htmlFor="mint-description" className="input-label">
+                Description
+              </label>
               <textarea
+                id="mint-description"
                 value={form.description}
                 onChange={(e) => updateField('description', e.target.value)}
                 placeholder="Describe your NFT..."
@@ -319,8 +329,11 @@ export default function MintForm() {
 
             {/* External URL */}
             <div>
-              <label className="input-label">External URL (optional)</label>
+              <label htmlFor="mint-external-url" className="input-label">
+                External URL (optional)
+              </label>
               <input
+                id="mint-external-url"
                 type="url"
                 value={form.externalUrl}
                 onChange={(e) => updateField('externalUrl', e.target.value)}

@@ -99,24 +99,34 @@ export default function CollectionForm({
 
       {/* Name */}
       <div>
-        <label className="input-label">
+        <label htmlFor="collection-name" className="input-label">
           Name <span className="text-red-400">*</span>
         </label>
         <input
+          id="collection-name"
           type="text"
           value={form.name}
           onChange={(e) => update('name', e.target.value)}
           placeholder="My Collection"
           maxLength={64}
+          aria-invalid={!!errors.name}
+          aria-describedby={errors.name ? 'collection-name-error' : undefined}
           className={`input-field ${errors.name ? 'border-red-500/50' : ''}`}
         />
-        {errors.name && <p className="text-xs text-red-400 mt-1">{errors.name}</p>}
+        {errors.name && (
+          <p id="collection-name-error" className="text-xs text-red-400 mt-1">
+            {errors.name}
+          </p>
+        )}
       </div>
 
       {/* Description */}
       <div>
-        <label className="input-label">Description</label>
+        <label htmlFor="collection-description" className="input-label">
+          Description
+        </label>
         <textarea
+          id="collection-description"
           value={form.description}
           onChange={(e) => update('description', e.target.value)}
           placeholder="Describe your collection..."
@@ -151,8 +161,11 @@ export default function CollectionForm({
 
       {/* Category */}
       <div>
-        <label className="input-label">Category</label>
+        <label htmlFor="collection-category" className="input-label">
+          Category
+        </label>
         <select
+          id="collection-category"
           value={form.category}
           onChange={(e) => update('category', e.target.value as CollectionCategory)}
           className="input-field"
