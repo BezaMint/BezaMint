@@ -299,11 +299,56 @@ fn test_get_collections_by_creator() {
     client.create_collection(&alice, &String::from_str(&env, "a2"));
     client.create_collection(&bob, &String::from_str(&env, "b1"));
 
-    let alice_cols = client.get_collections_by_creator(&alice);
+    let alice_cols = client.get_collections_by_creator(&alice, &0, &100);
     assert_eq!(alice_cols.len(), 2);
 
-    let bob_cols = client.get_collections_by_creator(&bob);
+    let bob_cols = client.get_collections_by_creator(&bob, &0, &100);
     assert_eq!(bob_cols.len(), 1);
+}
+
+#[test]
+fn test_get_collections_by_creator_paginates() {
+    let (env, _admin, client) = setup();
+    let alice = Address::generate(&env);
+    for label in ["a1", "a2", "a3", "a4", "a5"] {
+        client.create_collection(&alice, &String::from_str(&env, label));
+    }
+
+    assert_eq!(
+        client.get_collections_by_creator(&alice, &0, &2),
+        soroban_sdk::vec![&env, 1u64, 2u64]
+    );
+    assert_eq!(
+        client.get_collections_by_creator(&alice, &4, &2),
+        soroban_sdk::vec![&env, 5u64]
+    );
+    // Out-of-range offset yields an empty page rather than panicking.
+    assert_eq!(client.get_collections_by_creator(&alice, &9, &2).len(), 0);
+}
+
+#[test]
+fn test_get_collections_by_creator_excludes_archived() {
+    let (env, _admin, client) = setup();
+    let alice = Address::generate(&env);
+    let keep = client.create_collection(&alice, &String::from_str(&env, "keep"));
+    let drop = client.create_collection(&alice, &String::from_str(&env, "drop"));
+    client.archive_collection(&alice, &drop);
+
+    let listed = client.get_collections_by_creator(&alice, &0, &100);
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed.get(0).unwrap(), keep);
+}
+
+/// A creator with no collections, and an address that never interacted with the
+/// contract, must both return an empty list rather than fail.
+#[test]
+fn test_get_collections_by_creator_empty_for_unknown_address() {
+    let (env, _admin, client) = setup();
+    let stranger = Address::generate(&env);
+    assert_eq!(
+        client.get_collections_by_creator(&stranger, &0, &100).len(),
+        0
+    );
 }
 
 #[test]

@@ -11,6 +11,10 @@ const MAX_NFTS_PER_COLLECTION: u64 = 10_000;
 /// the other.
 const MAX_METADATA_URI_LEN: u32 = 512;
 
+/// Hard cap on how many ids a single creator-listing page may return, so a
+/// caller cannot force an unbounded read of the creator index.
+const MAX_PAGE_SIZE: u32 = 100;
+
 // ─────────────────────────── Types ───────────────────────────
 
 #[contracttype]
@@ -45,6 +49,8 @@ pub enum ColKey {
     Collection(u64),
     NftCollection(u64),
     NftsInCollection(u64),
+    /// Dense list of collection ids created by an address, in creation order.
+    CreatorCollections(Address),
 }
 
 // ─────────────────────────── Events ───────────────────────────
@@ -116,6 +122,18 @@ impl BezaMintCollection {
         env.storage()
             .persistent()
             .set(&ColKey::Collection(id), &data);
+
+        // Maintain a per-creator index so listing a creator's collections does
+        // not require scanning every collection in the contract.
+        let mut owned: Vec<u64> = env
+            .storage()
+            .persistent()
+            .get(&ColKey::CreatorCollections(creator.clone()))
+            .unwrap_or_else(|| Vec::new(&env));
+        owned.push_back(id);
+        env.storage()
+            .persistent()
+            .set(&ColKey::CreatorCollections(creator.clone()), &owned);
 
         emit(&env, ColEvent::Created(id, creator));
 
@@ -325,20 +343,51 @@ impl BezaMintCollection {
             .unwrap_or(0)
     }
 
-    pub fn get_collections_by_creator(env: Env, creator: Address) -> Vec<u64> {
-        let total = Self::total_collections(env.clone());
+    /// Paginated listing of a creator's collection ids.
+    ///
+    /// `start` is a zero-based offset into the creator's own index and `limit`
+    /// is clamped to [`MAX_PAGE_SIZE`]. Archived collections are skipped, so a
+    /// page may contain fewer than `limit` entries but never scans collections
+    /// belonging to other creators: this previously looped `1..=total` and read
+    /// every collection in the contract, which is unbounded as the platform
+    /// grows.
+    pub fn get_collections_by_creator(
+        env: Env,
+        creator: Address,
+        start: u64,
+        limit: u32,
+    ) -> Vec<u64> {
         let mut result = Vec::new(&env);
 
-        for id in 1..=total {
-            if let Some(data) = env
-                .storage()
-                .persistent()
-                .get::<ColKey, CollectionData>(&ColKey::Collection(id))
-            {
-                if data.creator == creator && !data.is_archived {
-                    result.push_back(id);
+        let owned: Vec<u64> = env
+            .storage()
+            .persistent()
+            .get(&ColKey::CreatorCollections(creator))
+            .unwrap_or_else(|| Vec::new(&env));
+
+        let total = owned.len() as u64;
+        if start >= total {
+            return result;
+        }
+
+        let page = core::cmp::min(limit, MAX_PAGE_SIZE);
+        let end = core::cmp::min(start.saturating_add(page as u64), total);
+
+        let mut index = start as u32;
+        let end = end as u32;
+        while index < end {
+            if let Some(id) = owned.get(index) {
+                if let Some(data) = env
+                    .storage()
+                    .persistent()
+                    .get::<ColKey, CollectionData>(&ColKey::Collection(id))
+                {
+                    if !data.is_archived {
+                        result.push_back(id);
+                    }
                 }
             }
+            index += 1;
         }
         result
     }
