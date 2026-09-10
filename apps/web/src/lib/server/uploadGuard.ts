@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server';
 
 export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 export const MAX_METADATA_SIZE = 1_000_000; // 1MB
+export const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
 /** Validate a file against the shared policy; returns an error response or null. */
 export function validateFile(file: File): NextResponse | null {
@@ -17,6 +18,12 @@ export function validateFile(file: File): NextResponse | null {
     return NextResponse.json(
       { error: `File exceeds the ${MAX_FILE_SIZE / 1024 / 1024}MB limit` },
       { status: 413 },
+    );
+  }
+  if (!ALLOWED_MIME_TYPES.has(file.type)) {
+    return NextResponse.json(
+      { error: 'Only JPEG, PNG, WebP and GIF images are allowed' },
+      { status: 415 },
     );
   }
   return null;
