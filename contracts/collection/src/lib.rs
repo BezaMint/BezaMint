@@ -193,6 +193,20 @@ impl BezaMintCollection {
             "Collection: {collection_id} is full"
         );
 
+        // A token may belong to at most one collection. Without this guard the
+        // same id could be pushed repeatedly, inflating `nft_count` past the
+        // number of distinct tokens and double-counting in any consumer that
+        // treats the list as a set.
+        let existing: u64 = env
+            .storage()
+            .persistent()
+            .get(&ColKey::NftCollection(token_id))
+            .unwrap_or(0);
+        assert!(
+            existing == 0,
+            "Collection: token {token_id} already belongs to a collection"
+        );
+
         env.storage()
             .persistent()
             .set(&ColKey::NftCollection(token_id), &collection_id);
@@ -204,7 +218,10 @@ impl BezaMintCollection {
             .unwrap_or_else(|| Vec::new(&env));
 
         nfts.push_back(token_id);
-        data.nft_count = nfts.len() as u64;
+        // Increment rather than re-deriving from `nfts.len()`: the count is
+        // already tracked in `CollectionData`, so this avoids loading the whole
+        // membership vector just to read its length.
+        data.nft_count += 1;
         data.updated_at = env.ledger().timestamp();
 
         env.storage()
@@ -246,6 +263,9 @@ impl BezaMintCollection {
             }
         }
 
+        // Recompute from the rebuilt vector rather than decrementing: a
+        // decrement would silently desynchronise when the token was not a
+        // member in the first place (removal is intentionally idempotent).
         data.nft_count = new_nfts.len() as u64;
         data.updated_at = env.ledger().timestamp();
 

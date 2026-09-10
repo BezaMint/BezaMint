@@ -203,6 +203,61 @@ fn test_add_nft_requires_creator_auth() {
 }
 
 #[test]
+#[should_panic(expected = "already belongs to a collection")]
+fn test_add_nft_rejects_duplicate_token() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+
+    client.add_nft(&id, &100);
+    client.add_nft(&id, &100);
+}
+
+/// A token may not be smuggled into a second collection while still mapped to
+/// its first one, otherwise `get_collection_for_nft` and the reverse lookup
+/// would disagree.
+#[test]
+#[should_panic(expected = "already belongs to a collection")]
+fn test_add_nft_rejects_token_in_another_collection() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    let first = client.create_collection(&creator, &String::from_str(&env, "first"));
+    let second = client.create_collection(&creator, &String::from_str(&env, "second"));
+
+    client.add_nft(&first, &7);
+    client.add_nft(&second, &7);
+}
+
+#[test]
+fn test_add_nft_count_matches_distinct_tokens() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+
+    client.add_nft(&id, &1);
+    client.add_nft(&id, &2);
+
+    let data = client.get_collection(&id);
+    assert_eq!(data.nft_count, 2);
+    assert_eq!(client.get_nfts_in_collection(&id).len(), 2);
+}
+
+/// Removing a token that is not a member must not corrupt the count.
+#[test]
+fn test_remove_unknown_nft_is_idempotent() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+
+    client.add_nft(&id, &1);
+    client.remove_nft(&id, &999);
+
+    let data = client.get_collection(&id);
+    assert_eq!(data.nft_count, 1);
+    assert_eq!(client.get_nfts_in_collection(&id).len(), 1);
+}
+
+#[test]
 fn test_get_collections_by_creator() {
     let (env, _admin, client) = setup();
     env.ledger().with_mut(|l| l.timestamp = 12345);
