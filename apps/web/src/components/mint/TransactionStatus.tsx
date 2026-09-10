@@ -45,7 +45,7 @@ export default function TransactionStatus({
       : -1;
 
   return (
-    <div className="card max-w-md mx-auto">
+    <div className="card max-w-md mx-auto" role="status" aria-live="polite">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-semibold text-white">
