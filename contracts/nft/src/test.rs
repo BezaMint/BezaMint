@@ -1,10 +1,25 @@
 use soroban_sdk::{
-    testutils::{Address as _, Ledger},
+    testutils::{Address as _, Events, Ledger},
     xdr::{self, ContractDataDurability, LedgerKey},
-    Address, Env, IntoVal, String, TryFromVal,
+    Address, Env, IntoVal, String, Symbol, TryFromVal,
 };
 
-use crate::{BezaMintNft, BezaMintNftClient};
+use crate::{BezaMintNft, BezaMintNftClient, NftEvent};
+
+/// Decode the single most recent event's data as an `NftEvent` and assert the
+/// contract that emitted it. Events are the contract's public interface for
+/// indexers and the frontend, so the schema is pinned here.
+fn assert_single_nft_event(env: &Env, emitter: &Address, expected: NftEvent) {
+    let events = env.events().all();
+    assert_eq!(events.len(), 1, "expected exactly one event");
+    let (contract, topics, data) = events.get(0).expect("one event");
+    assert_eq!(contract.clone(), emitter.clone(), "wrong emitter");
+    let topic_symbol: Symbol =
+        Symbol::try_from_val(env, &topics.get(0).expect("topic")).expect("topic is a symbol");
+    assert_eq!(topic_symbol, Symbol::new(env, "nft"));
+    let decoded: NftEvent = NftEvent::try_from_val(env, &data).expect("decodable event");
+    assert_eq!(decoded, expected);
+}
 
 /// Remaining TTL in ledgers of a specific persistent entry of the NFT
 /// contract, or `None` if the entry does not exist.
@@ -822,6 +837,43 @@ fn test_burn_event_emission() {
     contract.mint(&user, &0, &String::from_str(&env, "ipfs://burn"));
     contract.burn(&1);
     assert_eq!(contract.total_supply(), 1);
+}
+
+/// Every state-changing operation must emit exactly one well-formed event:
+/// mint, transfer, transfer_from, approve, burn.
+#[test]
+fn test_events_cover_mint_transfer_approve_burn() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let contract_id = env.register(BezaMintNft, ());
+    let contract = BezaMintNftClient::new(&env, &contract_id);
+    contract.initialize(&admin);
+
+    contract.mint(&alice, &0, &String::from_str(&env, "ipfs://events"));
+    assert_single_nft_event(&env, &contract_id, NftEvent::Minted(1, alice.clone()));
+
+    contract.approve(&bob, &1);
+    assert_single_nft_event(&env, &contract_id, NftEvent::Approved(1, bob.clone()));
+
+    contract.transfer_from(&bob, &alice, &bob, &1);
+    assert_single_nft_event(
+        &env,
+        &contract_id,
+        NftEvent::Transferred(1, alice.clone(), bob.clone()),
+    );
+
+    contract.transfer(&bob, &alice, &1);
+    assert_single_nft_event(
+        &env,
+        &contract_id,
+        NftEvent::Transferred(1, bob.clone(), alice.clone()),
+    );
+
+    contract.burn(&1);
+    assert_single_nft_event(&env, &contract_id, NftEvent::Burned(1, alice.clone()));
 }
 
 /// The TTL policy must actually keep NFT records alive: after a mint every
