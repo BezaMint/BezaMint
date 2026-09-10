@@ -13,15 +13,53 @@ export interface LogFields {
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
+/**
+ * Keys whose values must never appear in logs. Also covers substrings:
+ * a field named `authToken` or `x-api-key` is redacted too.
+ */
+const SECRET_KEY_PATTERN =
+  /(jwt|token|secret|password|passwd|api[_-]?key|authorization|auth|credential|cookie|private[_-]?key|session)/i;
+
+const REDACTED = '[REDACTED]';
+
+function isSecretKey(key: string): boolean {
+  return SECRET_KEY_PATTERN.test(key);
+}
+
+function redactValue(key: string, value: unknown): unknown {
+  if (isSecretKey(key)) return REDACTED;
+  if (typeof value === 'object' && value !== null) {
+    if (Array.isArray(value)) {
+      return value.map((item, index) => redactValue(`${key}[${index}]`, item));
+    }
+    const out: Record<string, unknown> = {};
+    for (const [childKey, childValue] of Object.entries(value as Record<string, unknown>)) {
+      out[childKey] = redactValue(childKey, childValue);
+    }
+    return out;
+  }
+  return value;
+}
+
+/** Sanitize a fields object so secrets never reach the log line. */
+export function redactFields(fields?: LogFields): LogFields | undefined {
+  if (!fields) return fields;
+  const out: LogFields = {};
+  for (const [key, value] of Object.entries(fields)) {
+    out[key] = redactValue(key, value);
+  }
+  return out;
+}
+
 function serialize(level: LogLevel, message: string, fields?: LogFields): string {
   const entry = {
     level,
     message,
     time: new Date().toISOString(),
-    ...fields,
+    ...redactFields(fields),
   };
   return process.env.NODE_ENV === 'development'
-    ? `${entry.time} [${level.toUpperCase()}] ${message} ${fields ? JSON.stringify(fields) : ''}`
+    ? `${entry.time} [${level.toUpperCase()}] ${message} ${fields ? JSON.stringify(redactFields(fields)) : ''}`
     : JSON.stringify(entry);
 }
 
