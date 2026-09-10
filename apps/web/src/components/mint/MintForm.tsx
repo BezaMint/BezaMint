@@ -131,7 +131,7 @@ export default function MintForm() {
   };
 
   const handleMint = async () => {
-    if (!isConnected) {
+    if (!isConnected || !address) {
       showError('Please connect your Freighter wallet first');
       return;
     }
@@ -178,6 +178,11 @@ export default function MintForm() {
 
         // Step 2: Build the minting transaction
         const txXdr = await mintNft(address!, address!, collectionId, metadataUri);
+
+        // Guard against a mid-flow wallet disconnect
+        if (!isConnected || !address) {
+          throw new Error('Wallet disconnected. Please reconnect and try again.');
+        }
 
         // Sign and submit via Freighter
         const result = await signAndSubmit(txXdr, (s) => {
