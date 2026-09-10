@@ -15,6 +15,20 @@ fn setup() -> (Env, BezaMintRoyaltyClient<'static>) {
     (env, client)
 }
 
+#[test]
+fn test_is_initialized_reflects_state() {
+    let (_, client) = setup();
+    assert!(client.is_initialized());
+}
+
+#[test]
+#[should_panic(expected = "already initialized")]
+fn test_initialize_rejects_double_init() {
+    let (env, client) = setup();
+    let attacker = Address::generate(&env);
+    client.initialize(&attacker);
+}
+
 fn empty_recipients(env: &Env) -> Map<Address, u32> {
     Map::new(env)
 }

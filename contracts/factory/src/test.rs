@@ -11,6 +11,29 @@ use bezamint_nft::{BezaMintNft, BezaMintNftClient};
 use bezamint_royalty::{BezaMintRoyalty, BezaMintRoyaltyClient};
 
 #[test]
+fn test_is_initialized_reflects_state() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let client = BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, ()));
+    assert!(!client.is_initialized());
+    client.initialize(&admin);
+    assert!(client.is_initialized());
+}
+
+#[test]
+#[should_panic(expected = "already initialized")]
+fn test_initialize_rejects_double_init() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let attacker = Address::generate(&env);
+    let client = BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, ()));
+    client.initialize(&admin);
+    client.initialize(&attacker);
+}
+
+#[test]
 fn test_initialize_and_set_contracts() {
     let env = Env::default();
     env.mock_all_auths();

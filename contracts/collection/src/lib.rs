@@ -62,10 +62,18 @@ pub struct BezaMintCollection;
 #[contractimpl]
 impl BezaMintCollection {
     pub fn initialize(env: Env, admin: Address) {
+        if Self::is_initialized(env.clone()) {
+            panic!("Collection: already initialized");
+        }
         admin.require_auth();
         env.storage().instance().set(&ColKey::Admin, &admin);
         env.storage().instance().set(&ColKey::Counter, &0u64);
         env.storage().instance().set(&ColKey::Version, &1u32);
+    }
+
+    /// Returns `true` once `initialize` has succeeded.
+    pub fn is_initialized(env: Env) -> bool {
+        env.storage().instance().has(&ColKey::Admin)
     }
 
     pub fn create_collection(env: Env, creator: Address, metadata_uri: String) -> u64 {

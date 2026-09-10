@@ -15,6 +15,20 @@ fn setup() -> (Env, Address, BezaMintCreatorClient<'static>) {
     (env, admin, client)
 }
 
+#[test]
+fn test_is_initialized_reflects_state() {
+    let (_, _, client) = setup();
+    assert!(client.is_initialized());
+}
+
+#[test]
+#[should_panic(expected = "already initialized")]
+fn test_initialize_rejects_double_init() {
+    let (env, _, client) = setup();
+    let attacker = Address::generate(&env);
+    client.initialize(&attacker);
+}
+
 fn register(env: &Env, client: &BezaMintCreatorClient, creator: &Address, name: &str) {
     client.register(
         creator,

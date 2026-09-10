@@ -18,6 +18,20 @@ fn setup() -> (Env, Address, BezaMintCollectionClient<'static>) {
 }
 
 #[test]
+fn test_is_initialized_reflects_state() {
+    let (_, _, client) = setup();
+    assert!(client.is_initialized());
+}
+
+#[test]
+#[should_panic(expected = "already initialized")]
+fn test_initialize_rejects_double_init() {
+    let (env, _, client) = setup();
+    let attacker = Address::generate(&env);
+    client.initialize(&attacker);
+}
+
+#[test]
 fn test_initialize() {
     let (_, _, client) = setup();
     assert_eq!(client.total_collections(), 0);

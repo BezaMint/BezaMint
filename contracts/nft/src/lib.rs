@@ -65,6 +65,9 @@ pub struct BezaMintNft;
 #[contractimpl]
 impl BezaMintNft {
     pub fn initialize(env: Env, admin: Address) {
+        if Self::is_initialized(env.clone()) {
+            panic!("NFT: already initialized");
+        }
         admin.require_auth();
         env.storage()
             .instance()
@@ -75,6 +78,12 @@ impl BezaMintNft {
         env.storage()
             .instance()
             .set(&String::from_str(&env, VERSION), &1u32);
+    }
+
+    /// Returns `true` once `initialize` has succeeded. Deploy tooling uses this
+    /// to decide whether a contract still needs initializing.
+    pub fn is_initialized(env: Env) -> bool {
+        env.storage().instance().has(&String::from_str(&env, ADMIN))
     }
 
     pub fn mint(env: Env, to: Address, collection_id: u64, metadata_uri: String) -> u64 {

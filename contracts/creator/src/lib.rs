@@ -56,10 +56,18 @@ pub struct BezaMintCreator;
 #[contractimpl]
 impl BezaMintCreator {
     pub fn initialize(env: Env, admin: Address) {
+        if Self::is_initialized(env.clone()) {
+            panic!("Creator: already initialized");
+        }
         admin.require_auth();
         env.storage().instance().set(&CreatorKey::Admin, &admin);
         env.storage().instance().set(&CreatorKey::Counter, &0u64);
         env.storage().instance().set(&CreatorKey::Version, &1u32);
+    }
+
+    /// Returns `true` once `initialize` has succeeded.
+    pub fn is_initialized(env: Env) -> bool {
+        env.storage().instance().has(&CreatorKey::Admin)
     }
 
     pub fn register(

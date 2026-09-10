@@ -11,6 +11,51 @@ fn mint_one(client: &BezaMintNftClient, to: &Address, collection_id: u64) -> u64
 }
 
 #[test]
+fn test_is_initialized_reflects_state() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    assert!(!client.is_initialized());
+    client.initialize(&admin);
+    assert!(client.is_initialized());
+}
+
+/// Re-initialization previously reset the admin and the token counter to zero,
+/// which let anyone mint over existing token ids and steal ownership of already
+/// minted NFTs. The second call must now be rejected outright.
+#[test]
+#[should_panic(expected = "already initialized")]
+fn test_initialize_rejects_double_init() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let attacker = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+    client.initialize(&attacker);
+}
+
+/// The counter must survive a rejected re-initialization attempt.
+#[test]
+fn test_initialize_attempt_does_not_reset_counter() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    client.initialize(&admin);
+    mint_one(&client, &user, 0);
+
+    let reinit = client.try_initialize(&admin);
+    assert!(reinit.is_err());
+    assert_eq!(client.total_supply(), 1);
+
+    let second = mint_one(&client, &user, 0);
+    assert_eq!(second, 2);
+}
+
+#[test]
 fn test_initialize_sets_admin_and_counter() {
     let env = Env::default();
     env.mock_all_auths();

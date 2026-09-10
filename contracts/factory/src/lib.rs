@@ -34,9 +34,17 @@ pub struct BezaMintFactory;
 #[contractimpl]
 impl BezaMintFactory {
     pub fn initialize(env: Env, admin: Address) {
+        if Self::is_initialized(env.clone()) {
+            panic!("Factory: already initialized");
+        }
         admin.require_auth();
         env.storage().instance().set(&FactoryKey::Admin, &admin);
         env.storage().instance().set(&FactoryKey::Version, &1u32);
+    }
+
+    /// Returns `true` once `initialize` has succeeded.
+    pub fn is_initialized(env: Env) -> bool {
+        env.storage().instance().has(&FactoryKey::Admin)
     }
 
     pub fn set_contracts(

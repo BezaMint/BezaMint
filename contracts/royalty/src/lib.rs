@@ -44,9 +44,17 @@ pub struct BezaMintRoyalty;
 #[contractimpl]
 impl BezaMintRoyalty {
     pub fn initialize(env: Env, admin: Address) {
+        if Self::is_initialized(env.clone()) {
+            panic!("Royalty: already initialized");
+        }
         admin.require_auth();
         env.storage().instance().set(&RoyaltyKey::Admin, &admin);
         env.storage().instance().set(&RoyaltyKey::Version, &1u32);
+    }
+
+    /// Returns `true` once `initialize` has succeeded.
+    pub fn is_initialized(env: Env) -> bool {
+        env.storage().instance().has(&RoyaltyKey::Admin)
     }
 
     pub fn configure_royalty(
