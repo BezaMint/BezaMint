@@ -3,17 +3,26 @@
 # BezaMint — Verify Deployed Contracts
 # ─────────────────────────────────────────────────────────────
 # Checks that the contract IDs in apps/web/.env.local respond to
-# read-only Soroban RPC queries, proving they are live on Testnet.
+# read-only Soroban RPC queries, proving they are live on Testnet and
+# that initialization actually ran (total_supply etc. would not respond
+# otherwise).
 #
 # Usage:
-#   bash scripts/verify-deploy.sh
+#   BEZAMINT_SOURCE_KEY="deployer" bash scripts/verify-deploy.sh
+#
+# BEZAMINT_SOURCE_KEY may be a keyring name or a raw secret key; it is
+# only used as the fee-paying source of the read-only invokes.
 # ─────────────────────────────────────────────────────────────
 
 set -euo pipefail
 
 NETWORK="testnet"
 RPC_URL="${NEXT_PUBLIC_STELLAR_RPC_URL:-https://soroban-testnet.stellar.org}"
+PASSPHRASE="Test SDF Network ; September 2015"
 ENV_FILE="apps/web/.env.local"
+SOURCE_KEY="${BEZAMINT_SOURCE_KEY:-deployer}"
+
+CLI_ARGS=(--rpc-url "$RPC_URL" --network-passphrase "$PASSPHRASE" --network "$NETWORK")
 
 if [ ! -f "$ENV_FILE" ]; then
   echo "❌ $ENV_FILE not found. Run scripts/deploy.sh first." >&2
@@ -36,20 +45,19 @@ for contract in "${CONTRACTS[@]}"; do
     continue
   fi
 
-  # Query total_supply / total_collections / total_creators depending on contract
+  # Query a read-only method that only answers once initialized
   case "$contract" in
     nft)        METHOD="total_supply";;
     collection) METHOD="total_collections";;
-    royalty)    METHOD="validate_basis_points";;
+    royalty)    METHOD="is_initialized";;
     creator)    METHOD="total_creators";;
     factory)    METHOD="get_nft_contract";;
   esac
 
   if soroban contract invoke \
     --id "$CONTRACT_ID" \
-    --network "$NETWORK" \
-    --rpc-url "$RPC_URL" \
-    --source "$(grep -E '^NEXT_PUBLIC_APP_URL=' "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2 || echo 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF')" \
+    --source "$SOURCE_KEY" \
+    "${CLI_ARGS[@]}" \
     -- "$METHOD" >/dev/null 2>&1; then
     echo "✅ $contract: $CONTRACT_ID responds to $METHOD()"
   else
