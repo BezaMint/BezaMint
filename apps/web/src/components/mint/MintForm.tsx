@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { HiOutlineSparkles, HiOutlineShieldCheck } from 'react-icons/hi';
 import type {
   MintFormState,
@@ -10,7 +10,14 @@ import type {
 import { useWallet } from '@/context';
 import { useToast } from '@/context';
 import { useTransaction } from '@/hooks/useTransaction';
-import { mintNft, signAndSubmit, uploadMetadataToIpfs, checkBalance } from '@/services';
+import {
+  mintNft,
+  signAndSubmit,
+  uploadMetadataToIpfs,
+  checkBalance,
+  getCollectionsByCreator,
+  createCollection,
+} from '@/services';
 import AttributeEditor from './AttributeEditor';
 import ImagePreview from './ImagePreview';
 import CollectionSelector from './CollectionSelector';
@@ -35,6 +42,28 @@ export default function MintForm() {
 
   const [form, setForm] = useState<MintFormState>(INITIAL_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [collections, setCollections] = useState<{ id: string; name: string }[]>([]);
+
+  // Load the connected wallet's on-chain collections for the selector.
+  useEffect(() => {
+    let cancelled = false;
+    if (!isConnected || !address) {
+      setCollections([]);
+      return;
+    }
+    (async () => {
+      try {
+        const ids = await getCollectionsByCreator(address);
+        if (cancelled) return;
+        setCollections(ids.map((id) => ({ id: String(id), name: `Collection #${id}` })));
+      } catch {
+        if (!cancelled) setCollections([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, address]);
 
   const updateField = useCallback(
     <K extends keyof MintFormState>(field: K, value: MintFormState[K]) => {
@@ -69,6 +98,36 @@ export default function MintForm() {
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleCreateCollection = async (data: {
+    name: string;
+    imageUri: string;
+  }): Promise<number> => {
+    if (!isConnected || !address) {
+      throw new Error('Please connect your Freighter wallet first');
+    }
+
+    const { ipfsUri } = await uploadMetadataToIpfs({
+      name: data.name,
+      imageUri: data.imageUri,
+      attributes: [],
+    });
+
+    const txXdr = await createCollection(address, ipfsUri);
+    const result = await signAndSubmit(txXdr);
+    if (!result.txHash) throw new Error('Collection creation failed');
+
+    // Resolve the new collection ID from the refreshed list.
+    const ids = await getCollectionsByCreator(address);
+    const newId = ids.length > 0 ? Math.max(...ids) : 0;
+    if (newId === 0) throw new Error('Could not resolve new collection ID');
+
+    setCollections((prev) => {
+      if (prev.some((c) => c.id === String(newId))) return prev;
+      return [...prev, { id: String(newId), name: data.name }];
+    });
+    return newId;
   };
 
   const handleMint = async () => {
@@ -250,6 +309,8 @@ export default function MintForm() {
             <CollectionSelector
               value={form.collectionId}
               onChange={(v) => updateField('collectionId', v)}
+              collections={collections}
+              onCreateCollection={handleCreateCollection}
             />
 
             {/* Attributes */}
