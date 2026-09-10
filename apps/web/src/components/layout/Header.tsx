@@ -13,6 +13,7 @@ import Link from 'next/link';
 import { useWallet, useTheme } from '@/context';
 import { useToast } from '@/context';
 import { HiOutlineSun, HiOutlineMoon } from 'react-icons/hi';
+import { CopyAddressButton } from '@/components/ui';
 import {
   formatAddress,
   getExplorerAccountUrl,
@@ -178,16 +179,17 @@ export default function Header() {
               </button>
 
               {/* Address badge */}
-              <a
-                href={getExplorerAccountUrl(address)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hidden md:flex items-center gap-2 px-2 lg:px-3 py-1.5 rounded-lg bg-bezamint-muted/50 border border-bezamint-border text-sm text-gray-300 hover:bg-bezamint-muted transition-all group"
-                aria-label="View on Stellar Explorer"
-              >
-                <span className="font-mono text-xs">{formatAddress(address)}</span>
-                <HiOutlineExternalLink className="w-3 h-3 text-gray-500 group-hover:text-gray-300" />
-              </a>
+              <div className="hidden md:flex items-center gap-1 px-2 lg:px-3 py-1.5 rounded-lg bg-bezamint-muted/50 border border-bezamint-border text-sm text-gray-300 hover:bg-bezamint-muted transition-all group">
+                <CopyAddressButton address={address} label={formatAddress(address)} />
+                <a
+                  href={getExplorerAccountUrl(address)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="View on Stellar Explorer"
+                >
+                  <HiOutlineExternalLink className="w-3 h-3 text-gray-500 group-hover:text-gray-300" />
+                </a>
+              </div>
 
               {/* Disconnect */}
               <button

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { HiOutlineSearch, HiOutlineBadgeCheck, HiOutlineShieldCheck } from 'react-icons/hi';
 import { useWallet } from '@/context';
+import { CopyAddressButton } from '@/components/ui';
 import { getOwnerOf, getTokenData } from '@/services/contracts';
 
 interface VerifyResult {
@@ -125,8 +126,11 @@ export default function VerifyPage() {
             <div className="space-y-3 p-4 rounded-xl bg-bezamint-muted/30 border border-bezamint-border">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-400">Owner</span>
-                <span className="text-sm font-mono text-white">
-                  {result.owner.slice(0, 8)}...{result.owner.slice(-6)}
+                <span className="flex items-center gap-2">
+                  <span className="text-sm font-mono text-white">
+                    {result.owner.slice(0, 8)}...{result.owner.slice(-6)}
+                  </span>
+                  <CopyAddressButton address={result.owner} label="Copy address" />
                 </span>
               </div>
               <div className="flex items-center justify-between">

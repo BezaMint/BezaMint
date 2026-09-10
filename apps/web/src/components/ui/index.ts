@@ -5,3 +5,5 @@ export { default as EmptyState } from './EmptyState';
 export { default as LoadingSkeleton } from './LoadingSkeleton';
 export { default as ErrorBoundary } from './ErrorBoundary';
 export { default as PageSkeleton } from './PageSkeleton';
+export { default as CopyAddressButton } from './CopyAddressButton';
+export { default as SmartImage } from './SmartImage';

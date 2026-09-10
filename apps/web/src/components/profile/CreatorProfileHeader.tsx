@@ -4,6 +4,7 @@ import { HiOutlineUser, HiOutlineBadgeCheck } from 'react-icons/hi';
 import { HiOutlineGlobe } from 'react-icons/hi';
 import { formatAddress } from '@/services';
 import { getPlatformIcon } from '@/lib/socialPlatforms';
+import { CopyAddressButton } from '@/components/ui';
 import type { CreatorProfile } from '@bezamint/shared';
 
 interface CreatorProfileHeaderProps {
@@ -44,7 +45,10 @@ export default function CreatorProfileHeader({ profile, actions }: CreatorProfil
               <HiOutlineBadgeCheck className="w-6 h-6 text-blue-400" title="Verified Creator" />
             )}
           </div>
-          <p className="text-sm text-gray-500 font-mono mb-2">{formatAddress(profile.address)}</p>
+          <div className="flex items-center gap-2 mb-2">
+            <p className="text-sm text-gray-500 font-mono">{formatAddress(profile.address)}</p>
+            <CopyAddressButton address={profile.address} label="Copy address" />
+          </div>
           {profile.bio && (
             <p className="text-gray-400 leading-relaxed max-w-2xl mb-4">{profile.bio}</p>
           )}
