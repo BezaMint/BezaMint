@@ -98,6 +98,9 @@ jobs:
       - name: Run contract tests
         run: cd contracts && cargo test --workspace
 
+      - name: Build docs (warning-free gate)
+        run: cd contracts && RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
+
       - name: Build wasm contracts
         run: cd contracts && cargo build --workspace --release --target wasm32-unknown-unknown
 
