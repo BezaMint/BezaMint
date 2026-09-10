@@ -1,9 +1,22 @@
 use soroban_sdk::{
-    testutils::{Address as _, Ledger},
-    vec, Address, Env, String,
+    testutils::{Address as _, Events, Ledger},
+    vec, Address, Env, String, Symbol, TryFromVal,
 };
 
-use crate::{BezaMintCreator, BezaMintCreatorClient, SocialLink};
+use crate::{BezaMintCreator, BezaMintCreatorClient, CreatorEvent, SocialLink};
+
+/// Decode the single most recent event and assert emitter, topic and payload.
+fn assert_single_creator_event(env: &Env, emitter: &Address, expected: CreatorEvent) {
+    let events = env.events().all();
+    assert_eq!(events.len(), 1, "expected exactly one event");
+    let (contract, topics, data) = events.get(0).expect("one event");
+    assert_eq!(contract.clone(), emitter.clone(), "wrong emitter");
+    let topic_symbol: Symbol =
+        Symbol::try_from_val(env, &topics.get(0).expect("topic")).expect("topic is a symbol");
+    assert_eq!(topic_symbol, Symbol::new(env, "creator"));
+    let decoded: CreatorEvent = CreatorEvent::try_from_val(env, &data).expect("decodable event");
+    assert_eq!(decoded, expected);
+}
 
 fn setup() -> (Env, Address, BezaMintCreatorClient<'static>) {
     let env = Env::default();
@@ -203,6 +216,51 @@ fn test_prevent_duplicate_registration() {
 
     register(&env, &client, &creator, "Test");
     register(&env, &client, &creator, "Test2");
+}
+
+/// Every state-changing operation must emit exactly one well-formed event:
+/// registered, profile updated (twice - update_profile and set_social_links)
+/// and verified.
+#[test]
+fn test_events_cover_all_mutations() {
+    let (env, admin, client) = setup();
+    let creator = Address::generate(&env);
+    let emitter = client.address.clone();
+
+    register(&env, &client, &creator, "Alice");
+    assert_single_creator_event(&env, &emitter, CreatorEvent::Registered(creator.clone()));
+
+    client.update_profile(
+        &creator,
+        &String::from_str(&env, "Alice Updated"),
+        &String::from_str(&env, "bio"),
+        &String::from_str(&env, "ipfs://avatar"),
+        &String::from_str(&env, "ipfs://banner"),
+    );
+    assert_single_creator_event(
+        &env,
+        &emitter,
+        CreatorEvent::ProfileUpdated(creator.clone()),
+    );
+
+    let links = vec![
+        &env,
+        SocialLink {
+            platform: String::from_str(&env, "twitter"),
+            url: String::from_str(&env, "https://twitter.com/alice"),
+        },
+    ];
+    client.set_social_links(&creator, &links);
+    assert_single_creator_event(
+        &env,
+        &emitter,
+        CreatorEvent::ProfileUpdated(creator.clone()),
+    );
+
+    client.verify_creator(&creator);
+    assert_single_creator_event(&env, &emitter, CreatorEvent::Verified(creator));
+
+    drop(admin);
 }
 
 /// A profile URI must use a real scheme. `javascript:` and `data:` are
