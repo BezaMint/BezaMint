@@ -93,6 +93,17 @@ function applyCors(request: NextRequest, response: NextResponse): void {
   }
 }
 
+// ─────────────────────── Security headers ───────────────────────
+
+/** Hardening headers for every API response. */
+function applySecurityHeaders(response: NextResponse): void {
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  response.headers.set('X-XSS-Protection', '0'); // modern browsers: off is safer than legacy filter
+  response.headers.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+}
+
 // ─────────────────────── Request logging ───────────────────────
 
 function logRequest(request: NextRequest, response: NextResponse | null, startedAt: number) {
@@ -138,6 +149,7 @@ export function middleware(request: NextRequest) {
   const response = NextResponse.next();
   applyCors(request, response);
   applyRateLimitHeaders(request, response);
+  applySecurityHeaders(response);
   logRequest(request, response, startedAt);
   return response;
 }
