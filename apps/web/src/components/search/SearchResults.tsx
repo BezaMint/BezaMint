@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import SearchBar from './SearchBar';
 import SearchFilters from './SearchFilters';
 import SearchResultCard from './SearchResultCard';
+import { filterSearchResults, hasCategoryData } from '@/lib/search';
 import { useWallet } from '@/context';
 import {
   getCreatorProfile,
@@ -144,24 +145,12 @@ export default function SearchResults() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isConnected, address]);
 
-  const filtered = useMemo(() => {
-    let list = results;
+  const filtered = useMemo(
+    () => filterSearchResults(results, activeTab, filters),
+    [results, activeTab, filters],
+  );
 
-    if (activeTab !== 'all') {
-      const typeMap: Record<string, string> = {
-        nfts: 'nft',
-        collections: 'collection',
-        creators: 'creator',
-      };
-      list = list.filter((r) => r.type === typeMap[activeTab]);
-    }
-
-    if (filters.length > 0) {
-      list = list.filter((r) => r.category && filters.includes(r.category));
-    }
-
-    return list;
-  }, [results, activeTab, filters]);
+  const showCategoryFilters = useMemo(() => hasCategoryData(results), [results]);
 
   if (!isConnected || !address) {
     return (
@@ -201,7 +190,13 @@ export default function SearchResults() {
         ))}
       </div>
 
-      <SearchFilters categories={CATEGORIES} selected={filters} onChange={setFilters} />
+      {showCategoryFilters ? (
+        <SearchFilters categories={CATEGORIES} selected={filters} onChange={setFilters} />
+      ) : (
+        <p className="text-xs text-gray-600">
+          Category filters appear once results carry category data.
+        </p>
+      )}
 
       <div className="space-y-2">
         {isSearching ? (
