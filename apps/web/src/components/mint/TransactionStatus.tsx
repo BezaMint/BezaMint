@@ -121,8 +121,13 @@ export default function TransactionStatus({
           </div>
           {tokenId && <p className="text-2xl font-bold text-white mb-1">Token #{tokenId}</p>}
           <p className="text-sm text-gray-400">
-            Your NFT has been successfully minted on the Stellar testnet.
+            Your NFT has been successfully minted on the Stellar network.
           </p>
+          {tokenId && (
+            <a href={`/nft/${tokenId}`} className="btn-primary text-sm inline-flex mt-4">
+              View Token
+            </a>
+          )}
         </div>
       )}
 

@@ -15,6 +15,7 @@ import {
   signAndSubmit,
   uploadMetadataToIpfs,
   checkBalance,
+  getTotalSupply,
   getCollectionsByCreator,
   createCollection,
 } from '@/services';
@@ -191,7 +192,16 @@ export default function MintForm() {
           else if (s === 'confirming') onStatus('confirming');
         });
 
-        return { txHash: result.txHash };
+        // Resolve the freshly minted token ID so success views can deep-link.
+        let tokenId: number | undefined;
+        try {
+          const supply = await getTotalSupply(address);
+          if (supply > 0) tokenId = supply;
+        } catch {
+          // Non-fatal: token ID link is best-effort.
+        }
+
+        return { txHash: result.txHash, tokenId };
       });
 
       showSuccess('NFT minted successfully!');
