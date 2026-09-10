@@ -38,7 +38,7 @@ const INITIAL_FORM: MintFormState = {
 };
 
 export default function MintForm() {
-  const { address, isConnected, connect } = useWallet();
+  const { address, isConnected, connect, balance } = useWallet();
   const { showSuccess, showError } = useToast();
   const tx = useTransaction();
 
@@ -351,8 +351,20 @@ export default function MintForm() {
             />
             {errors.royalties && <p className="text-xs text-red-400 -mt-2">{errors.royalties}</p>}
 
-            {/* Submit */}
-            <div className="pt-4 border-t border-bezamint-border">
+            {/* Fee estimate + balance warning */}
+            <div className="pt-4 border-t border-bezamint-border space-y-3">
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span>Estimated network fee</span>
+                <span className="font-mono">~1.001 XLM (reserve + fee)</span>
+              </div>
+              {!balance.isLoading &&
+                balance.balance !== null &&
+                parseFloat(balance.balance) < 2 && (
+                  <div className="text-xs text-yellow-400 bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-3 py-2">
+                    Low balance: {parseFloat(balance.balance).toFixed(2)} XLM. Fund your wallet to
+                    cover the reserve and network fees before minting.
+                  </div>
+                )}
               <button
                 onClick={handleMint}
                 className="btn-primary w-full flex items-center justify-center gap-2 text-base py-3"
