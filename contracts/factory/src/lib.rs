@@ -21,6 +21,7 @@ pub enum FactoryKey {
 pub enum FactoryEvent {
     ContractsSet(Address, Address, Address, Address),
     NftMinted(u64, Address),
+    NftBurned(u64, Address),
     CollectionCreated(u64, Address),
 }
 
@@ -183,6 +184,51 @@ impl BezaMintFactory {
         emit(&env, FactoryEvent::NftMinted(token_id, caller));
 
         token_id
+    }
+
+    /// Atomic burn + collection unlink.
+    ///
+    /// Burning through the NFT contract directly leaves the token's collection
+    /// membership behind: `nft_count` stays inflated and `get_nfts_in_collection`
+    /// lists a token that no longer exists. This wrapper burns the NFT and
+    /// removes it from its collection in one invocation. The NFT contract
+    /// enforces owner auth on `burn` and the Collection contract enforces
+    /// creator auth on `remove_nft`, so in the platform's own flow (a creator
+    /// burning an NFT they minted into their own collection) both checks pass
+    /// with the caller's signatures; a mismatched owner/creator fails
+    /// atomically with nothing burned.
+    pub fn burn_nft(env: Env, caller: Address, collection_id: u64, token_id: u64) {
+        caller.require_auth();
+
+        let nft_addr: Address = env
+            .storage()
+            .instance()
+            .get(&FactoryKey::NftContract)
+            .unwrap_or_else(|| panic!("Factory: NFT contract not set"));
+        let collection_addr: Address = env
+            .storage()
+            .instance()
+            .get(&FactoryKey::CollectionContract)
+            .unwrap_or_else(|| panic!("Factory: Collection contract not set"));
+
+        // Cross-contract call 1: burn the NFT (owner auth enforced there).
+        let burn_args = soroban_sdk::vec![&env, token_id.into_val(&env)];
+        env.invoke_contract::<()>(&nft_addr, &Symbol::new(&env, "burn"), burn_args);
+
+        // Cross-contract call 2: drop the collection membership (creator auth
+        // enforced there). Idempotent, so re-burning is a no-op.
+        let remove_args =
+            soroban_sdk::vec![&env, collection_id.into_val(&env), token_id.into_val(&env),];
+        env.invoke_contract::<()>(
+            &collection_addr,
+            &Symbol::new(&env, "remove_nft"),
+            remove_args,
+        );
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
+
+        emit(&env, FactoryEvent::NftBurned(token_id, caller));
     }
 
     /// Cross-contract: create collection + auto-register creator

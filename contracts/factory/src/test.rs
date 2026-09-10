@@ -215,6 +215,52 @@ fn test_integration_mint_with_royalty() {
     assert_eq!(config.basis_points, 500);
 }
 
+/// Burning through the Factory must both destroy the NFT and drop its
+/// collection membership, so `nft_count` and `get_nfts_in_collection` never
+/// reference a token that no longer exists.
+#[test]
+fn test_integration_burn_unlinks_from_collection() {
+    let env = Env::default();
+
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+
+    env.mock_all_auths();
+    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    nft.initialize(&admin);
+    let collection = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
+    collection.initialize(&admin);
+    let royalty = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
+    royalty.initialize(&admin);
+    let creator = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
+    creator.initialize(&admin);
+
+    let factory_id = env.register(BezaMintFactory, ());
+    let factory = BezaMintFactoryClient::new(&env, &factory_id);
+    factory.initialize(&admin);
+    factory.set_contracts(
+        &nft.address,
+        &collection.address,
+        &royalty.address,
+        &creator.address,
+    );
+
+    // The user owns collection 1 and mints token 1 into it.
+    collection.create_collection(&user, &String::from_str(&env, "ipfs://burn-test"));
+    let metadata = String::from_str(&env, "ipfs://burn-me");
+    let token_id = factory.mint_with_royalty(&user, &user, &1, &metadata, &500);
+    assert_eq!(token_id, 1);
+    assert_eq!(collection.get_collection(&1).nft_count, 1);
+
+    // Burn atomically: NFT gone, membership gone, count decremented.
+    factory.burn_nft(&user, &1, &token_id);
+
+    assert_eq!(nft.total_supply(), 1); // counter is not recycled
+    assert_eq!(collection.get_collection(&1).nft_count, 0);
+    assert_eq!(collection.get_nfts_in_collection(&1).len(), 0);
+    assert_eq!(collection.get_collection_for_nft(&1), 0);
+}
+
 /// A mint into a collection that does not exist must fail atomically: the NFT
 /// mint is rolled back together with the collection link, so no orphan NFT is
 /// ever created.
