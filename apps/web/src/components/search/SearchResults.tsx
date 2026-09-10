@@ -1,9 +1,18 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import SearchBar from './SearchBar';
 import SearchFilters from './SearchFilters';
 import SearchResultCard from './SearchResultCard';
+import { useWallet } from '@/context';
+import {
+  getCreatorProfile,
+  getCollectionsByCreator,
+  getCollectionById,
+  getTokenData,
+  isValidStellarAddress,
+} from '@/services';
+
 const CATEGORIES = [
   { value: 'all', label: 'All' },
   ...[
@@ -30,73 +39,7 @@ const TABS: { key: 'all' | 'nfts' | 'collections' | 'creators'; label: string }[
   { key: 'creators', label: 'Creators' },
 ];
 
-const MOCK_RESULTS = [
-  {
-    type: 'nft' as const,
-    title: 'Abstract #001',
-    subtitle: 'Token #1 in Digital Artworks',
-    href: '/explore',
-    tags: ['abstract', 'digital'],
-    category: 'art',
-  },
-  {
-    type: 'collection' as const,
-    title: 'Digital Artworks',
-    subtitle: '12 NFTs by GABC...DEFG',
-    href: '/collections/1',
-    tags: ['art', 'modern'],
-    category: 'art',
-  },
-  {
-    type: 'creator' as const,
-    title: 'Beza Creator',
-    subtitle: '42 NFTs · 5 Collections',
-    href: '/creators/GABC123',
-    isVerified: true,
-    category: 'art',
-  },
-  {
-    type: 'nft' as const,
-    title: 'Gaming Sword',
-    subtitle: 'Token #4 in Gaming Assets',
-    href: '/explore',
-    tags: ['rpg', 'weapon'],
-    category: 'gaming',
-  },
-  {
-    type: 'collection' as const,
-    title: 'Gaming Assets',
-    subtitle: '8 NFTs by GXYZ...ABCD',
-    href: '/collections/2',
-    tags: ['gaming', 'items'],
-    category: 'gaming',
-  },
-  {
-    type: 'creator' as const,
-    title: 'Pixel Artist',
-    subtitle: '15 NFTs · 2 Collections',
-    href: '/creators/GXYZ123',
-    category: 'gaming',
-  },
-  {
-    type: 'nft' as const,
-    title: 'Melody #1',
-    subtitle: 'Token #1 in Music Lab',
-    href: '/explore',
-    tags: ['music', 'audio'],
-    category: 'music',
-  },
-  {
-    type: 'collection' as const,
-    title: 'Music Lab',
-    subtitle: '5 NFTs by GMUS...IC01',
-    href: '/collections/3',
-    tags: ['music'],
-    category: 'music',
-  },
-];
-
-interface MockResult {
+interface SearchResult {
   type: 'nft' | 'collection' | 'creator';
   title: string;
   subtitle: string;
@@ -107,22 +50,102 @@ interface MockResult {
 }
 
 export default function SearchResults() {
+  const { address, isConnected, connect } = useWallet();
   const [query, setQuery] = useState('');
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'nfts' | 'collections' | 'creators'>('all');
   const [filters, setFilters] = useState<string[]>([]);
+  const [searched, setSearched] = useState(false);
+  const requestSeq = useRef(0);
+
+  const executeSearch = useCallback(
+    async (q: string) => {
+      const trimmed = q.trim();
+      if (!trimmed || !address) return;
+      const seq = ++requestSeq.current;
+      setIsSearching(true);
+      setSearched(false);
+
+      try {
+        const found: SearchResult[] = [];
+
+        // Stellar address → creator profile + their collections
+        if (isValidStellarAddress(trimmed)) {
+          const [profile, colIds] = await Promise.all([
+            getCreatorProfile(address, trimmed),
+            getCollectionsByCreator(trimmed),
+          ]);
+          if (seq !== requestSeq.current) return;
+          if (profile) {
+            found.push({
+              type: 'creator',
+              title: profile.displayName || 'Unnamed Creator',
+              subtitle: `${trimmed.slice(0, 4)}...${trimmed.slice(-4)} · on-chain profile`,
+              href: `/creators/${trimmed}`,
+              isVerified: profile.isVerified,
+            });
+          }
+          for (const colId of colIds) {
+            found.push({
+              type: 'collection',
+              title: `Collection #${colId}`,
+              subtitle: `By ${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`,
+              href: `/collections/${colId}`,
+            });
+          }
+        }
+
+        // Numeric → collection and/or token IDs
+        if (/^\d+$/.test(trimmed)) {
+          const numeric = Number(trimmed);
+          const [col, token] = await Promise.all([
+            getCollectionById(address, numeric),
+            getTokenData(address, numeric),
+          ]);
+          if (seq !== requestSeq.current) return;
+          if (col) {
+            found.push({
+              type: 'collection',
+              title: `Collection #${numeric}`,
+              subtitle: `${col.nft_count ?? 0} NFTs on-chain`,
+              href: `/collections/${numeric}`,
+            });
+          }
+          if (token) {
+            found.push({
+              type: 'nft',
+              title: `Token #${numeric}`,
+              subtitle: 'On-chain NFT',
+              href: `/nft/${numeric}`,
+            });
+          }
+        }
+
+        if (seq !== requestSeq.current) return;
+        setResults(found);
+      } catch {
+        if (seq === requestSeq.current) setResults([]);
+      } finally {
+        if (seq === requestSeq.current) {
+          setIsSearching(false);
+          setSearched(true);
+        }
+      }
+    },
+    [address],
+  );
+
+  // Run search when the query is submitted or the user is connected.
+  useEffect(() => {
+    if (isConnected && address) {
+      executeSearch(query);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isConnected, address]);
 
   const filtered = useMemo(() => {
-    let results: MockResult[] = MOCK_RESULTS;
-
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      results = results.filter(
-        (r) =>
-          r.title.toLowerCase().includes(q) ||
-          r.subtitle.toLowerCase().includes(q) ||
-          r.tags?.some((t) => t.includes(q)),
-      );
-    }
+    let list = results;
 
     if (activeTab !== 'all') {
       const typeMap: Record<string, string> = {
@@ -130,19 +153,37 @@ export default function SearchResults() {
         collections: 'collection',
         creators: 'creator',
       };
-      results = results.filter((r) => r.type === typeMap[activeTab]);
+      list = list.filter((r) => r.type === typeMap[activeTab]);
     }
 
     if (filters.length > 0) {
-      results = results.filter((r) => r.category && filters.includes(r.category));
+      list = list.filter((r) => r.category && filters.includes(r.category));
     }
 
-    return results;
-  }, [query, activeTab, filters]);
+    return list;
+  }, [results, activeTab, filters]);
+
+  if (!isConnected || !address) {
+    return (
+      <div className="card text-center py-12">
+        <p className="text-gray-400 mb-4">
+          Connect your Freighter wallet to search on-chain creators, collections, and NFTs.
+        </p>
+        <button onClick={connect} className="btn-primary text-sm">
+          Connect Wallet
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <SearchBar onSearch={setQuery} initialQuery={query} />
+      <SearchBar onSearch={(q) => executeSearch(q)} initialQuery={query} />
+
+      <p className="text-xs text-gray-500">
+        Search by a Stellar address (G...), a collection ID, or a token ID. Full-text search will be
+        enabled once the on-chain indexer ships.
+      </p>
 
       <div className="flex gap-1 p-1 rounded-xl bg-bezamint-muted/30 border border-bezamint-border w-fit">
         {TABS.map((tab) => (
@@ -163,11 +204,36 @@ export default function SearchResults() {
       <SearchFilters categories={CATEGORIES} selected={filters} onChange={setFilters} />
 
       <div className="space-y-2">
-        {filtered.length > 0 ? (
+        {isSearching ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="card-interactive animate-pulse">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-bezamint-muted/40" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-4 w-1/3 bg-bezamint-muted/40 rounded" />
+                    <div className="h-3 w-1/2 bg-bezamint-muted/30 rounded" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filtered.length > 0 ? (
           filtered.map((result, idx) => <SearchResultCard key={idx} {...result} />)
         ) : (
           <div className="card text-center py-12">
-            <p className="text-gray-400">No results found{query ? ` for "${query}"` : ''}.</p>
+            {searched ? (
+              <>
+                <p className="text-gray-400">No results found{query ? ` for "${query}"` : ''}.</p>
+                <p className="text-xs text-gray-600 mt-2">
+                  Try a full Stellar address (starts with G), a collection ID, or a token ID.
+                </p>
+              </>
+            ) : (
+              <p className="text-gray-400">
+                Enter a Stellar address, collection ID, or token ID to search.
+              </p>
+            )}
           </div>
         )}
       </div>
