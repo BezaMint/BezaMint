@@ -48,7 +48,7 @@ fn test_initialize_and_set_contracts() {
     let royalty = Address::generate(&env);
     let creator = Address::generate(&env);
 
-    client.set_contracts(&admin, &nft, &collection, &royalty, &creator);
+    client.set_contracts(&nft, &collection, &royalty, &creator);
 
     assert_eq!(client.get_nft_contract(), nft);
     assert_eq!(client.get_collection_contract(), collection);
@@ -61,7 +61,6 @@ fn test_initialize_and_set_contracts() {
 fn test_unauthorized_set_contracts() {
     let env = Env::default();
     let admin = Address::generate(&env);
-    let attacker = Address::generate(&env);
     let contract_id = env.register(BezaMintFactory, ());
     let client = BezaMintFactoryClient::new(&env, &contract_id);
 
@@ -85,7 +84,7 @@ fn test_unauthorized_set_contracts() {
     let royalty = Address::generate(&env);
     let creator = Address::generate(&env);
 
-    client.set_contracts(&attacker, &nft, &collection, &royalty, &creator);
+    client.set_contracts(&nft, &collection, &royalty, &creator);
 }
 
 #[test]
@@ -99,7 +98,7 @@ fn test_factory_set_contracts() {
     let cre = Address::generate(&env);
     let contract = BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, ()));
     contract.initialize(&admin);
-    contract.set_contracts(&admin, &nft, &col, &roy, &cre);
+    contract.set_contracts(&nft, &col, &roy, &cre);
     assert_eq!(contract.get_nft_contract(), nft);
     assert_eq!(contract.get_collection_contract(), col);
 }
@@ -114,7 +113,7 @@ fn test_mint_with_royalty_returns_token() {
     let factory = BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, ()));
     factory.initialize(&admin);
     // Set up stub contracts
-    factory.set_contracts(&admin, &nft_addr, &nft_addr, &royalty_addr, &nft_addr);
+    factory.set_contracts(&nft_addr, &nft_addr, &royalty_addr, &nft_addr);
     // Cross-contract call will fail on real network but verifies structure
 }
 
@@ -148,7 +147,6 @@ fn test_integration_mint_with_royalty() {
 
     factory.initialize(&admin);
     factory.set_contracts(
-        &admin,
         &nft.address,
         &collection.address,
         &royalty.address,
@@ -233,7 +231,6 @@ fn test_mint_into_missing_collection_fails() {
     let factory = BezaMintFactoryClient::new(&env, &factory_id);
     factory.initialize(&admin);
     factory.set_contracts(
-        &admin,
         &nft.address,
         &collection.address,
         &royalty.address,
@@ -271,7 +268,6 @@ fn test_mint_into_foreign_collection_fails() {
     let factory = BezaMintFactoryClient::new(&env, &factory_id);
     factory.initialize(&admin);
     factory.set_contracts(
-        &admin,
         &nft.address,
         &collection.address,
         &royalty.address,
@@ -333,7 +329,6 @@ fn test_integration_create_collection_for_creator() {
     let factory = BezaMintFactoryClient::new(&env, &factory_id);
     factory.initialize(&admin);
     factory.set_contracts(
-        &admin,
         &nft.address,
         &collection.address,
         &royalty.address,

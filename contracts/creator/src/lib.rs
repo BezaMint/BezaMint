@@ -332,7 +332,12 @@ impl BezaMintCreator {
         emit(&env, CreatorEvent::ProfileUpdated(creator));
     }
 
-    pub fn verify_creator(env: Env, _admin: Address, creator: Address) {
+    /// Mark a creator profile as verified. Admin-only: authorization comes
+    /// from the stored admin, not from any caller-supplied address. The
+    /// previous signature accepted a leading `_admin: Address` that was
+    /// ignored in favour of the stored admin, which misled callers into
+    /// believing their own address authorized the call.
+    pub fn verify_creator(env: Env, creator: Address) {
         let stored_admin: Address = env
             .storage()
             .instance()

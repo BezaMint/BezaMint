@@ -62,9 +62,13 @@ impl BezaMintFactory {
         env.storage().instance().has(&FactoryKey::Admin)
     }
 
+    /// Wire the four platform contracts. Admin-only: authorization comes from
+    /// the stored admin, not from any caller-supplied address. The previous
+    /// signature accepted a leading `_admin: Address` that was ignored in
+    /// favour of the stored admin, which misled callers into believing their
+    /// own address authorized the call.
     pub fn set_contracts(
         env: Env,
-        _admin: Address,
         nft: Address,
         collection: Address,
         royalty: Address,

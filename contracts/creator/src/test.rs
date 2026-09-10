@@ -119,14 +119,14 @@ fn test_set_social_links() {
 
 #[test]
 fn test_verify_creator() {
-    let (env, admin, client) = setup();
+    let (env, _admin, client) = setup();
     env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
     register(&env, &client, &creator, "Alice");
     assert!(!client.is_verified(&creator));
 
-    client.verify_creator(&admin, &creator);
+    client.verify_creator(&creator);
 
     assert!(client.is_verified(&creator));
     let profile = client.get_profile(&creator);
