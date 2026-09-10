@@ -5,7 +5,8 @@ import type { CollectionFormState } from '@bezamint/shared';
 import { CollectionGrid, CollectionForm } from '@/components/collection';
 import { useWallet } from '@/context';
 import { useToast } from '@/context';
-import { getCollectionsByCreator } from '@/services/contracts';
+import { getCollectionsByCreator, createCollection, signAndSubmit } from '@/services/contracts';
+import { uploadMetadataToIpfs } from '@/services';
 
 interface CollectionItem {
   id: string;
@@ -44,7 +45,7 @@ const SAMPLE_COLLECTIONS: CollectionItem[] = [
 
 export default function CollectionsPage() {
   const { isConnected, connect, address } = useWallet();
-  const { showSuccess } = useToast();
+  const { showSuccess, showError } = useToast();
   const [showCreate, setShowCreate] = useState(false);
   const [collections, setCollections] = useState<CollectionItem[]>(SAMPLE_COLLECTIONS);
   const [isLoading, setIsLoading] = useState(true);
@@ -92,27 +93,59 @@ export default function CollectionsPage() {
 
   const handleCreate = useCallback(
     async (data: CollectionFormState) => {
+      if (!isConnected || !address) return;
       setIsSubmitting(true);
-      // In production: invoke the Collection contract's create_collection.
-      await new Promise((r) => setTimeout(r, 1500));
 
-      const newCollection: CollectionItem = {
-        id: String(collections.length + 1),
+      // Optimistic insert so the UI feels instant; rolled back on failure.
+      const pendingId = `pending-${Date.now()}`;
+      const optimistic: CollectionItem = {
+        id: pendingId,
         name: data.name,
         imageUri: data.imageUri,
         category: data.category,
         nftCount: 0,
         isArchived: false,
-        createdAt: 'Just now',
+        createdAt: 'Creating...',
         tags: data.tags,
       };
+      setCollections((prev) => [optimistic, ...prev]);
 
-      setCollections((prev) => [newCollection, ...prev]);
-      setIsSubmitting(false);
-      setShowCreate(false);
-      showSuccess(`Collection "${data.name}" created!`);
+      try {
+        // Upload metadata, then create the collection on-chain via the Factory.
+        const { ipfsUri } = await uploadMetadataToIpfs({
+          name: data.name,
+          description: data.description,
+          imageUri: data.imageUri,
+          externalUrl: data.externalUrl,
+          attributes: [],
+        });
+        const txXdr = await createCollection(address, ipfsUri);
+        const result = await signAndSubmit(txXdr);
+        if (!result.txHash) throw new Error('Collection creation failed');
+
+        // Resolve the real ID from the refreshed on-chain list.
+        const ids = await getCollectionsByCreator(address);
+        const newId = ids.length > 0 ? Math.max(...ids) : 0;
+        if (newId === 0) throw new Error('Could not resolve new collection ID');
+
+        setCollections((prev) =>
+          prev.map((c) =>
+            c.id === pendingId
+              ? { ...c, id: String(newId), name: data.name, createdAt: 'Just now' }
+              : c,
+          ),
+        );
+        setShowCreate(false);
+        showSuccess(`Collection "${data.name}" created!`);
+      } catch (err: unknown) {
+        // Roll back the optimistic entry.
+        setCollections((prev) => prev.filter((c) => c.id !== pendingId));
+        showError((err as Error)?.message || 'Failed to create collection');
+      } finally {
+        setIsSubmitting(false);
+      }
     },
-    [collections.length, showSuccess],
+    [isConnected, address, showSuccess, showError],
   );
 
   if (!isConnected) {
