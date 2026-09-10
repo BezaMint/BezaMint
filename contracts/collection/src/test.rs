@@ -159,6 +159,37 @@ fn test_remove_nft_from_collection() {
     assert_eq!(client.get_collection_for_nft(&101), 0);
 }
 
+#[test]
+#[should_panic(expected = "metadata URI cannot be empty")]
+fn test_update_collection_rejects_empty_uri() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+    client.update_collection(&creator, &id, &String::from_str(&env, ""));
+}
+
+#[test]
+#[should_panic(expected = "metadata URI exceeds 512 chars")]
+fn test_update_collection_rejects_oversized_uri() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+    let long_uri = "x".repeat(513);
+    client.update_collection(&creator, &id, &String::from_str(&env, &long_uri));
+}
+
+/// The 512-character boundary must remain accepted, guarding against an
+/// off-by-one when the limit is refactored into a shared constant.
+#[test]
+fn test_update_collection_accepts_boundary_uri() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+    let boundary = "x".repeat(512);
+    client.update_collection(&creator, &id, &String::from_str(&env, &boundary));
+    assert_eq!(client.get_collection(&id).metadata_uri.len(), 512);
+}
+
 /// `add_nft` must require the collection creator's authorization. Only the
 /// creator's `create_collection` call is mocked here, so the follow-up
 /// `add_nft` has no valid auth entry for that invocation and must be rejected.

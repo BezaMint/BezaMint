@@ -6,6 +6,11 @@ use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, E
 /// scope so the enforcement point and the documentation cannot drift apart.
 const MAX_NFTS_PER_COLLECTION: u64 = 10_000;
 
+/// Maximum accepted length of a collection metadata URI, in bytes. Mirrors the
+/// NFT contract's limit so a URI is never valid in one place and rejected in
+/// the other.
+const MAX_METADATA_URI_LEN: u32 = 512;
+
 // ─────────────────────────── Types ───────────────────────────
 
 #[contracttype]
@@ -90,14 +95,7 @@ impl BezaMintCollection {
         // can create collections through the Factory instead of requiring admin.
         creator.require_auth();
 
-        assert!(
-            !metadata_uri.is_empty(),
-            "Collection: metadata URI cannot be empty"
-        );
-        assert!(
-            metadata_uri.len() <= 512,
-            "Collection: metadata URI exceeds 512 chars"
-        );
+        Self::validate_metadata_uri(&metadata_uri);
 
         let counter: u64 = env.storage().instance().get(&ColKey::Counter).unwrap_or(0);
 
@@ -138,6 +136,10 @@ impl BezaMintCollection {
             "Collection: caller is not the collection creator"
         );
         assert!(!data.is_archived, "Collection: {id} is archived");
+        // `create_collection` validates the URI; the update path previously did
+        // not, so a collection could be edited into a state that could never
+        // have been created (empty, or longer than the documented limit).
+        Self::validate_metadata_uri(&new_metadata_uri);
 
         data.metadata_uri = new_metadata_uri;
         data.updated_at = env.ledger().timestamp();
@@ -170,6 +172,20 @@ impl BezaMintCollection {
             .set(&ColKey::Collection(id), &data);
 
         emit(&env, ColEvent::Archived(id));
+    }
+
+    /// Reject metadata URIs that are empty or longer than
+    /// [`MAX_METADATA_URI_LEN`]. Shared by create and update so the two paths
+    /// cannot drift.
+    fn validate_metadata_uri(metadata_uri: &String) {
+        assert!(
+            !metadata_uri.is_empty(),
+            "Collection: metadata URI cannot be empty"
+        );
+        assert!(
+            metadata_uri.len() <= MAX_METADATA_URI_LEN,
+            "Collection: metadata URI exceeds {MAX_METADATA_URI_LEN} chars"
+        );
     }
 
     /// Attach `token_id` to a collection.
