@@ -14,17 +14,47 @@ export default function MobileMenu() {
   const pathname = usePathname();
   const { address, isConnected, balance, refreshBalance } = useWallet();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const openButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Close on Escape key
+  // Close on Escape + trap focus while open + restore focus on close.
   useEffect(() => {
     if (!isOpen) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setIsOpen(false);
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+        return;
+      }
+      // Trap Tab navigation inside the dialog
+      if (e.key === 'Tab' && menuRef.current) {
+        const focusables = menuRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        );
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        if (!first || !last) return;
+        const active = document.activeElement as HTMLElement | null;
+        if (e.shiftKey && (active === first || !menuRef.current.contains(active))) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && (active === last || !menuRef.current.contains(active))) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
+
     document.addEventListener('keydown', handleKeyDown);
     // Focus the close button when menu opens
-    setTimeout(() => closeButtonRef.current?.focus(), 100);
-    return () => document.removeEventListener('keydown', handleKeyDown);
+    setTimeout(() => closeButtonRef.current?.focus(), 50);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      // Return focus to the trigger
+      previouslyFocused?.focus();
+    };
   }, [isOpen]);
 
   // Lock body scroll when menu is open
@@ -42,6 +72,7 @@ export default function MobileMenu() {
   return (
     <>
       <button
+        ref={openButtonRef}
         onClick={() => setIsOpen(true)}
         className="lg:hidden fixed top-3 left-3 z-40 p-2 rounded-xl bg-bezamint-card border border-bezamint-border text-gray-300 hover:text-white focus:ring-2 focus:ring-bezamint-primary focus:outline-none"
         aria-label="Open navigation menu"
@@ -54,6 +85,7 @@ export default function MobileMenu() {
       {isOpen && (
         <div
           id="mobile-menu"
+          ref={menuRef}
           className="lg:hidden fixed inset-0 z-50"
           role="dialog"
           aria-modal="true"
