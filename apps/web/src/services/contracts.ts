@@ -99,6 +99,58 @@ export async function mintNft(
   return tx;
 }
 
+/**
+ * Mint an NFT through the Factory with royalty terms in one atomic call.
+ *
+ * This is the platform's mint path: the Factory mints the token, links it to
+ * its collection and configures the creator's royalty. `collectionId` must be
+ * a collection the caller owns, otherwise the whole transaction is rejected.
+ * `basisPoints` is the royalty rate (500 = 5%, max 10000).
+ */
+export async function mintWithRoyalty(
+  sourceAddress: string,
+  toAddress: string,
+  collectionId: number,
+  metadataUri: string,
+  basisPoints: number,
+) {
+  const callerScVal = new Address(sourceAddress).toScVal();
+  const toScVal = new Address(toAddress).toScVal();
+  const collectionScVal = xdr.ScVal.scvU64(new xdr.Uint64(collectionId));
+  const metadataScVal = xdr.ScVal.scvString(metadataUri);
+  const basisPointsScVal = xdr.ScVal.scvU32(basisPoints);
+
+  const { tx } = await buildContractTransaction(
+    sourceAddress,
+    CONTRACT_IDS.factory,
+    'mint_with_royalty',
+    [callerScVal, toScVal, collectionScVal, metadataScVal, basisPointsScVal],
+  );
+
+  return tx;
+}
+
+/**
+ * Burn an NFT and remove it from its collection in one atomic call.
+ *
+ * Requires the caller to be both the NFT owner and the collection creator;
+ * a collector who does not own the collection cannot destroy a collection
+ * member.
+ */
+export async function burnNft(sourceAddress: string, collectionId: number, tokenId: number) {
+  const callerScVal = new Address(sourceAddress).toScVal();
+  const collectionScVal = xdr.ScVal.scvU64(new xdr.Uint64(collectionId));
+  const tokenScVal = xdr.ScVal.scvU64(new xdr.Uint64(tokenId));
+
+  const { tx } = await buildContractTransaction(sourceAddress, CONTRACT_IDS.factory, 'burn_nft', [
+    callerScVal,
+    collectionScVal,
+    tokenScVal,
+  ]);
+
+  return tx;
+}
+
 export async function getTotalSupply(sourceAddress: string): Promise<number> {
   try {
     const result = await simulateTransaction(sourceAddress, CONTRACT_IDS.nft, 'total_supply', []);

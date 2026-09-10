@@ -26,6 +26,8 @@ export {
   TxErrorType,
   TxError,
   mintNft,
+  mintWithRoyalty,
+  burnNft,
   getTotalSupply,
   getOwnerOf,
   getTokenData,
