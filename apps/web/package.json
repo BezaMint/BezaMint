@@ -16,7 +16,7 @@
   "dependencies": {
     "@stellar/freighter-api": "^4.0.0",
     "@stellar/stellar-sdk": "^13.1.0",
-    "next": "^15.1.6",
+    "next": "^15.5.25",
     "pinata": "^2.5.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
@@ -37,14 +37,14 @@
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.4.21",
     "eslint": "^9.39.5",
-    "eslint-config-next": "^15.5.22",
+    "eslint-config-next": "^15.5.25",
     "eslint-plugin-react": "^7.37",
     "eslint-plugin-react-hooks": "^5",
     "jsdom": "^26.0.0",
-    "postcss": "^8.5.1",
+    "postcss": "^8.5.23",
     "tailwindcss": "^4.0.6",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.66.0",
-    "vitest": "^3.0.4"
+    "vitest": "^4.1.11"
   }
 }
