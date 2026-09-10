@@ -7,6 +7,7 @@ import {
   HiOutlineUser,
   HiOutlineBadgeCheck,
 } from 'react-icons/hi';
+import { SmartImage } from '@/components/ui';
 
 interface SearchResultProps {
   type: 'nft' | 'collection' | 'creator';
@@ -41,7 +42,7 @@ export default function SearchResultCard({
     >
       <div className="w-12 h-12 rounded-xl bg-bezamint-muted/50 border border-bezamint-border overflow-hidden flex-shrink-0 flex items-center justify-center">
         {imageUri ? (
-          <img src={imageUri} alt={title} className="w-full h-full object-cover" />
+          <SmartImage src={imageUri} alt={title} className="w-full h-full" />
         ) : (
           <Icon className="w-5 h-5 text-gray-500" />
         )}

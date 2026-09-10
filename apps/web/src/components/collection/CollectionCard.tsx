@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { HiOutlinePhotograph, HiOutlineClock, HiOutlineLockClosed } from 'react-icons/hi';
+import { SmartImage } from '@/components/ui';
 
 interface CollectionCardProps {
   id: string;
@@ -25,7 +25,6 @@ export default function CollectionCard({
   createdAt,
   tags = [],
 }: CollectionCardProps) {
-  const [imgError, setImgError] = useState(false);
   return (
     <Link
       href={`/collections/${id}`}
@@ -35,18 +34,12 @@ export default function CollectionCard({
     >
       {/* Image */}
       <div className="aspect-square rounded-xl bg-bezamint-muted/50 border border-bezamint-border overflow-hidden mb-4">
-        {imageUri && !imgError ? (
-          <img
-            src={imageUri}
-            alt={name}
-            onError={() => setImgError(true)}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <HiOutlinePhotograph className="w-12 h-12 text-gray-600" />
-          </div>
-        )}
+        <SmartImage
+          src={imageUri}
+          alt={name}
+          className="w-full h-full group-hover:scale-105 transition-transform duration-300"
+          fallback={<HiOutlinePhotograph className="w-12 h-12 text-gray-600" />}
+        />
         {isArchived && (
           <div className="absolute top-3 right-3 px-2 py-1 rounded-lg bg-red-500/20 border border-red-500/30 text-xs text-red-400 flex items-center gap-1">
             <HiOutlineLockClosed className="w-3 h-3" />
