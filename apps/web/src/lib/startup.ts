@@ -82,3 +82,31 @@ export function getStartupTime(): number {
   const start = (globalThis as Record<string, unknown>).__BEZAMINT_START_TIME__;
   return typeof start === 'number' ? start : Date.now();
 }
+
+/**
+ * Sanitized snapshot of the runtime configuration for debugging. Secrets
+ * (Pinata JWT, API keys) are reduced to a present/absent flag; everything
+ * else is safe to log or expose via a debug endpoint.
+ */
+export function collectStartupConfig() {
+  return {
+    environment: process.env.NODE_ENV || 'development',
+    network: process.env.NEXT_PUBLIC_STELLAR_NETWORK || 'testnet',
+    rpcUrl: process.env.NEXT_PUBLIC_STELLAR_RPC_URL || '(default)',
+    pinata: {
+      configured: !!process.env.PINATA_JWT,
+      gateway: process.env.NEXT_PUBLIC_PINATA_GATEWAY || '(default)',
+    },
+    corsAllowedOrigins: process.env.CORS_ALLOWED_ORIGINS
+      ? process.env.CORS_ALLOWED_ORIGINS.split(',').length
+      : 0,
+    apiWriteKeyConfigured: !!process.env.API_WRITE_KEY,
+    contracts: {
+      nft: !!process.env.NEXT_PUBLIC_NFT_CONTRACT_ID,
+      collection: !!process.env.NEXT_PUBLIC_COLLECTION_CONTRACT_ID,
+      royalty: !!process.env.NEXT_PUBLIC_ROYALTY_CONTRACT_ID,
+      creator: !!process.env.NEXT_PUBLIC_CREATOR_CONTRACT_ID,
+      factory: !!process.env.NEXT_PUBLIC_FACTORY_CONTRACT_ID,
+    },
+  };
+}
