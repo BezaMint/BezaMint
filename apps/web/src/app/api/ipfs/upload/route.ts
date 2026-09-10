@@ -3,6 +3,11 @@ import { getPinataClient, isIpfsAvailable } from '@/lib/pinata';
 import { rateLimitUpload, MAX_METADATA_SIZE } from '@/lib/server/uploadGuard';
 import { normalizeError, badRequest } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
+import {
+  NFT_METADATA_SCHEMA,
+  validateAgainstSchema,
+  formatIssues,
+} from '@/lib/server/metadataSchema';
 
 /**
  * POST /api/ipfs/upload
@@ -13,20 +18,6 @@ import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
  */
 
 const NAME_MAX = 128;
-const DESCRIPTION_MAX = 2000;
-const MAX_ATTRIBUTES = 20;
-const ATTRIBUTE_VALUE_MAX = 128;
-
-interface RawMetadata {
-  name?: unknown;
-  description?: unknown;
-  imageUri?: unknown;
-  animationUri?: unknown;
-  externalUrl?: unknown;
-  collectionId?: unknown;
-  royalties?: unknown;
-  attributes?: unknown;
-}
 
 export async function OPTIONS() {
   return NextResponse.json(
@@ -47,47 +38,22 @@ function validationError(message: string): NextResponse {
 }
 
 function validateMetadata(
-  input: RawMetadata,
-): { ok: true; value: RawMetadata & { name: string } } | { ok: false; error: NextResponse } {
-  if (typeof input.name !== 'string' || !input.name.trim()) {
+  input: unknown,
+): { ok: true; value: { name: string } } | { ok: false; error: NextResponse } {
+  if (typeof input !== 'object' || input === null || Array.isArray(input)) {
+    return { ok: false, error: validationError('Metadata must be a JSON object') };
+  }
+
+  const issues = validateAgainstSchema(NFT_METADATA_SCHEMA, input);
+  if (issues.length > 0) {
+    return { ok: false, error: validationError(`Invalid metadata: ${formatIssues(issues)}`) };
+  }
+
+  const name = (input as { name?: unknown }).name;
+  if (typeof name !== 'string' || !name.trim()) {
     return { ok: false, error: validationError('Metadata must include a name field') };
   }
-  if (input.name.length > NAME_MAX) {
-    return { ok: false, error: validationError(`name exceeds ${NAME_MAX} characters`) };
-  }
-  if (input.description !== undefined && typeof input.description !== 'string') {
-    return { ok: false, error: validationError('description must be a string') };
-  }
-  if (typeof input.description === 'string' && input.description.length > DESCRIPTION_MAX) {
-    return {
-      ok: false,
-      error: validationError(`description exceeds ${DESCRIPTION_MAX} characters`),
-    };
-  }
-  if (input.attributes !== undefined) {
-    if (!Array.isArray(input.attributes) || input.attributes.length > MAX_ATTRIBUTES) {
-      return {
-        ok: false,
-        error: validationError(`attributes must be an array of at most ${MAX_ATTRIBUTES} items`),
-      };
-    }
-    for (const attr of input.attributes as unknown[]) {
-      const record = attr as Record<string, unknown>;
-      if (typeof record?.traitType !== 'string' || typeof record?.value !== 'string') {
-        return {
-          ok: false,
-          error: validationError('each attribute needs string traitType and value'),
-        };
-      }
-      if (record.value.length > ATTRIBUTE_VALUE_MAX) {
-        return {
-          ok: false,
-          error: validationError(`attribute values exceed ${ATTRIBUTE_VALUE_MAX} characters`),
-        };
-      }
-    }
-  }
-  return { ok: true, value: input as RawMetadata & { name: string } };
+  return { ok: true, value: { name } };
 }
 
 export async function POST(request: NextRequest) {
@@ -105,9 +71,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Request body too large' }, { status: 413 });
     }
 
-    let metadata: RawMetadata;
+    let metadata: unknown;
     try {
-      metadata = (await request.json()) as RawMetadata;
+      metadata = await request.json();
     } catch {
       return validationError('Request body must be valid JSON');
     }
@@ -116,6 +82,7 @@ export async function POST(request: NextRequest) {
     if (!validation.ok) return validation.error;
 
     const safeName = validation.value.name.trim().slice(0, NAME_MAX);
+    const metadataRecord = metadata as Record<string, unknown>;
 
     // Graceful fallback when Pinata is not configured
     if (!isIpfsAvailable()) {
@@ -134,11 +101,13 @@ export async function POST(request: NextRequest) {
 
     const nftMetadata = {
       name: safeName,
-      description: typeof metadata.description === 'string' ? metadata.description : '',
-      image: typeof metadata.imageUri === 'string' ? metadata.imageUri : '',
-      animation_url: typeof metadata.animationUri === 'string' ? metadata.animationUri : '',
-      external_url: typeof metadata.externalUrl === 'string' ? metadata.externalUrl : '',
-      attributes: (Array.isArray(metadata.attributes) ? metadata.attributes : []).map(
+      description: typeof metadataRecord.description === 'string' ? metadataRecord.description : '',
+      image: typeof metadataRecord.imageUri === 'string' ? metadataRecord.imageUri : '',
+      animation_url:
+        typeof metadataRecord.animationUri === 'string' ? metadataRecord.animationUri : '',
+      external_url:
+        typeof metadataRecord.externalUrl === 'string' ? metadataRecord.externalUrl : '',
+      attributes: (Array.isArray(metadataRecord.attributes) ? metadataRecord.attributes : []).map(
         (attr: Record<string, unknown>) => ({
           trait_type: attr.traitType || attr.trait_type,
           value: attr.value,
@@ -146,8 +115,9 @@ export async function POST(request: NextRequest) {
         }),
       ),
       properties: {
-        collection_id: typeof metadata.collectionId === 'string' ? metadata.collectionId : '',
-        royalties: metadata.royalties ?? null,
+        collection_id:
+          typeof metadataRecord.collectionId === 'string' ? metadataRecord.collectionId : '',
+        royalties: metadataRecord.royalties ?? null,
       },
     };
 
