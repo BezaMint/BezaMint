@@ -164,6 +164,109 @@ export async function getTokenData(
 
 // ─────────────────────── Collection Contract ───────────────────────
 
+/**
+ * Create a collection through the Factory (also auto-registers the creator).
+ * Returns the built transaction XDR ready for signing + submission.
+ */
+export async function createCollection(sourceAddress: string, metadataUri: string) {
+  const callerScVal = new Address(sourceAddress).toScVal();
+  const uriScVal = xdr.ScVal.scvString(metadataUri);
+
+  const { tx } = await buildContractTransaction(
+    sourceAddress,
+    CONTRACT_IDS.factory,
+    'create_collection_for_creator',
+    [callerScVal, uriScVal],
+  );
+
+  return tx;
+}
+
+/**
+ * Update a collection's metadata URI. Requires the collection creator's auth.
+ */
+export async function updateCollection(
+  sourceAddress: string,
+  collectionId: number,
+  newMetadataUri: string,
+) {
+  const creatorScVal = new Address(sourceAddress).toScVal();
+  const idScVal = xdr.ScVal.scvU64(new xdr.Uint64(collectionId));
+  const uriScVal = xdr.ScVal.scvString(newMetadataUri);
+
+  const { tx } = await buildContractTransaction(
+    sourceAddress,
+    CONTRACT_IDS.collection,
+    'update_collection',
+    [creatorScVal, idScVal, uriScVal],
+  );
+
+  return tx;
+}
+
+/**
+ * Archive a collection. Requires the collection creator's auth.
+ */
+export async function archiveCollection(sourceAddress: string, collectionId: number) {
+  const creatorScVal = new Address(sourceAddress).toScVal();
+  const idScVal = xdr.ScVal.scvU64(new xdr.Uint64(collectionId));
+
+  const { tx } = await buildContractTransaction(
+    sourceAddress,
+    CONTRACT_IDS.collection,
+    'archive_collection',
+    [creatorScVal, idScVal],
+  );
+
+  return tx;
+}
+
+/**
+ * Fetch the token IDs held in a collection.
+ */
+export async function getNftsInCollection(
+  sourceAddress: string,
+  collectionId: number,
+): Promise<number[]> {
+  try {
+    const idScVal = xdr.ScVal.scvU64(new xdr.Uint64(collectionId));
+    const result = await simulateTransaction(
+      sourceAddress,
+      CONTRACT_IDS.collection,
+      'get_nfts_in_collection',
+      [idScVal],
+    );
+    if (result.result?.retval) {
+      const ids = scValToNative(result.result.retval);
+      return Array.isArray(ids) ? ids.map(Number) : [];
+    }
+    return [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetch the collection ID a token belongs to (0 when unmapped).
+ */
+export async function getCollectionForNft(sourceAddress: string, tokenId: number): Promise<number> {
+  try {
+    const tokenScVal = xdr.ScVal.scvU64(new xdr.Uint64(tokenId));
+    const result = await simulateTransaction(
+      sourceAddress,
+      CONTRACT_IDS.collection,
+      'get_collection_for_nft',
+      [tokenScVal],
+    );
+    if (result.result?.retval) {
+      return Number(scValToNative(result.result.retval));
+    }
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
 export async function getTotalCollections(sourceAddress: string): Promise<number> {
   try {
     const result = await simulateTransaction(
