@@ -8,15 +8,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getHorizonServer } from '@/services/stellar';
 import { CONTRACT_IDS } from '@/services';
-import { ApiError, normalizeError } from '@/lib/server/errors';
+import { normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
 import { simulateRead, addressScVal } from '@/lib/server/contractReader';
 import { withTimeout } from '@/lib/server/http';
 import { TtlCache, SHORT_CACHE_CONTROL } from '@/lib/server/cache';
+import { requireStellarAddress } from '@/lib/server/validation';
 
 export const dynamic = 'force-dynamic';
-
-const ADDRESS_RE = /^G[A-Z2-7]{55}$/;
 
 // Balances change rarely relative to how often wallets poll; cache briefly.
 const balanceCache = new TtlCache<BalancePayload>(10_000);
@@ -31,14 +30,7 @@ export async function GET(request: NextRequest) {
   const requestId = newRequestId();
   const timer = timeRequest(requestId, 'GET', '/api/wallet/balance');
   try {
-    const address = request.nextUrl.searchParams.get('address')?.trim();
-
-    if (!address) {
-      throw new ApiError('BAD_REQUEST', 'address query parameter is required', 400);
-    }
-    if (!ADDRESS_RE.test(address)) {
-      throw new ApiError('BAD_REQUEST', 'address must be a valid Stellar account address', 400);
-    }
+    const address = requireStellarAddress(request.nextUrl.searchParams);
 
     return NextResponse.json(
       { data: await balanceCache.getOrSet(`balance:${address}`, () => loadBalance(address)) },

@@ -12,10 +12,9 @@ import { ApiError, normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
 import { withTimeout } from '@/lib/server/http';
 import { TtlCache, SHORT_CACHE_CONTROL } from '@/lib/server/cache';
+import { requireStellarAddress } from '@/lib/server/validation';
 
 export const dynamic = 'force-dynamic';
-
-const ADDRESS_RE = /^G[A-Z2-7]{55}$/;
 
 const historyCache = new TtlCache<TransactionPayload>(15_000);
 
@@ -39,17 +38,10 @@ export async function GET(request: NextRequest) {
   const requestId = newRequestId();
   const timer = timeRequest(requestId, 'GET', '/api/wallet/transactions');
   try {
-    const address = request.nextUrl.searchParams.get('address')?.trim();
+    const address = requireStellarAddress(request.nextUrl.searchParams);
     const cursor = request.nextUrl.searchParams.get('cursor')?.trim() || undefined;
     const rawLimit = Number(request.nextUrl.searchParams.get('limit'));
     const limit = Number.isInteger(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 50) : 10;
-
-    if (!address) {
-      throw new ApiError('BAD_REQUEST', 'address query parameter is required', 400);
-    }
-    if (!ADDRESS_RE.test(address)) {
-      throw new ApiError('BAD_REQUEST', 'address must be a valid Stellar account address', 400);
-    }
 
     const key = `history:${address}:${limit}:${cursor ?? ''}`;
     const data = await historyCache.getOrSet(key, () => loadHistory(address, limit, cursor));

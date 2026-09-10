@@ -13,6 +13,7 @@ import { simulateRead, u64ScVal } from '@/lib/server/contractReader';
 import { ApiError, normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
 import { TtlCache, SHORT_CACHE_CONTROL } from '@/lib/server/cache';
+import { isValidStellarAddress } from '@/lib/server/validation';
 import { CONTRACT_IDS } from '@/services';
 
 export const dynamic = 'force-dynamic';
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
     const { limit, offset } = parsePagination(searchParams);
     const creator = searchParams.get('creator')?.trim();
 
-    if (creator && !/^G[A-Z2-7]{55}$/.test(creator)) {
+    if (creator && !isValidStellarAddress(creator)) {
       throw new ApiError('BAD_REQUEST', 'creator must be a valid Stellar address', 400);
     }
 
