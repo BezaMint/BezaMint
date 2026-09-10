@@ -134,6 +134,19 @@ export function useContractEvents(options: UseContractEventsOptions = {}): UseCo
     }
   }, [contractIds, startLedger, maxEvents]);
 
+  // Pause polling automatically when the tab is hidden (page visibility API)
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        setIsPaused(true);
+      } else {
+        setIsPaused(false);
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, []);
+
   // Polling effect
   useEffect(() => {
     isMounted.current = true;
