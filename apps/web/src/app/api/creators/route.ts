@@ -1,0 +1,101 @@
+/**
+ * GET /api/creators
+ *
+ * Lists registered creators, backed by the event indexer (creator
+ * registration events) + live profile reads. Supports `verified` and `q`
+ * (display-name / address prefix) filters plus `limit`/`offset` pagination.
+ */
+import { NextRequest, NextResponse } from 'next/server';
+import { refreshIndexer, getIndexedEvents } from '@/lib/server/indexer';
+import { parsePagination } from '@/lib/server/pagination';
+import { simulateRead, addressScVal } from '@/lib/server/contractReader';
+import { ApiError, normalizeError } from '@/lib/server/errors';
+import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
+import { CONTRACT_IDS } from '@/services';
+
+export const dynamic = 'force-dynamic';
+
+interface CreatorProfile {
+  address: string;
+  display_name: string;
+  bio: string;
+  avatar_uri: string;
+  banner_uri: string;
+  social_links: { platform: string; handle: string }[];
+  created_at: number;
+  updated_at: number;
+  is_verified: boolean;
+}
+
+export async function GET(request: NextRequest) {
+  const requestId = newRequestId();
+  const timer = timeRequest(requestId, 'GET', '/api/creators');
+  try {
+    const searchParams = request.nextUrl.searchParams;
+    const { limit, offset } = parsePagination(searchParams);
+    const verifiedOnly = searchParams.get('verified') === 'true';
+    const query = searchParams.get('q')?.trim().toLowerCase();
+
+    if (!CONTRACT_IDS.creator) {
+      throw new ApiError('CONTRACT_ERROR', 'Creator contract not configured', 503);
+    }
+
+    await refreshIndexer();
+
+    // Creator addresses come from registration events. If the indexer is
+    // empty (fresh deploy), fall back to the total counter with a bounded
+    // scan is not possible without an enumeration method, so return empty.
+    const registered = new Set(
+      getIndexedEvents()
+        .filter((e) => e.type === 'creator_registered' && e.actor)
+        .map((e) => e.actor!),
+    );
+    const addresses = [...registered];
+
+    const profiles = await Promise.all(
+      addresses.map(async (address) => {
+        try {
+          const profile = await simulateRead<CreatorProfile>(CONTRACT_IDS.creator, 'get_profile', [
+            addressScVal(address),
+          ]);
+          return { ...profile, address };
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    let valid = profiles.filter((p): p is NonNullable<typeof p> => p !== null);
+    if (verifiedOnly) valid = valid.filter((p) => p.is_verified);
+    if (query) {
+      valid = valid.filter(
+        (p) =>
+          p.display_name.toLowerCase().includes(query) || p.address.toLowerCase().includes(query),
+      );
+    }
+
+    const page = valid.slice(offset, offset + limit);
+    const creators = page.map((p) => ({
+      address: p.address,
+      displayName: p.display_name,
+      bio: p.bio,
+      avatarUri: p.avatar_uri,
+      bannerUri: p.banner_uri,
+      socialLinks: p.social_links,
+      isVerified: p.is_verified,
+      createdAt: p.created_at,
+      updatedAt: p.updated_at,
+    }));
+
+    timer.done(200, { total: valid.length, returned: creators.length });
+    return NextResponse.json({
+      data: creators,
+      pagination: { limit, offset, total: valid.length },
+    });
+  } catch (err) {
+    const apiError = normalizeError(err);
+    logger.warn('GET /api/creators failed', { requestId, error: apiError.message });
+    timer.done(apiError.status, { error: apiError.code });
+    return NextResponse.json(apiError.toJson(), { status: apiError.status });
+  }
+}
