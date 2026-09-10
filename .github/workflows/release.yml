@@ -30,6 +30,15 @@ jobs:
           toolchain: ${{ steps.rust.outputs.channel }}
           targets: wasm32-unknown-unknown
 
+      - name: Check Rust formatting
+        run: cd contracts && cargo fmt --all -- --check
+
+      - name: Run clippy
+        run: cd contracts && cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Run contract tests
+        run: cd contracts && cargo test --workspace
+
       - name: Build optimized contracts
         run: cd contracts && cargo build --workspace --release --target wasm32-unknown-unknown
 
