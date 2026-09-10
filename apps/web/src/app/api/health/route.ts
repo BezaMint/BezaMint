@@ -3,23 +3,12 @@ import { getRpcClient } from '@/services/stellar';
 import { CONTRACT_IDS } from '@/services';
 import { isIpfsAvailable } from '@/lib/pinata';
 import { collectStartupIssues } from '@/lib/startup';
+import { withTimeout, fetchWithTimeout } from '@/lib/server/http';
 
 // Module-level constant so uptime is measured from first request handling.
 const SERVER_START_TIME = Date.now();
 
 const PROBE_TIMEOUT_MS = 5_000;
-
-async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  let timer: NodeJS.Timeout | undefined;
-  const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('probe timed out')), ms);
-  });
-  try {
-    return await Promise.race([promise, timeout]);
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 /** Probe the Soroban RPC: latest ledger + latency. */
 async function probeRpc(): Promise<{
@@ -46,24 +35,19 @@ async function probeIpfs(): Promise<{ ok: boolean; latencyMs: number; error?: st
   const gateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud';
   const started = Date.now();
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
-    try {
-      const response = await fetch(
-        `${gateway}/ipfs/QmW2WQi7j6c7UgJTarActp7tDNikE4B2qXtFCfLPdsgaTQ`,
-        {
-          method: 'HEAD',
-          signal: controller.signal,
-        },
-      );
-      return {
-        ok: response.ok || response.status === 404, // 404 still proves reachability
-        latencyMs: Date.now() - started,
-        error: response.ok ? undefined : `gateway responded ${response.status}`,
-      };
-    } finally {
-      clearTimeout(timeout);
-    }
+    const response = await fetchWithTimeout(
+      `${gateway}/ipfs/QmW2WQi7j6c7UgJTarActp7tDNikE4B2qXtFCfLPdsgaTQ`,
+      {
+        method: 'HEAD',
+        timeoutMs: PROBE_TIMEOUT_MS,
+        timeoutMessage: 'gateway probe timed out',
+      },
+    );
+    return {
+      ok: response.ok || response.status === 404, // 404 still proves reachability
+      latencyMs: Date.now() - started,
+      error: response.ok ? undefined : `gateway responded ${response.status}`,
+    };
   } catch (err) {
     return {
       ok: false,
