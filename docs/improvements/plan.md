@@ -28,26 +28,26 @@ Legend: `[x]` done · `[ ]` pending
 - [x] F18 Per-route error boundaries with reset UI
 - [x] F19 Toast action buttons (e.g. "Open explorer")
 - [x] F20 Collection grid pagination
-- [ ] F21 Dashboard disconnected-state CTA
-- [ ] F22 Copy-to-clipboard on all address displays with feedback
-- [ ] F23 Image skeleton shimmer + broken-image fallback
-- [ ] F24 Add app icon + opengraph-image assets
-- [ ] F25 Pause `useContractEvents` polling when tab hidden
-- [ ] F26 Optimistic UI for collection create/archive with rollback
-- [ ] F27 Mint form fee/balance estimation warning
-- [ ] F28 i18n layer: extract strings + locale plumbing
-- [ ] F29 `aria-live` announcements for transaction status
-- [ ] F30 Design tokens doc + raw-hex lint guard
-- [ ] F31 SearchFilters wired to actually filter results
-- [ ] F32 WalletContext provider tests
-- [ ] F33 MintForm component tests (validation, royalties, disabled submit)
-- [ ] F34 useTransaction hook tests (abort, retry, success)
-- [ ] F35 SearchBar debounced input + keyboard support
-- [ ] F36 CollectionSelector empty/count states
-- [ ] F37 Profile page: load real creator data
-- [ ] F38 Dashboard stat cards: real data with loading skeletons
-- [ ] F39 Collections page: real data + pagination
-- [ ] F40 ActivityTimeline: on-chain/API-backed events, not mocks
+- [x] F21 Dashboard disconnected-state CTA
+- [x] F22 Copy-to-clipboard on all address displays with feedback
+- [x] F23 Image skeleton shimmer + broken-image fallback
+- [x] F24 Add app icon + opengraph-image assets
+- [x] F25 Pause `useContractEvents` polling when tab hidden
+- [x] F26 Optimistic UI for collection create/archive with rollback
+- [x] F27 Mint form fee/balance estimation warning
+- [x] F28 i18n layer: extract strings + locale plumbing
+- [x] F29 `aria-live` announcements for transaction status
+- [x] F30 Design tokens doc + raw-hex lint guard
+- [x] F31 SearchFilters wired to actually filter results
+- [x] F32 WalletContext provider tests
+- [x] F33 MintForm component tests (validation, royalties, disabled submit)
+- [x] F34 useTransaction hook tests (abort, retry, success)
+- [x] F35 SearchBar debounced input + keyboard support
+- [x] F36 CollectionSelector empty/count states
+- [x] F37 Profile page: load real creator data
+- [x] F38 Dashboard stat cards: real data with loading skeletons
+- [x] F39 Collections page: real data + pagination
+- [x] F40 ActivityTimeline: on-chain/API-backed events, not mocks
 - [ ] F41 Sidebar: collapse state persisted
 - [ ] F42 Verify page: real verification flow + states
 - [ ] F43 Settings page: env/contract status check UI
