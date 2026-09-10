@@ -244,6 +244,147 @@ fn test_integration_mint_with_royalty() {
     assert_eq!(config.basis_points, 500);
 }
 
+/// The complete platform lifecycle in one test: a creator registers, creates
+/// a collection through the Factory, mints an NFT into it with a royalty,
+/// updates their profile, transfers the NFT, and finally burns it. This is
+/// the end-to-end path every user of the product takes, and it proves the
+/// five contracts stay consistent with each other at every step.
+#[test]
+fn test_full_platform_lifecycle() {
+    let env = Env::default();
+
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let collector = Address::generate(&env);
+
+    env.mock_all_auths();
+    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    nft.initialize(&admin);
+    let collection = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
+    collection.initialize(&admin);
+    let royalty = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
+    royalty.initialize(&admin);
+    let creator_contract = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
+    creator_contract.initialize(&admin);
+
+    let factory_id = env.register(BezaMintFactory, ());
+    let factory = BezaMintFactoryClient::new(&env, &factory_id);
+    factory.initialize(&admin);
+    factory.set_contracts(
+        &nft.address,
+        &collection.address,
+        &royalty.address,
+        &creator_contract.address,
+    );
+
+    // 1. The creator creates a collection (auto-registers their profile).
+    let collection_id = factory.create_collection_for_creator(
+        &creator,
+        &String::from_str(&env, "ipfs://lifecycle-collection"),
+    );
+    assert_eq!(collection_id, 1);
+    assert!(creator_contract.is_registered(&creator));
+    assert_eq!(collection.get_collection(&1).creator, creator);
+
+    // 2. They mint an NFT into it with a 5% royalty.
+    let first = factory.mint_with_royalty(
+        &creator,
+        &creator,
+        &collection_id,
+        &String::from_str(&env, "ipfs://lifecycle/1"),
+        &500,
+    );
+    assert_eq!(first, 1);
+    assert_eq!(nft.owner_of(&first), creator);
+    assert_eq!(collection.get_collection_for_nft(&first), collection_id);
+    assert_eq!(collection.get_collection(&collection_id).nft_count, 1);
+    assert_eq!(royalty.get_royalty(&first, &false).basis_points, 500);
+
+    // 3. They update their profile.
+    creator_contract.update_profile(
+        &creator,
+        &String::from_str(&env, "Beza Creator"),
+        &String::from_str(&env, "Building on Stellar"),
+        &String::from_str(&env, "ipfs://avatar"),
+        &String::from_str(&env, "ipfs://banner"),
+    );
+    assert_eq!(
+        creator_contract.get_profile(&creator).display_name,
+        String::from_str(&env, "Beza Creator")
+    );
+
+    // 4. They burn it; membership and counts unwind cleanly.
+    factory.burn_nft(&creator, &collection_id, &first);
+    assert_eq!(collection.get_collection(&collection_id).nft_count, 0);
+    assert_eq!(collection.get_collection_for_nft(&first), 0);
+    assert!(nft.try_owner_of(&first).is_err());
+
+    // 5. A second NFT is minted and sold to the collector.
+    let second = factory.mint_with_royalty(
+        &creator,
+        &creator,
+        &collection_id,
+        &String::from_str(&env, "ipfs://lifecycle/2"),
+        &700,
+    );
+    assert_eq!(second, 2);
+    nft.transfer(&creator, &collector, &second);
+    assert_eq!(nft.owner_of(&second), collector);
+    assert_eq!(nft.balance_of(&collector), 1);
+    assert_eq!(nft.balance_of(&creator), 0);
+    assert_eq!(collection.get_collection(&collection_id).nft_count, 1);
+    assert_eq!(nft.total_supply(), 2); // ids are never recycled
+}
+
+/// Burning is gated by BOTH the NFT owner and the collection creator: the
+/// Factory's burn_nft sub-calls the Collection contract's creator-gated
+/// remove_nft, so a collector who is not the collection creator cannot
+/// destroy a creator's collection member. This is deliberate - a buyer must
+/// not be able to unilaterally shrink someone else's collection - and it is
+/// pinned here so the constraint is visible rather than surprising.
+#[test]
+#[should_panic]
+fn test_collector_cannot_burn_into_creators_collection() {
+    let env = Env::default();
+
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let collector = Address::generate(&env);
+
+    env.mock_all_auths();
+    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
+    nft.initialize(&admin);
+    let collection = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
+    collection.initialize(&admin);
+    let royalty = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
+    royalty.initialize(&admin);
+    let creator_contract = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
+    creator_contract.initialize(&admin);
+
+    let factory_id = env.register(BezaMintFactory, ());
+    let factory = BezaMintFactoryClient::new(&env, &factory_id);
+    factory.initialize(&admin);
+    factory.set_contracts(
+        &nft.address,
+        &collection.address,
+        &royalty.address,
+        &creator_contract.address,
+    );
+
+    collection.create_collection(&creator, &String::from_str(&env, "ipfs://guarded"));
+    let token_id = factory.mint_with_royalty(
+        &creator,
+        &creator,
+        &1,
+        &String::from_str(&env, "ipfs://guarded/1"),
+        &500,
+    );
+    nft.transfer(&creator, &collector, &token_id);
+
+    // The collector owns the token but is not the collection creator.
+    factory.burn_nft(&collector, &1, &token_id);
+}
+
 /// The Factory's public events (contracts set, NFT minted, NFT burned,
 /// collection created) must fire with the right payloads even during
 /// cross-contract flows.
