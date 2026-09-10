@@ -1,5 +1,28 @@
 #![no_std]
 
+//! BezaMint Factory contract.
+//!
+//! The user-facing entry point that ties the platform together. It mints
+//! NFTs, links them to their collection and configures their royalty in one
+//! atomic invocation (`mint_with_royalty`), burns with collection cleanup
+//! (`burn_nft`), and creates collections while auto-registering the creator
+//! (`create_collection_for_creator`).
+//!
+//! ## Wiring
+//!
+//! After deployment the admin calls `set_contracts` with the four platform
+//! contracts; the same call transfers the Royalty admin role to the Factory
+//! so its cross-contract `configure_royalty` calls authenticate. Only the
+//! stored admin may rewire.
+//!
+//! ## Security
+//!
+//! Every cross-contract mutation delegates its authorization to the callee:
+//! the NFT contract enforces owner/recipient auth, the Collection contract
+//! enforces creator auth, and the Royalty contract enforces admin auth. A
+//! failed sub-call rolls the whole invocation back - no orphan NFTs, no
+//! unlinked mints, no partial burns.
+
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, Address, Env, IntoVal, Map, String, Symbol,
     Val,

@@ -1,20 +1,50 @@
 #![no_std]
 
+//! BezaMint NFT contract.
+//!
+//! Owns the token registry: minting, transfers (including operator
+//! transfers), approvals, burning and ownership enumeration. One contract
+//! instance serves every collection on the platform; tokens are attributed to
+//! collections by id and the Factory links them to the Collection contract.
+//!
+//! ## Authorization model
+//!
+//! - `mint` is recipient-gated: the recipient authorizes, so any user can
+//!   mint through the Factory instead of requiring the admin.
+//! - `transfer` and `burn` require the current owner's auth.
+//! - `transfer_from` requires an approved operator's auth, with per-token and
+//!   blanket approvals (ERC-721 `getApproved`/`isApprovedForAll` semantics).
+//!
+//! ## Invariants
+//!
+//! - Token ids are never recycled: `total_supply` is a monotonic counter.
+//! - A token belongs to at most one owner and one collection at a time.
+//! - A transfer invalidates the previous owner's approval for that token.
+//! - The zero (all-null) account is rejected as a recipient or operator, so
+//!   an asset can never be stranded at an unusable address.
+//!
+//! State expiration is managed explicitly: every write refreshes the touched
+//! persistent entries to the network-maximum TTL and hot reads bump entries
+//! past half-life, so ownership records cannot silently archive.
+
 use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Vec};
 
 // ── Constants ──────────────────────────────────────────────────
 
-const MAX_SUPPLY: u64 = 1_000_000;
+/// Upper bound on minted token ids (and therefore on `total_supply`). Guards
+/// the counter against unbounded growth and keeps the contract's resource
+/// footprint predictable.
+pub const MAX_SUPPLY: u64 = 1_000_000;
 
 /// Hard cap on how many token ids a single `tokens_of_owner` page may return.
 /// Bounds the ledger read/write footprint of one invocation so a large holder
 /// cannot make the call unaffordable.
-const MAX_PAGE_SIZE: u32 = 100;
+pub const MAX_PAGE_SIZE: u32 = 100;
 
 /// Maximum accepted length of an NFT metadata URI, in bytes. Mirrors the
 /// Collection contract's limit so a URI is never valid in one place and
 /// rejected in the other.
-const MAX_METADATA_URI_LEN: u32 = 512;
+pub const MAX_METADATA_URI_LEN: u32 = 512;
 
 /// The Stellar "zero" account (all-zero ed25519 public key). Soroban has no
 /// native null address, so this sentinel is used to reject obviously invalid
@@ -28,7 +58,11 @@ const ZERO_ADDRESS: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 /// ([`TTL_LEDGERS`] = Stellar's `MAXIMUM_ENTRY_TTL_LEDGERS`, ~1 year at 5s
 /// per ledger), and every hot read bumps entries that have fallen below
 /// half-life so actively used NFTs stay alive indefinitely.
+/// Network-maximum TTL in ledgers (Stellar's `MAXIMUM_ENTRY_TTL_LEDGERS`,
+/// ~1 year at 5s per ledger).
 const TTL_LEDGERS: u32 = 6_312_000;
+/// Entries at or below this remaining TTL are bumped back to [`TTL_LEDGERS`]
+/// on access, i.e. reads refresh past half-life.
 const TTL_THRESHOLD: u32 = TTL_LEDGERS / 2;
 
 // ── Storage keys ───────────────────────────────────────────────
@@ -39,9 +73,13 @@ const TTL_THRESHOLD: u32 = TTL_LEDGERS / 2;
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum NftKey {
+    /// Contract admin address.
     Admin,
+    /// Monotonic minted-token counter (`total_supply`).
     Counter,
+    /// Contract schema version.
     Version,
+    /// Current owner of a token id.
     Owner(u64),
     Data(u64),
     /// The single operator currently approved for a token id (ERC-721
@@ -59,41 +97,68 @@ pub enum NftKey {
 
 // ── Types ──────────────────────────────────────────────────────
 
+/// A single metadata attribute (trait) of an NFT, mirroring the ERC-721
+/// metadata extension shape so off-chain indexers can map it directly.
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Attribute {
+    /// Attribute name, e.g. "Background".
     pub trait_type: String,
+    /// Attribute value, e.g. "Gold".
     pub value: String,
+    /// Optional rendering hint (e.g. "number"); empty when unused.
     pub display_type: String,
 }
 
+/// Structured metadata for an NFT, kept for on-chain consumers. The mint path
+/// stores a metadata URI; the full metadata object is populated off-chain.
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub struct NftMetadata {
+    /// Display name of the NFT.
     pub name: String,
+    /// Human-readable description.
     pub description: String,
+    /// URI of the primary image asset.
     pub image_uri: String,
+    /// URI of the animated/3D asset; empty when none.
     pub animation_uri: String,
+    /// External link for the NFT; empty when none.
     pub external_url: String,
+    /// Trait list.
     pub attributes: Vec<Attribute>,
 }
 
+/// On-chain record for a minted NFT. This is what `token_data` returns and
+/// what the frontend renders from.
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub struct NftData {
+    /// Unique token id (never recycled).
     pub token_id: u64,
+    /// Account that minted the NFT.
     pub creator: Address,
+    /// Id of the collection this token belongs to (0 when unlinked).
     pub collection_id: u64,
+    /// Metadata URI, restricted to https/http/ipfs schemes.
     pub metadata_uri: String,
+    /// Ledger timestamp at mint time.
     pub minted_at: u64,
 }
 
+/// Events published by the NFT contract under the `nft` topic. These are the
+/// contract's public interface for indexers and the frontend; the schema is
+/// pinned by tests.
 #[contracttype]
 #[derive(Clone, Debug, PartialEq)]
 pub enum NftEvent {
+    /// A token was minted to `Address`.
     Minted(u64, Address),
+    /// A token moved from one owner to another.
     Transferred(u64, Address, Address),
+    /// A token was permanently destroyed.
     Burned(u64, Address),
+    /// A per-token operator approval was granted.
     Approved(u64, Address),
 }
 
@@ -130,6 +195,9 @@ pub struct BezaMintNft;
 
 #[contractimpl]
 impl BezaMintNft {
+    /// One-time setup. Stores the admin and resets the token counter. Only the
+    /// admin may call, and only once: re-initialization would reset the counter
+    /// and let an attacker mint over existing token ids, so it is rejected.
     pub fn initialize(env: Env, admin: Address) {
         if Self::is_initialized(env.clone()) {
             panic!("NFT: already initialized");
@@ -151,6 +219,11 @@ impl BezaMintNft {
         env.storage().instance().has(&NftKey::Admin)
     }
 
+    /// Mint a new NFT to `to` and return its token id. Recipient-gated: `to`
+    /// must authorize. The metadata URI must be a non-empty https/http/ipfs
+    /// URL of at most [`MAX_METADATA_URI_LEN`] chars. In the platform flow this
+    /// is called by the Factory, which then links the token to its collection
+    /// and configures its royalty.
     pub fn mint(env: Env, to: Address, collection_id: u64, metadata_uri: String) -> u64 {
         // Verify the contract has been initialized before use.
         env.storage()
@@ -213,6 +286,10 @@ impl BezaMintNft {
 
         token_id
     }
+    /// Transfer `token_id` from the owner to `to`. Owner-only (the `from`
+    /// address must be the current owner). The new owner must not be the zero
+    /// account, and any approval the old owner granted for this token is
+    /// invalidated.
     pub fn transfer(env: Env, from: Address, to: Address, token_id: u64) {
         from.require_auth();
         let current: Address = env
@@ -354,6 +431,9 @@ impl BezaMintNft {
         bump_ttl(env, &NftKey::OwnedCount(owner.clone()));
     }
 
+    /// Grant `operator` the right to transfer a single token (ERC-721
+    /// `approve`). Owner-only; replacing the operator overwrites the previous
+    /// approval, and a transfer revokes it.
     pub fn approve(env: Env, operator: Address, token_id: u64) {
         let owner: Address = env
             .storage()
@@ -371,6 +451,8 @@ impl BezaMintNft {
         emit_nft(&env, NftEvent::Approved(token_id, operator));
     }
 
+    /// Grant or revoke `operator` the blanket right to transfer all of the
+    /// owner's tokens (ERC-721 `setApprovalForAll`). Owner-only.
     pub fn set_approval_for_all(env: Env, owner_addr: Address, operator: Address, approved: bool) {
         owner_addr.require_auth();
         if approved {
@@ -381,6 +463,9 @@ impl BezaMintNft {
         bump_ttl(&env, &key);
     }
 
+    /// Permanently destroy a token. Owner-only. Token ids are not recycled, so
+    /// `total_supply` keeps counting the burned token; any per-token approval
+    /// is removed so it cannot be revived into a latent privilege grant.
     pub fn burn(env: Env, token_id: u64) {
         let owner: Address = env
             .storage()
@@ -401,10 +486,12 @@ impl BezaMintNft {
         emit_nft(&env, NftEvent::Burned(token_id, owner));
     }
 
+    /// Highest minted token id (never decreases; burned tokens still count).
     pub fn total_supply(env: Env) -> u64 {
         env.storage().instance().get(&NftKey::Counter).unwrap_or(0)
     }
 
+    /// Current owner of `token_id`; panics when the token does not exist.
     pub fn owner_of(env: Env, token_id: u64) -> Address {
         let key = NftKey::Owner(token_id);
         match env.storage().persistent().get::<NftKey, Address>(&key) {
@@ -416,6 +503,8 @@ impl BezaMintNft {
         }
     }
 
+    /// Full on-chain record of `token_id`; panics when the token does not
+    /// exist or has been burned.
     pub fn token_data(env: Env, token_id: u64) -> NftData {
         let key = NftKey::Data(token_id);
         match env.storage().persistent().get::<NftKey, NftData>(&key) {
@@ -477,6 +566,7 @@ impl BezaMintNft {
         tokens
     }
 
+    /// True when `operator` holds the per-token approval for `token_id`.
     pub fn is_approved(env: Env, operator: Address, token_id: u64) -> bool {
         env.storage()
             .persistent()
@@ -485,6 +575,8 @@ impl BezaMintNft {
             .unwrap_or(false)
     }
 
+    /// True when `operator` holds blanket approval over all of `owner`'s
+    /// tokens.
     pub fn is_approved_for_all(env: Env, owner: Address, operator: Address) -> bool {
         env.storage()
             .persistent()

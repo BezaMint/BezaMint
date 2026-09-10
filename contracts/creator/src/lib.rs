@@ -1,5 +1,25 @@
 #![no_std]
 
+//! BezaMint Creator contract.
+//!
+//! Owns creator profiles: registration, profile updates, social links and
+//! admin verification. Each profile is keyed by the creator's address and
+//! belongs to them; verification is the platform admin's only power.
+//!
+//! ## Authorization model
+//!
+//! - `register` / `update_profile` / `set_social_links`: creator-gated.
+//! - `verify_creator`: stored-admin-only (the caller-supplied admin
+//!   parameter was removed because it was silently ignored).
+//!
+//! ## Validation
+//!
+//! Profile URIs must use an https/http/ipfs scheme (stored-XSS protection:
+//! the frontend renders them into the DOM), social platforms must be on a
+//! fixed allowlist, and every field is length-capped.
+//!
+//! State expiration is managed explicitly (same policy as the NFT contract).
+
 use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Vec};
 
 // ─────────────────────────── Constants ───────────────────────────

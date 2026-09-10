@@ -1,19 +1,44 @@
 #![no_std]
 
+//! BezaMint Collection contract.
+//!
+//! Owns the collection registry: creation, metadata updates, archiving and
+//! NFT membership. A collection is owned by its creator, who authorizes every
+//! mutation. The Factory creates collections on behalf of users
+//! (`create_collection_for_creator`) and links minted NFTs via `add_nft`;
+//! membership is enforced atomically with the mint, so a token can never be
+//! minted into a collection its creator does not control.
+//!
+//! ## Authorization model
+//!
+//! - `create_collection` / `update_collection` / `archive_collection`:
+//!   creator-gated (`creator.require_auth`).
+//! - `add_nft` / `remove_nft`: collection-creator-gated, enforced inside the
+//!   cross-contract call from the Factory.
+//!
+//! ## Invariants
+//!
+//! - A token belongs to at most one collection (`get_collection_for_nft`).
+//! - `nft_count` is tracked directly and can never exceed
+//!   [`MAX_NFTS_PER_COLLECTION`].
+//! - Archived collections cannot accept new NFTs or be updated.
+//!
+//! State expiration is managed explicitly (same policy as the NFT contract).
+
 use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Vec};
 
 /// Upper bound on how many NFTs a single collection may hold. Kept at module
 /// scope so the enforcement point and the documentation cannot drift apart.
-const MAX_NFTS_PER_COLLECTION: u64 = 10_000;
+pub const MAX_NFTS_PER_COLLECTION: u64 = 10_000;
 
 /// Maximum accepted length of a collection metadata URI, in bytes. Mirrors the
 /// NFT contract's limit so a URI is never valid in one place and rejected in
 /// the other.
-const MAX_METADATA_URI_LEN: u32 = 512;
+pub const MAX_METADATA_URI_LEN: u32 = 512;
 
 /// Hard cap on how many ids a single creator-listing page may return, so a
 /// caller cannot force an unbounded read of the creator index.
-const MAX_PAGE_SIZE: u32 = 100;
+pub const MAX_PAGE_SIZE: u32 = 100;
 
 /// State-expiration (TTL) policy. Soroban entries silently archive once their
 /// TTL elapses and then read as missing, so a collection whose record archived
@@ -327,7 +352,7 @@ impl BezaMintCollection {
     /// Detach `token_id` from a collection.
     ///
     /// Authorization: the collection's creator must authorize, matching
-    /// [`Self::add_nft`].
+    /// `add_nft`.
     pub fn remove_nft(env: Env, collection_id: u64, token_id: u64) {
         let mut data: CollectionData = env
             .storage()

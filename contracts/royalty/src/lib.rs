@@ -1,5 +1,24 @@
 #![no_std]
 
+//! BezaMint Royalty contract.
+//!
+//! Owns per-target royalty terms: an NFT or a collection maps to a
+//! [`RoyaltyConfig`] with a basis-point rate (0-10000) and an optional split
+//! of recipients whose shares sum to 100%. In deployment the Factory holds
+//! the admin role (transferred by `set_admin` during wiring) and configures
+//! terms on behalf of minting users; the recorded `creator` of a config can
+//! amend their own terms without the admin.
+//!
+//! ## Authorization model
+//!
+//! - `configure_royalty`: admin-only (the Factory in production), exactly
+//!   once per target - a live or frozen config can never be silently replaced.
+//! - `update_royalty`: the recorded creator or the admin; never when frozen.
+//! - `freeze_royalty` / `set_admin`: admin-only. Frozen configs are
+//!   irreversible.
+//!
+//! State expiration is managed explicitly (same policy as the NFT contract).
+
 use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, Map};
 
 // ─────────────────────────── Constants ───────────────────────────
