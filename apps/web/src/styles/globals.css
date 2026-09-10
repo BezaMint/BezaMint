@@ -47,15 +47,15 @@ body {
 .btn-primary {
   @apply bg-[var(--color-bezamint-primary)] text-white px-6 py-3 rounded-xl font-semibold
          hover:bg-[var(--color-bezamint-accent)] transition-all duration-200
-         focus:outline-none focus:ring-2 focus:ring-[var(--color-bezamint-primary)] focus:ring-offset-2
-         focus:ring-offset-[var(--color-bezamint-surface)] disabled:opacity-50 disabled:cursor-not-allowed;
+         focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-bezamint-primary)] focus-visible:ring-offset-2
+         focus-visible:ring-offset-[var(--color-bezamint-surface)] disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
 .btn-secondary {
   @apply bg-[var(--color-bezamint-card)] text-gray-300 px-6 py-3 rounded-xl font-semibold
          border border-[var(--color-bezamint-border)] hover:bg-[var(--color-bezamint-muted)] transition-all duration-200
-         focus:outline-none focus:ring-2 focus:ring-[var(--color-bezamint-border)] focus:ring-offset-2
-         focus:ring-offset-[var(--color-bezamint-surface)] disabled:opacity-50 disabled:cursor-not-allowed;
+         focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-bezamint-border)] focus-visible:ring-offset-2
+         focus-visible:ring-offset-[var(--color-bezamint-surface)] disabled:opacity-50 disabled:cursor-not-allowed;
 }
 
 .btn-ghost {
@@ -77,8 +77,8 @@ body {
 
 .input-field {
   @apply w-full bg-[var(--color-bezamint-muted)] border border-[var(--color-bezamint-border)] rounded-xl px-4 py-3
-         text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2
-         focus:ring-[var(--color-bezamint-primary)] focus:border-transparent transition-all duration-200;
+         text-gray-100 placeholder-gray-500 focus:outline-none focus-visible:ring-2
+         focus-visible:ring-[var(--color-bezamint-primary)] focus-visible:border-transparent transition-all duration-200;
 }
 
 .input-label {
