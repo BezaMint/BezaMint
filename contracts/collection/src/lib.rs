@@ -395,11 +395,43 @@ impl BezaMintCollection {
         }
     }
 
-    pub fn get_nfts_in_collection(env: Env, collection_id: u64) -> Vec<u64> {
-        env.storage()
+    /// Paginated enumeration of a collection's NFT ids.
+    ///
+    /// `start` is a zero-based offset into the membership vector and `limit` is
+    /// clamped to [`MAX_PAGE_SIZE`]. Returns an empty vector when `start` is at
+    /// or past the end. This previously returned the whole membership vector in
+    /// one call, which is unbounded as a collection fills up and eventually
+    /// exceeds the per-invocation read budget.
+    pub fn get_nfts_in_collection(
+        env: Env,
+        collection_id: u64,
+        start: u64,
+        limit: u32,
+    ) -> Vec<u64> {
+        let mut result = Vec::new(&env);
+
+        let nfts: Vec<u64> = env
+            .storage()
             .persistent()
             .get(&ColKey::NftsInCollection(collection_id))
-            .unwrap_or_else(|| Vec::new(&env))
+            .unwrap_or_else(|| Vec::new(&env));
+        let total = nfts.len() as u64;
+        if start >= total {
+            return result;
+        }
+
+        let page = core::cmp::min(limit, MAX_PAGE_SIZE);
+        let end = core::cmp::min(start.saturating_add(page as u64), total);
+
+        let mut index = start as u32;
+        let end = end as u32;
+        while index < end {
+            if let Some(id) = nfts.get(index) {
+                result.push_back(id);
+            }
+            index += 1;
+        }
+        result
     }
 
     pub fn get_collection_for_nft(env: Env, token_id: u64) -> u64 {

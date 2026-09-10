@@ -222,19 +222,26 @@ export async function archiveCollection(sourceAddress: string, collectionId: num
 }
 
 /**
- * Fetch the token IDs held in a collection.
+ * Fetch a page of token IDs held in a collection.
+ *
+ * `start` is a zero-based offset into the membership vector; `limit` is
+ * clamped to 100 by the contract. Returns an empty array past the end.
  */
 export async function getNftsInCollection(
   sourceAddress: string,
   collectionId: number,
+  start = 0,
+  limit = 100,
 ): Promise<number[]> {
   try {
     const idScVal = xdr.ScVal.scvU64(new xdr.Uint64(collectionId));
+    const startScVal = xdr.ScVal.scvU64(new xdr.Uint64(start));
+    const limitScVal = xdr.ScVal.scvU32(limit);
     const result = await simulateTransaction(
       sourceAddress,
       CONTRACT_IDS.collection,
       'get_nfts_in_collection',
-      [idScVal],
+      [idScVal, startScVal, limitScVal],
     );
     if (result.result?.retval) {
       const ids = scValToNative(result.result.retval);

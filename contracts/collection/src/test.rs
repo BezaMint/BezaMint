@@ -121,7 +121,7 @@ fn test_add_nft_to_collection() {
     let data = client.get_collection(&id);
     assert_eq!(data.nft_count, 3);
 
-    let nfts = client.get_nfts_in_collection(&id);
+    let nfts = client.get_nfts_in_collection(&id, &0, &100);
     assert_eq!(nfts.len(), 3);
 }
 
@@ -152,7 +152,7 @@ fn test_remove_nft_from_collection() {
     let data = client.get_collection(&id);
     assert_eq!(data.nft_count, 1);
 
-    let nfts = client.get_nfts_in_collection(&id);
+    let nfts = client.get_nfts_in_collection(&id, &0, &100);
     assert_eq!(nfts.len(), 1);
 
     // Removed NFT no longer belongs to a collection
@@ -311,7 +311,29 @@ fn test_add_nft_count_matches_distinct_tokens() {
 
     let data = client.get_collection(&id);
     assert_eq!(data.nft_count, 2);
-    assert_eq!(client.get_nfts_in_collection(&id).len(), 2);
+    assert_eq!(client.get_nfts_in_collection(&id, &0, &100).len(), 2);
+}
+
+/// Pagination: a page of the membership vector must respect start/limit and
+/// return an empty page past the end, so a full collection can be enumerated
+/// without one unbounded read.
+#[test]
+fn test_get_nfts_in_collection_paginates() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    let id = client.create_collection(&creator, &String::from_str(&env, "ipfs://meta"));
+
+    for token in 1..=5 {
+        client.add_nft(&id, &token);
+    }
+
+    assert_eq!(client.get_nfts_in_collection(&id, &0, &2).len(), 2);
+    let page2 = client.get_nfts_in_collection(&id, &2, &2);
+    assert_eq!(page2.len(), 2);
+    assert_eq!(page2.get(0).unwrap(), 3);
+    assert_eq!(client.get_nfts_in_collection(&id, &5, &100).len(), 0);
+    // The limit is clamped to MAX_PAGE_SIZE.
+    assert_eq!(client.get_nfts_in_collection(&id, &0, &1_000_000).len(), 5);
 }
 
 /// Removing a token that is not a member must not corrupt the count.
@@ -326,7 +348,7 @@ fn test_remove_unknown_nft_is_idempotent() {
 
     let data = client.get_collection(&id);
     assert_eq!(data.nft_count, 1);
-    assert_eq!(client.get_nfts_in_collection(&id).len(), 1);
+    assert_eq!(client.get_nfts_in_collection(&id, &0, &100).len(), 1);
 }
 
 #[test]
