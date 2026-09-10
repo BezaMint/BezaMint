@@ -3,6 +3,7 @@ import { getPinataClient, isIpfsAvailable } from '@/lib/pinata';
 import { validateFile, rateLimitUpload } from '@/lib/server/uploadGuard';
 import { normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
+import { assertValidCid, verifyPinnedContent } from '@/lib/server/verifyPin';
 
 /**
  * POST /api/ipfs/upload-file
@@ -43,11 +44,25 @@ export async function POST(request: NextRequest) {
     const pinata = getPinataClient()!;
     const result = await pinata.upload.public.file(file);
 
-    timer.done(200, { cid: result.cid.slice(0, 12) });
+    // Integrity check: the returned CID must be well-formed, and the
+    // pinned bytes must hash to the same digest as what we uploaded.
+    const digest = assertValidCid(result.cid);
+    const sourceBytes = new Uint8Array(await file.arrayBuffer());
+    const integrity = await verifyPinnedContent(result.cid, sourceBytes);
+    if (!integrity.verified) {
+      logger.warn('upload integrity check failed', {
+        cid: result.cid,
+        digest: Buffer.from(digest).toString('hex').slice(0, 16),
+        error: integrity.error,
+      });
+    }
+
+    timer.done(200, { cid: result.cid.slice(0, 12), verified: integrity.verified });
     return NextResponse.json({
       cid: result.cid,
       ipfsUri: `ipfs://${result.cid}`,
       gatewayUrl: `https://gateway.pinata.cloud/ipfs/${result.cid}`,
+      integrity,
     });
   } catch (error: unknown) {
     const apiError = normalizeError(error);

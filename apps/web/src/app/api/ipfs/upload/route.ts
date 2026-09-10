@@ -8,6 +8,7 @@ import {
   validateAgainstSchema,
   formatIssues,
 } from '@/lib/server/metadataSchema';
+import { assertValidCid, verifyPinnedContent } from '@/lib/server/verifyPin';
 
 /**
  * POST /api/ipfs/upload
@@ -121,20 +122,33 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    const file = new File([JSON.stringify(nftMetadata)], `nft-${Date.now()}.json`, {
+    const serialized = JSON.stringify(nftMetadata);
+    const file = new File([serialized], `nft-${Date.now()}.json`, {
       type: 'application/json',
     });
 
     const result = await pinata.upload.public.file(file);
 
+    // Integrity check: the CID must be well-formed and the pinned bytes
+    // must match the exact metadata document we just serialized.
+    assertValidCid(result.cid);
+    const integrity = await verifyPinnedContent(result.cid, Buffer.from(serialized));
+    if (!integrity.verified) {
+      logger.warn('metadata upload integrity check failed', {
+        cid: result.cid,
+        error: integrity.error,
+      });
+    }
+
     const ipfsUri = `ipfs://${result.cid}`;
 
-    timer.done(200, { cid: result.cid.slice(0, 12) });
+    timer.done(200, { cid: result.cid.slice(0, 12), verified: integrity.verified });
     return NextResponse.json({
       cid: result.cid,
       ipfsUri,
       gatewayUrl: `https://gateway.pinata.cloud/ipfs/${result.cid}`,
       fallback: false,
+      integrity,
     });
   } catch (error: unknown) {
     const apiError = normalizeError(error);
