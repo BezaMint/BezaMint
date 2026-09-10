@@ -1,6 +1,6 @@
 use soroban_sdk::{
-    testutils::{Address as _, Ledger},
-    Address, Env, String,
+    testutils::{Address as _, Ledger, MockAuth, MockAuthInvoke},
+    Address, Env, IntoVal, String,
 };
 
 use crate::{BezaMintCollection, BezaMintCollectionClient};
@@ -109,14 +109,14 @@ fn test_archive_collection() {
 
 #[test]
 fn test_add_nft_to_collection() {
-    let (env, admin, client) = setup();
+    let (env, _admin, client) = setup();
     env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
     let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
-    client.add_nft(&admin, &id, &100);
-    client.add_nft(&admin, &id, &101);
-    client.add_nft(&admin, &id, &102);
+    client.add_nft(&id, &100);
+    client.add_nft(&id, &101);
+    client.add_nft(&id, &102);
 
     let data = client.get_collection(&id);
     assert_eq!(data.nft_count, 3);
@@ -127,27 +127,27 @@ fn test_add_nft_to_collection() {
 
 #[test]
 fn test_get_collection_for_nft() {
-    let (env, admin, client) = setup();
+    let (env, _admin, client) = setup();
     env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
     let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
-    client.add_nft(&admin, &id, &42);
+    client.add_nft(&id, &42);
 
     assert_eq!(client.get_collection_for_nft(&42), 1);
 }
 
 #[test]
 fn test_remove_nft_from_collection() {
-    let (env, admin, client) = setup();
+    let (env, _admin, client) = setup();
     env.ledger().with_mut(|l| l.timestamp = 12345);
     let creator = Address::generate(&env);
 
     let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
-    client.add_nft(&admin, &id, &100);
-    client.add_nft(&admin, &id, &101);
+    client.add_nft(&id, &100);
+    client.add_nft(&id, &101);
 
-    client.remove_nft(&admin, &id, &101);
+    client.remove_nft(&id, &101);
 
     let data = client.get_collection(&id);
     assert_eq!(data.nft_count, 1);
@@ -157,6 +157,49 @@ fn test_remove_nft_from_collection() {
 
     // Removed NFT no longer belongs to a collection
     assert_eq!(client.get_collection_for_nft(&101), 0);
+}
+
+/// `add_nft` must require the collection creator's authorization. Only the
+/// creator's `create_collection` call is mocked here, so the follow-up
+/// `add_nft` has no valid auth entry for that invocation and must be rejected.
+///
+/// This is the regression test for the removed `_admin` parameter: previously
+/// the stored admin authorized the call, so creator-owned collections could be
+/// mutated by the deployer and no caller-supplied address was ever checked.
+#[test]
+#[should_panic]
+fn test_add_nft_requires_creator_auth() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let contract_id = env.register(BezaMintCollection, ());
+    let client = BezaMintCollectionClient::new(&env, &contract_id);
+
+    let init_auth = MockAuth {
+        address: &admin,
+        invoke: &MockAuthInvoke {
+            contract: &contract_id,
+            fn_name: "initialize",
+            args: (&admin,).into_val(&env),
+            sub_invokes: &[],
+        },
+    };
+    env.mock_auths(&[init_auth]);
+    client.initialize(&admin);
+
+    let create_auth = MockAuth {
+        address: &creator,
+        invoke: &MockAuthInvoke {
+            contract: &contract_id,
+            fn_name: "create_collection",
+            args: (creator.clone(), String::from_str(&env, "meta")).into_val(&env),
+            sub_invokes: &[],
+        },
+    };
+    env.mock_auths(&[create_auth]);
+    let id = client.create_collection(&creator, &String::from_str(&env, "meta"));
+
+    client.add_nft(&id, &1);
 }
 
 #[test]

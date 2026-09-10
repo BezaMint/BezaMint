@@ -2,6 +2,10 @@
 
 use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, Env, String, Vec};
 
+/// Upper bound on how many NFTs a single collection may hold. Kept at module
+/// scope so the enforcement point and the documentation cannot drift apart.
+const MAX_NFTS_PER_COLLECTION: u64 = 10_000;
+
 // ─────────────────────────── Types ───────────────────────────
 
 #[contracttype]
@@ -168,22 +172,21 @@ impl BezaMintCollection {
         emit(&env, ColEvent::Archived(id));
     }
 
-    pub fn add_nft(env: Env, _admin: Address, collection_id: u64, token_id: u64) {
-        let stored_admin: Address = env
-            .storage()
-            .instance()
-            .get(&ColKey::Admin)
-            .unwrap_or_else(|| panic!("Collection: not initialized"));
-        stored_admin.require_auth();
-
-        const MAX_NFTS_PER_COLLECTION: u64 = 10_000;
-
+    /// Attach `token_id` to a collection.
+    ///
+    /// Authorization: the collection's creator must authorize. The previous
+    /// signature accepted an `_admin: Address` parameter that was ignored in
+    /// favour of the stored admin, which misled callers into believing their
+    /// own address authorized the call. The parameter is gone; ownership of the
+    /// collection is the authority.
+    pub fn add_nft(env: Env, collection_id: u64, token_id: u64) {
         let mut data: CollectionData = env
             .storage()
             .persistent()
             .get(&ColKey::Collection(collection_id))
             .unwrap_or_else(|| panic!("Collection: {} not found", collection_id));
 
+        data.creator.require_auth();
         assert!(!data.is_archived, "Collection: {collection_id} is archived");
         assert!(
             data.nft_count < MAX_NFTS_PER_COLLECTION,
@@ -214,19 +217,18 @@ impl BezaMintCollection {
         emit(&env, ColEvent::NftAdded(collection_id, token_id));
     }
 
-    pub fn remove_nft(env: Env, _admin: Address, collection_id: u64, token_id: u64) {
-        let stored_admin: Address = env
-            .storage()
-            .instance()
-            .get(&ColKey::Admin)
-            .unwrap_or_else(|| panic!("Collection: not initialized"));
-        stored_admin.require_auth();
-
+    /// Detach `token_id` from a collection.
+    ///
+    /// Authorization: the collection's creator must authorize, matching
+    /// [`Self::add_nft`].
+    pub fn remove_nft(env: Env, collection_id: u64, token_id: u64) {
         let mut data: CollectionData = env
             .storage()
             .persistent()
             .get(&ColKey::Collection(collection_id))
             .unwrap_or_else(|| panic!("Collection: {} not found", collection_id));
+
+        data.creator.require_auth();
 
         let nfts: Vec<u64> = env
             .storage()
