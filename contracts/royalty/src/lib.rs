@@ -74,6 +74,7 @@ pub enum RoyaltyEvent {
     Configured(u64, u32),
     Updated(u64, u32),
     Frozen(u64),
+    Removed(u64),
     AdminChanged(Address),
 }
 
@@ -272,6 +273,44 @@ impl BezaMintRoyalty {
         bump_ttl(&env, &key);
 
         emit(&env, RoyaltyEvent::Updated(target_id, basis_points));
+    }
+
+    /// Delete a target's royalty terms. Admin-only. Used to clean up terms
+    /// that can no longer matter (a burned NFT, an abandoned collection).
+    ///
+    /// Refused while the config is frozen: freezing is the creator's guarantee
+    /// that their terms cannot change, and deletion would be the ultimate
+    /// change, so a frozen config is permanent by construction.
+    pub fn remove_royalty(env: Env, target_id: u64, is_collection: bool) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&RoyaltyKey::Admin)
+            .unwrap_or_else(|| panic!("Royalty: not initialized"));
+        admin.require_auth();
+
+        let key = if is_collection {
+            RoyaltyKey::ConfigCollection(target_id)
+        } else {
+            RoyaltyKey::ConfigNft(target_id)
+        };
+
+        let config: RoyaltyConfig = env
+            .storage()
+            .persistent()
+            .get(&key)
+            .unwrap_or_else(|| panic!("Royalty: no config for target {target_id}"));
+        assert!(
+            !config.is_frozen,
+            "Royalty: config is frozen for {target_id}"
+        );
+
+        env.storage().persistent().remove(&key);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
+
+        emit(&env, RoyaltyEvent::Removed(target_id));
     }
 
     /// Permanently lock the terms for a target. Admin-only, and irreversible:

@@ -314,6 +314,39 @@ fn test_configure_royalty_extends_ttl() {
     assert!(remaining >= crate::TTL_THRESHOLD);
 }
 
+/// The admin can delete terms that can no longer matter (a burned NFT), after
+/// which the target reads as unconfigured again.
+#[test]
+fn test_remove_royalty_deletes_config() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    client.configure_royalty(&creator, &1, &500, &empty_recipients(&env), &false);
+
+    client.remove_royalty(&1, &false);
+
+    assert!(client.try_get_royalty(&1, &false).is_err());
+}
+
+/// A frozen config is permanent: freezing is the creator's guarantee that
+/// their terms cannot change, so even the admin cannot delete it.
+#[test]
+#[should_panic(expected = "frozen")]
+fn test_remove_royalty_refuses_frozen_config() {
+    let (env, _admin, client) = setup();
+    let creator = Address::generate(&env);
+    client.configure_royalty(&creator, &1, &500, &empty_recipients(&env), &false);
+    client.freeze_royalty(&1, &false);
+
+    client.remove_royalty(&1, &false);
+}
+
+#[test]
+#[should_panic(expected = "no config")]
+fn test_remove_unknown_royalty_panics() {
+    let (_, _, client) = setup();
+    client.remove_royalty(&999, &false);
+}
+
 /// Every state-changing operation must emit exactly one well-formed event:
 /// configured, updated, frozen and admin changed.
 #[test]
@@ -331,6 +364,11 @@ fn test_events_cover_all_mutations() {
 
     client.freeze_royalty(&1, &false);
     assert_single_royalty_event(&env, &emitter, RoyaltyEvent::Frozen(1));
+
+    // Removed carries its own event; use a second, unfrozen target.
+    client.configure_royalty(&creator, &2, &300, &empty_recipients(&env), &false);
+    client.remove_royalty(&2, &false);
+    assert_single_royalty_event(&env, &emitter, RoyaltyEvent::Removed(2));
 
     client.set_admin(&factory);
     assert_single_royalty_event(&env, &emitter, RoyaltyEvent::AdminChanged(factory));
