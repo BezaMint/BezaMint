@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { RateLimiter } from '@/lib/server/rateLimiter';
 
 /**
  * Edge middleware for the API surface.
@@ -12,14 +13,9 @@ const API_PREFIX = '/api';
 
 // ─────────────────────── Per-IP rate limiting ───────────────────────
 
-interface RateBucket {
-  count: number;
-  resetAt: number;
-}
-
 const RATE_WINDOW_MS = 60_000;
 const RATE_MAX_PER_WINDOW = 120;
-const buckets = new Map<string, RateBucket>();
+const apiLimiter = new RateLimiter(RATE_WINDOW_MS, RATE_MAX_PER_WINDOW);
 
 function clientIp(request: NextRequest): string {
   const xff = request.headers.get('x-forwarded-for');
@@ -32,38 +28,21 @@ function clientIp(request: NextRequest): string {
 
 /** Returns a 429 response when the caller exceeds the shared limit. */
 function rateLimit(request: NextRequest): NextResponse | null {
-  const ip = clientIp(request);
-  const now = Date.now();
-  const bucket = buckets.get(ip);
-
-  if (!bucket || now >= bucket.resetAt) {
-    buckets.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return null;
-  }
-
-  bucket.count += 1;
-  if (bucket.count > RATE_MAX_PER_WINDOW) {
-    const retryAfter = Math.ceil((bucket.resetAt - now) / 1000);
+  const result = apiLimiter.hit(clientIp(request));
+  if (!result.allowed) {
     return NextResponse.json(
       { error: { code: 'RATE_LIMITED', message: 'Too many requests' } },
       {
         status: 429,
-        headers: { 'Retry-After': String(retryAfter) },
+        headers: { 'Retry-After': String(result.retryAfterSeconds) },
       },
     );
   }
   return null;
 }
 
-function pruneBuckets(): void {
-  const now = Date.now();
-  for (const [ip, bucket] of buckets) {
-    if (now >= bucket.resetAt) buckets.delete(ip);
-  }
-}
-
 // Prune expired buckets once a minute so the map cannot grow unbounded.
-setInterval(pruneBuckets, RATE_WINDOW_MS).unref?.();
+setInterval(() => apiLimiter.prune(), RATE_WINDOW_MS).unref?.();
 
 // ─────────────────────── CORS allowlist ───────────────────────
 
