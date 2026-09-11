@@ -2,3 +2,22 @@ packages:
   - 'apps/*'
   - 'packages/*'
   - 'contracts/*'
+
+# The security overrides (nanoid, js-yaml, postcss, sharp, toml) deliberately live
+# in `pnpm.overrides` in the root package.json, not here.
+#
+# pnpm 9.15.4 — the version pinned by `packageManager` — prints on every install:
+#
+#   The "pnpm" field in package.json is no longer read by pnpm.
+#   The following keys were ignored: "pnpm.overrides".
+#
+# The warning is misleading. These overrides *are* applied: the lockfile records
+# them and resolves to the pinned versions with no vulnerable copy beside them.
+# `overrides:` in this file is pnpm 10 syntax; under 9.15.4 it is silently
+# ignored, and moving the block here drops the pins — verified by doing it, which
+# downgraded `toml` from 4.3.0 to 3.0.0 and reintroduced the postcss 8.4.31 the
+# pin exists to exclude.
+#
+# So: do not "fix" the warning by moving these. If the overrides ever need to move,
+# upgrade the pinned pnpm version first and re-check that the pinned resolutions
+# survive — a lockfile that still contains the pinned versions is the proof.
