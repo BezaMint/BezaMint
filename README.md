@@ -247,7 +247,7 @@ Five `#![no_std]` Soroban contracts. Every public function is guarded with `requ
 | `__constructor(admin)`                                                  | Set contract admin (runs atomically at deploy) |
 | `configure_royalty(target_id, basis_points, recipients, is_collection)` | Set royalty terms for an NFT or collection     |
 | `update_royalty(target_id, basis_points, recipients, is_collection)`    | Update royalty terms (blocked if frozen)       |
-| `freeze_royalty(target_id, is_collection)`                              | Lock royalty terms permanently                 |
+| `freeze_royalty(target_id, is_collection)`                              | Lock royalty terms permanently                 |     | `quote_royalty(target_id, is_collection, sale_price) -> Vec<RoyaltyPayout>` | Compute the exact per-recipient payout for a sale, summing to the royalty total |
 | `validate_basis_points(basis_points) -> bool`                           | Ensure bp ≤ 10,000                             |
 | `get_royalty(target_id, is_collection) -> RoyaltyConfig`                | Read royalty configuration                     |
 | `is_frozen(target_id, is_collection) -> bool`                           | Frozen status check                            |

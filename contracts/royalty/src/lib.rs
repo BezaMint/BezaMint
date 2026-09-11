@@ -19,7 +19,9 @@
 //!
 //! State expiration is managed explicitly (same policy as the NFT contract).
 
-use soroban_sdk::{contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, Map};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, Map, Vec,
+};
 
 // ─────────────────────────── Constants ───────────────────────────
 
@@ -55,6 +57,16 @@ pub struct RoyaltyConfig {
     pub recipients: Map<Address, u32>,
     pub is_frozen: bool,
     pub set_at: u64,
+}
+
+/// One recipient's share of a royalty payment, ready for a marketplace to pay
+/// out. `amount` is in the same unit as the sale price used to quote it
+/// (stroops, when the sale settles in XLM).
+#[contracttype]
+#[derive(Clone, Debug, PartialEq)]
+pub struct RoyaltyPayout {
+    pub recipient: Address,
+    pub amount: i128,
 }
 
 #[contracttype]
@@ -362,6 +374,72 @@ impl BezaMintRoyalty {
 
     pub fn validate_basis_points(basis_points: u32) -> bool {
         basis_points <= MAX_BASIS_POINTS
+    }
+
+    /// Compute who is owed what when a token sells for `sale_price`.
+    ///
+    /// This is the piece a marketplace needs and the piece that was missing: a
+    /// [`RoyaltyConfig`] records the *rate* and the split, but nothing turned
+    /// that into concrete amounts, so "royalties" was a claim the platform could
+    /// not actually settle. A bare NFT `transfer` carries no payment, so there is
+    /// nothing for the contracts to hook; settlement therefore stays a
+    /// marketplace responsibility, and this makes the obligation unambiguous,
+    /// deterministic and testable instead of something each integrator guesses
+    /// at.
+    ///
+    /// Returns an empty vector when nothing is owed: a zero rate, a zero sale
+    /// price, or a rate so small relative to the price that it rounds to zero.
+    /// An empty recipient map means the documented default of 100% to the
+    /// config's creator.
+    ///
+    /// Rounding is exact: every recipient except the last receives the floor of
+    /// its share of the royalty total, and the last recipient absorbs the
+    /// remainder, so the returned amounts always sum to that total and no stroop
+    /// is created or lost.
+    pub fn quote_royalty(
+        env: Env,
+        target_id: u64,
+        is_collection: bool,
+        sale_price: i128,
+    ) -> Vec<RoyaltyPayout> {
+        assert!(sale_price >= 0, "Royalty: sale price cannot be negative");
+
+        let config = Self::get_royalty(env.clone(), target_id, is_collection);
+        let total = sale_price
+            .checked_mul(config.basis_points as i128)
+            .unwrap_or_else(|| panic!("Royalty: sale price is too large to quote"))
+            / (MAX_BASIS_POINTS as i128);
+
+        let mut payouts = Vec::new(&env);
+        if total <= 0 {
+            return payouts;
+        }
+
+        if config.recipients.is_empty() {
+            payouts.push_back(RoyaltyPayout {
+                recipient: config.creator,
+                amount: total,
+            });
+            return payouts;
+        }
+
+        // `validate_recipients` guarantees the shares sum to TOTAL_SHARE, so the
+        // floor shares cannot exceed `total`; only the rounding remainder is left
+        // over, and the last recipient takes it.
+        let count = config.recipients.len();
+        let mut index = 0;
+        let mut distributed: i128 = 0;
+        for (recipient, share) in config.recipients.iter() {
+            index += 1;
+            let amount = if index == count {
+                total - distributed
+            } else {
+                total * (share as i128) / (TOTAL_SHARE as i128)
+            };
+            distributed += amount;
+            payouts.push_back(RoyaltyPayout { recipient, amount });
+        }
+        payouts
     }
 
     /// Validate a split map so the declared shares can actually be paid out.

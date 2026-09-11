@@ -104,6 +104,133 @@ fn test_empty_recipients_means_full_share_to_creator() {
 }
 
 #[test]
+fn test_quote_royalty_defaults_to_the_creator() {
+    let (env, _, client) = setup();
+    let creator = Address::generate(&env);
+    client.configure_royalty(&creator, &1, &500, &empty_recipients(&env), &false);
+
+    // 500 bps of a 1,000-stroop sale is 50, and with no split configured the
+    // creator receives all of it.
+    let payouts = client.quote_royalty(&1, &false, &1000);
+    assert_eq!(payouts.len(), 1);
+    let only = payouts.get(0).unwrap();
+    assert_eq!(only.recipient, creator);
+    assert_eq!(only.amount, 50);
+}
+
+#[test]
+fn test_quote_royalty_splits_by_share() {
+    let (env, _, client) = setup();
+    let creator = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let split = recipients(&env, &[(alice.clone(), 60), (bob.clone(), 40)]);
+    client.configure_royalty(&creator, &1, &500, &split, &false);
+
+    let payouts = client.quote_royalty(&1, &false, &1000);
+    assert_eq!(payouts.len(), 2);
+    let mut total = 0i128;
+    for i in 0..payouts.len() {
+        total += payouts.get(i).unwrap().amount;
+    }
+    assert_eq!(total, 50, "the royalty total must be distributed in full");
+    // Shares are looked up by address, not by iteration order.
+    let by_address = |addr: &Address| {
+        let mut found = 0i128;
+        for i in 0..payouts.len() {
+            let p = payouts.get(i).unwrap();
+            if &p.recipient == addr {
+                found = p.amount;
+            }
+        }
+        found
+    };
+    assert_eq!(by_address(&alice), 30);
+    assert_eq!(by_address(&bob), 20);
+}
+
+/// Rounding must never create or destroy value: the parts always sum to exactly
+/// the royalty total, with the remainder landing on the final recipient.
+#[test]
+fn test_quote_royalty_assigns_the_rounding_remainder() {
+    let (env, _, client) = setup();
+    let creator = Address::generate(&env);
+    let a = Address::generate(&env);
+    let b = Address::generate(&env);
+    let c = Address::generate(&env);
+    let split = recipients(&env, &[(a, 33), (b, 33), (c, 34)]);
+    client.configure_royalty(&creator, &1, &500, &split, &false);
+
+    // 500 bps of 101 stroops floors to 5, which does not divide evenly three ways.
+    let payouts = client.quote_royalty(&1, &false, &101);
+    assert_eq!(payouts.len(), 3);
+    let mut total = 0i128;
+    for i in 0..payouts.len() {
+        let amount = payouts.get(i).unwrap().amount;
+        assert!(amount >= 0, "a payout must never be negative");
+        total += amount;
+    }
+    assert_eq!(total, 5);
+}
+
+/// A payout can never exceed the royalty actually due, at any price.
+#[test]
+fn test_quote_royalty_never_exceeds_the_rate() {
+    let (env, _, client) = setup();
+    let creator = Address::generate(&env);
+    let alice = Address::generate(&env);
+    let bob = Address::generate(&env);
+    let split = recipients(&env, &[(alice, 60), (bob, 40)]);
+    client.configure_royalty(&creator, &1, &750, &split, &false);
+
+    for price in [1i128, 7, 99, 100, 12_345, 1_000_000] {
+        let payouts = client.quote_royalty(&1, &false, &price);
+        let mut total = 0i128;
+        for i in 0..payouts.len() {
+            total += payouts.get(i).unwrap().amount;
+        }
+        assert_eq!(
+            total,
+            price * 750 / 10_000,
+            "wrong royalty for price {price}"
+        );
+        assert!(total <= price, "royalty cannot exceed the sale price");
+    }
+}
+
+#[test]
+fn test_quote_royalty_zero_rate_owes_nothing() {
+    let (env, _, client) = setup();
+    let creator = Address::generate(&env);
+    client.configure_royalty(&creator, &1, &0, &empty_recipients(&env), &false);
+    assert_eq!(client.quote_royalty(&1, &false, &1_000_000).len(), 0);
+}
+
+#[test]
+fn test_quote_royalty_zero_price_owes_nothing() {
+    let (env, _, client) = setup();
+    let creator = Address::generate(&env);
+    client.configure_royalty(&creator, &1, &500, &empty_recipients(&env), &false);
+    assert_eq!(client.quote_royalty(&1, &false, &0).len(), 0);
+}
+
+#[test]
+#[should_panic(expected = "cannot be negative")]
+fn test_quote_royalty_rejects_negative_price() {
+    let (env, _, client) = setup();
+    let creator = Address::generate(&env);
+    client.configure_royalty(&creator, &1, &500, &empty_recipients(&env), &false);
+    client.quote_royalty(&1, &false, &-1);
+}
+
+#[test]
+#[should_panic(expected = "no config for target")]
+fn test_quote_royalty_requires_a_config() {
+    let (_, _, client) = setup();
+    client.quote_royalty(&999, &false, &1000);
+}
+
+#[test]
 #[should_panic(expected = "must sum to 100")]
 fn test_recipients_summing_to_99_are_rejected() {
     let (env, _, client) = setup();

@@ -33,8 +33,7 @@ dangerous class of bug because they survive every green check.
 | 1   | **Critical** | API       | Event indexer decodes a topic layout the contracts never emit; every indexed endpoint is silently empty                                           | Fixed  |
 | 2   | **Critical** | API       | Indexer requests `startLedger: 0`, outside the RPC retention window; the request itself fails                                                     | Fixed  |
 | 3   | **Critical** | Contracts | `initialize()` is front-runnable: deploy and init are separate transactions, so an attacker can seize the admin role                              | Fixed  |
-| 4   | **High**     | Tooling   | Security overrides live in a `package.json` field pnpm 9 honours but has deprecated and pnpm 10 removes; nothing guards against a silent pin loss | Fixed  |
-| 5   | **High**     | Contracts | Secondary-sale royalties are configured but never collected; the platform's core promise is unimplemented                                         | Open   |
+| 4   | **High**     | Tooling   | Security overrides live in a `package.json` field pnpm 9 honours but has deprecated and pnpm 10 removes; nothing guards against a silent pin loss | Fixed  |     | 5   | **High** | Contracts | Secondary-sale royalties are configured but never collected; the platform's core promise is unimplemented | Fixed |
 | 6   | **High**     | Contracts | `set_contracts` accepts zero and self addresses; a wiring mistake bricks the mint path with no recovery path                                      | Open   |
 | 7   | **High**     | API       | The indexer test asserts the same wrong wire format as the code, so a green suite certifies a broken feature                                      | Fixed  |
 | 8   | **High**     | Docs      | `ISSUES.md` advertises 100 open issues, most of which are already implemented; it misrepresents the project to contributors and reviewers         | Open   |
@@ -191,14 +190,20 @@ This is not a bug so much as an unfinished core feature that the README presents
 delivered. It is listed here because "royalties" is the platform's headline claim
 and a reviewer will test it.
 
-**Remediation (chosen).** Add a pure, on-chain `quote_royalty(target_id, sale_price,
-is_collection)` that returns the exact per-recipient payout split computed from the
-stored config, including the documented zero-recipient default (100% to creator),
-with overflow-safe rounding that always sums back to the royalty total. This is the
-piece a marketplace must call, it is deterministic and unit-testable, and it removes
-the ambiguity about who gets paid what — without inventing an escrow design that the
-project has not committed to. Actual settlement is a marketplace responsibility and
-is documented as such.
+**Remediation (chosen).** Added a pure on-chain
+`quote_royalty(target_id, is_collection, sale_price) -> Vec<RoyaltyPayout>` that
+returns the exact per-recipient payout for a sale, computed from the stored config.
+It covers the documented zero-recipient default (100% to creator), returns nothing
+when the rate, price, or rounded share is zero, checks the multiplication for
+overflow, and assigns the rounding remainder to the final recipient so the amounts
+always sum to exactly the royalty total — no stroop created or lost. Shares are
+matched by address rather than iteration order.
+
+This is the piece a marketplace must call: deterministic, unit-testable, and
+unambiguous about who gets paid what, without inventing an escrow design the
+project has not committed to. Settlement itself remains a marketplace
+responsibility, because a bare NFT `transfer` carries no payment for the
+contracts to hook, and that boundary is now documented in the contract itself.
 
 ### 6. `set_contracts` accepts unusable addresses
 
