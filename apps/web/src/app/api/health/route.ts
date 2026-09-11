@@ -83,7 +83,14 @@ export async function GET() {
     factory: !!CONTRACT_IDS.factory,
   };
   const allContracts = Object.values(contracts).every(Boolean);
-  const healthy = rpc.ok && (!isIpfsAvailable() || ipfs.ok);
+  // Readiness means "this deployment can do its job". A build with every
+  // contract ID unset cannot mint, browse or verify anything, so reporting it as
+  // healthy (200) would let a misconfigured deploy pass a readiness gate and
+  // serve a broken app. RPC reachability and the IPFS gateway matter for the
+  // same reason; the contract configuration was previously computed and then
+  // not consulted, which is the case that matters most because it is the one a
+  // bad deploy actually hits.
+  const healthy = rpc.ok && allContracts && (!isIpfsAvailable() || ipfs.ok);
 
   return NextResponse.json(
     {
