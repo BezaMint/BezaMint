@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ApiError, normalizeError, badRequest, rateLimited } from '@/lib/server/errors';
+import { FetchTimeoutError } from '@/lib/server/http';
 
 describe('normalizeError', () => {
   it('passes ApiError instances through unchanged', () => {
@@ -39,6 +40,23 @@ describe('normalizeError', () => {
     const result = normalizeError('boom');
     expect(result.code).toBe('INTERNAL');
     expect(result.message).toBe('Internal server error');
+  });
+
+  it('maps a hung upstream to TIMEOUT with 504', () => {
+    // The exact error `fetchWithTimeout`/`withTimeout` reject with. Before this
+    // was handled it fell through to INTERNAL/500, so the declared TIMEOUT code
+    // was dead and a slow upstream looked like a server crash.
+    const result = normalizeError(new FetchTimeoutError('metadata fetch timed out'));
+    expect(result.code).toBe('TIMEOUT');
+    expect(result.status).toBe(504);
+  });
+
+  it('maps an ETIMEDOUT socket error to TIMEOUT rather than NETWORK_ERROR', () => {
+    const err = new Error('connect ETIMEDOUT');
+    Object.assign(err, { code: 'ETIMEDOUT' });
+    const result = normalizeError(err);
+    expect(result.code).toBe('TIMEOUT');
+    expect(result.status).toBe(504);
   });
 });
 

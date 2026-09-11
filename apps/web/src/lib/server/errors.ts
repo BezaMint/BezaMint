@@ -61,15 +61,31 @@ function isContractError(err: unknown): boolean {
   );
 }
 
+/**
+ * Heuristic: did an upstream hang rather than fail?
+ *
+ * `fetchWithTimeout` and `withTimeout` reject with `FetchTimeoutError`, so that
+ * name is matched explicitly. Without this the declared `TIMEOUT` code was never
+ * produced by anything: a hung RPC or IPFS gateway fell through to "unknown" and
+ * was answered with an opaque 500 INTERNAL, hiding the one upstream condition
+ * that is neither a client mistake nor a server crash.
+ */
+function isTimeoutError(err: unknown): boolean {
+  const anyErr = err as { code?: string; name?: string };
+  return (
+    anyErr.name === 'TimeoutError' ||
+    anyErr.name === 'FetchTimeoutError' ||
+    anyErr.code === 'ETIMEDOUT'
+  );
+}
+
 /** Heuristic: does this look like a network / RPC failure? */
 function isNetworkError(err: unknown): boolean {
   const message = err instanceof Error ? err.message : String(err);
   const anyErr = err as { code?: string; name?: string };
   return (
     anyErr.code === 'ECONNREFUSED' ||
-    anyErr.code === 'ETIMEDOUT' ||
     anyErr.code === 'ENOTFOUND' ||
-    anyErr.name === 'TimeoutError' ||
     message.includes('Failed to fetch') ||
     message.includes('network') ||
     message.includes('connection')
@@ -86,6 +102,13 @@ function isNetworkError(err: unknown): boolean {
 
   if (err instanceof TypeError && err.message === 'fetch failed') {
     return new ApiError('NETWORK_ERROR', 'Upstream service unreachable', 502, message);
+  }
+
+  // Checked before the network heuristic: a timeout is also a network symptom,
+  // but it deserves its own code and a 504 so a caller can distinguish "the
+  // upstream is reachable but slow" from "the upstream refused the connection".
+  if (isTimeoutError(err)) {
+    return new ApiError('TIMEOUT', 'Upstream request timed out', 504, message);
   }
 
   if (isNetworkError(err)) {
