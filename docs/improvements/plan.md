@@ -45,47 +45,56 @@ backlog is [`../../ISSUES.md`](../../ISSUES.md).
 
 ## Fixed
 
-| Area      | Change                                                                                                                                                                    | Evidence                                                 |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
-| API       | Indexer decodes events by variant **name** from the event data, matching how the host actually encodes a `#[contracttype]` enum; legacy two-topic form kept as a fallback | `apps/web/src/lib/server/indexer.ts`, `indexer.test.ts`  |
-| API       | Indexer starts from `latestLedger − lookback` (clamped, overridable via `INDEXER_LOOKBACK_LEDGERS`) and advances by RPC cursor, instead of an invalid `startLedger: 0`    | same                                                     |
-| API       | Readiness now depends on the contract configuration; a build with no contract IDs answers 503, not 200                                                                    | `apps/web/src/app/api/health/route.ts` + its first tests |
-| Contracts | Initialization moved into a Soroban `__constructor` on all five contracts, removing the front-run window entirely                                                         | `contracts/*/src/lib.rs`, `scripts/deploy.sh`            |
-| Contracts | `set_contracts` rejects the zero account, self-reference and duplicate addresses                                                                                          | `contracts/factory/src/lib.rs` + tests                   |
-| Contracts | Factory wiring getters name the unset slot instead of panicking anonymously                                                                                               | `contracts/factory/src/lib.rs` + test                    |
-| Contracts | `quote_royalty` computes the exact per-recipient payout for a sale, with exact rounding and overflow checking                                                             | `contracts/royalty/src/lib.rs` + tests                   |
-| Contracts | The inclusive side of the 512-byte URI limit is tested for NFT `mint` and Creator `register`                                                                              | `contracts/{nft,creator}/src/test.rs`                    |
-| Tooling   | A guard fails the suite if the dependency security overrides or their resolved versions are lost                                                                          | `apps/web/src/lib/__tests__/supply-chain.test.ts`        |
-| Tooling   | The typecheck that was red on `main` passes again                                                                                                                         | `apps/web/src/lib/__tests__/env-example.test.ts`         |
-| Docs      | Architecture overview and mainnet readiness checklist exist                                                                                                               | `docs/architecture.md`, `docs/mainnet-readiness.md`      |
-| Docs      | `contracts/README.md` is the authoritative interface reference, with the authorization requirement for every function                                                     | `contracts/README.md`                                    |
-| Docs      | The root README no longer duplicates contract tables it had let drift                                                                                                     | `README.md`                                              |
+| Area      | Change                                                                                                                                                                    | Evidence                                                                                 |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| API       | Indexer decodes events by variant **name** from the event data, matching how the host actually encodes a `#[contracttype]` enum; legacy two-topic form kept as a fallback | `apps/web/src/lib/server/indexer.ts`, `indexer.test.ts`                                  |
+| API       | Indexer starts from `latestLedger − lookback` (clamped, overridable via `INDEXER_LOOKBACK_LEDGERS`) and advances by RPC cursor, instead of an invalid `startLedger: 0`    | same                                                                                     |
+| API       | Readiness now depends on the contract configuration; a build with no contract IDs answers 503, not 200                                                                    | `apps/web/src/app/api/health/route.ts` + its first tests                                 |
+| Contracts | Initialization moved into a Soroban `__constructor` on all five contracts, removing the front-run window entirely                                                         | `contracts/*/src/lib.rs`, `scripts/deploy.sh`                                            |
+| Contracts | `set_contracts` rejects the zero account, self-reference and duplicate addresses                                                                                          | `contracts/factory/src/lib.rs` + tests                                                   |
+| Contracts | Factory wiring getters name the unset slot instead of panicking anonymously                                                                                               | `contracts/factory/src/lib.rs` + test                                                    |
+| Contracts | `quote_royalty` computes the exact per-recipient payout for a sale, with exact rounding and overflow checking                                                             | `contracts/royalty/src/lib.rs` + tests                                                   |
+| Contracts | The inclusive side of the 512-byte URI limit is tested for NFT `mint` and Creator `register`                                                                              | `contracts/{nft,creator}/src/test.rs`                                                    |
+| Tooling   | A guard fails the suite if the dependency security overrides or their resolved versions are lost                                                                          | `apps/web/src/lib/__tests__/supply-chain.test.ts`                                        |
+| Tooling   | The typecheck that was red on `main` passes again                                                                                                                         | `apps/web/src/lib/__tests__/env-example.test.ts`                                         |
+| Docs      | Architecture overview and mainnet readiness checklist exist                                                                                                               | `docs/architecture.md`, `docs/mainnet-readiness.md`                                      |
+| Docs      | `contracts/README.md` is the authoritative interface reference, with the authorization requirement for every function                                                     | `contracts/README.md`                                                                    |
+| Docs      | The root README no longer duplicates contract tables it had let drift                                                                                                     | `README.md`                                                                              |
+| Contracts | Every contract enforces the storage schema version on mutating paths, with a `version()` getter and an admin-only `migrate(from_version)`                                 | `contracts/*/src/lib.rs`, `contracts/*/src/test.rs`                                      |
+| Contracts | `mint_batch_with_royalty` mints a bounded batch atomically, sharing one mint/link/configure sequence with the single-mint path                                            | `contracts/factory/src/lib.rs` + tests                                                   |
+| Contracts | The Royalty admin hand-off is reversible via `factory.set_royalty_admin`, so the Royalty contract can be upgraded in place                                                | `contracts/factory/src/lib.rs` + tests                                                   |
+| API       | A hung upstream is reported as `TIMEOUT`/504 instead of falling through to `INTERNAL`/500                                                                                 | `apps/web/src/lib/server/errors.ts` + tests                                              |
+| API       | `/api/health` reports indexer progress (`checks.indexer.stalled`) so a stalled feed is alertable                                                                          | `apps/web/src/lib/server/indexer.ts`, health route + tests                               |
+| Tooling   | Coverage is measured in CI with a ratcheted threshold and an uploaded report                                                                                              | `apps/web/vitest.config.ts`, `ci.yml`                                                    |
+| Tooling   | A contract ABI drift gate verifies the committed `contractspecv0` snapshot against a fresh build                                                                          | `scripts/check-contract-abi.py`, `contracts/abi/`                                        |
+| Tooling   | A client bundle-size budget fails the build above a documented ceiling                                                                                                    | `scripts/check-bundle-size.sh`, `ci.yml`                                                 |
+| Docs      | API reference, deployment runbook, FAQ and glossary exist, and the README links them as a documentation index                                                             | `docs/api-reference.md`, `docs/deployment-runbook.md`, `docs/faq.md`, `docs/glossary.md` |
 
 ---
 
 ## Open
 
+Everything below is described, with acceptance criteria, in
+[`../../ISSUES.md`](../../ISSUES.md):
+
 Contract work:
 
-- Batch mint, per-collection supply caps, on-chain metadata commitment, and
-  enforcement of the stored storage version. See `ISSUES.md` §1–4.
-- Marketplace settlement is **not implemented and not in scope**; `quote_royalty`
-  makes the obligation exact, and `docs/mainnet-readiness.md` states the boundary.
+- Per-collection supply caps and on-chain metadata commitment (`ISSUES.md` §1–2).
+- Batch minting is implemented for uniform drops; per-item terms are not (`ISSUES.md` §3).
+- Marketplace settlement is **not implemented and not in scope**: `quote_royalty`
+  makes the obligation exact and `docs/mainnet-readiness.md` states the boundary.
 
 Backend:
 
-- The indexer is in-memory, per-instance, and recent-only. Durable storage with
-  cursor checkpoints is the next substantial piece. See `ISSUES.md` §6.
-- API reference documentation and alertable observability. `ISSUES.md` §7–8.
+- The indexer is in-memory, per-instance, and recent-only. `/api/health` now
+  reports a stall, but durable storage with cursor checkpoints is the real fix
+  (`ISSUES.md` §4).
+- The rate limiter is per instance, so its configured limit is not a real limit
+  under horizontal scaling (`ISSUES.md` §5).
 
-Tooling:
+Tests:
 
-- Coverage threshold, contract ABI drift check, end-to-end smoke tests, and a
-  bundle-size budget. See `ISSUES.md` §9–12.
-
-Documentation:
-
-- FAQ, glossary and a deployment runbook. See `ISSUES.md` §13–15.
+- End-to-end smoke tests against a deployed environment (`ISSUES.md` §6).
 
 ---
 

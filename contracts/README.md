@@ -54,11 +54,21 @@ the admin role. See `__constructor` in each contract and the note in
 
 Every contract also exposes:
 
-| Function                   | Description                                               |
-| -------------------------- | --------------------------------------------------------- |
-| `get_admin() -> Address`   | Current admin; panics with `... not initialized` if unset |
-| `is_initialized() -> bool` | True once the constructor has run                         |
-| `upgrade(new_wasm_hash)`   | Replace contract code, storage preserved. **Admin only**  |
+| Function                   | Description                                                        |
+| -------------------------- | ------------------------------------------------------------------ |
+| `get_admin() -> Address`   | Current admin; panics with `... not initialized` if unset          |
+| `is_initialized() -> bool` | True once the constructor has run                                  |
+| `upgrade(new_wasm_hash)`   | Replace contract code, storage preserved. **Admin only**           |
+| `version() -> u32`         | Stored schema version (`0` before the constructor runs)            |
+| `migrate(from_version)`    | Advance the stored schema version after an upgrade. **Admin only** |
+
+Every mutating function first asserts that the stored schema version matches the
+build's `STORAGE_VERSION`, so an in-place `upgrade` that changed a layout fails
+loudly with `storage version N does not match this build (M); run migrate` instead
+of decoding old entries into a new struct. `migrate` requires the exact stored
+version, refuses to run when already current, and is the only function exempt from
+the check because it is what repairs a mismatch. See the upgrade procedure in
+[`../docs/deployment-runbook.md`](../docs/deployment-runbook.md).
 
 ---
 
@@ -153,22 +163,37 @@ frontend renders these strings into the DOM.
 
 ## Factory — `BezaMintFactory`
 
-| Function                                                                                         | Arguments                                               | Authorization                 |
-| ------------------------------------------------------------------------------------------------ | ------------------------------------------------------- | ----------------------------- |
-| `set_contracts`                                                                                  | `nft, collection, royalty, creator`                     | admin                         |
-| `mint_with_royalty`                                                                              | `caller, to, collection_id, metadata_uri, basis_points` | `caller` (plus callee checks) |
-| `burn_nft`                                                                                       | `caller, collection_id, token_id`                       | `caller` (plus callee checks) |
-| `create_collection_for_creator`                                                                  | `caller, metadata_uri`                                  | `caller`                      |
-| `get_nft_contract` / `get_collection_contract` / `get_royalty_contract` / `get_creator_contract` | —                                                       | none                          |
+| Function                                                                                         | Arguments                                                             | Authorization                 |
+| ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- | ----------------------------- |
+| `set_contracts`                                                                                  | `nft, collection, royalty, creator`                                   | admin                         |
+| `set_royalty_admin`                                                                              | `new_admin`                                                           | admin                         |
+| `mint_with_royalty`                                                                              | `caller, to, collection_id, metadata_uri, basis_points`               | `caller` (plus callee checks) |
+| `mint_batch_with_royalty`                                                                        | `caller, to, collection_id, metadata_uris: Vec<String>, basis_points` | `caller` (plus callee checks) |
+| `burn_nft`                                                                                       | `caller, collection_id, token_id`                                     | `caller` (plus callee checks) |
+| `create_collection_for_creator`                                                                  | `caller, metadata_uri`                                                | `caller`                      |
+| `get_nft_contract` / `get_collection_contract` / `get_royalty_contract` / `get_creator_contract` | —                                                                     | none                          |
 
 `set_contracts` also transfers the Royalty admin role to the Factory, which is what
 lets the Factory's cross-contract `configure_royalty` call authenticate. It rejects
 the zero account, the Factory's own address, and duplicate addresses. The wiring
 getters panic with the unset slot's name (`Factory: NFT contract not set`).
 
+`set_royalty_admin` makes that hand-off reversible. Without it the Factory would
+hold the Royalty admin role and forward no `upgrade`, leaving the Royalty contract
+permanently un-upgradable. The sequence for upgrading Royalty is
+`set_royalty_admin(deployer)` → `royalty.upgrade(hash)` → hand the role back, either
+with `set_royalty_admin(factory)` or by re-running `set_contracts`.
+
 `mint_with_royalty` is atomic: the NFT is minted, added to the collection and given
 its royalty terms in one invocation, and any failing step reverts all of them.
 `burn_nft` is atomic in the same way, so `nft_count` cannot drift from reality.
+
+`mint_batch_with_royalty` runs the same sequence for every URI in a bounded batch
+(at most `MAX_BATCH_MINT` = 25, empty and oversized batches rejected by name). It is
+atomic in the same way: a failure on the third token reverts the first two as well,
+so a drop is never left half-minted. Each token still emits its own `NftMinted`
+event, so indexers and the activity feed see exactly the records the single-mint
+path produces.
 
 ---
 

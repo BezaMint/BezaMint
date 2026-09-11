@@ -127,8 +127,11 @@ chain.
   nothing for the contracts to hook. `quote_royalty` makes the obligation exact and
   verifiable; collecting it requires a marketplace, which this project does not
   include. This is documented rather than hidden.
-- **Batch minting.** `mint_with_royalty` mints one token per transaction. A drop of
-  many items costs many signatures.
-- **Per-collection supply caps.** `MAX_SUPPLY` is global.
+- **Per-collection supply caps.** `MAX_SUPPLY` is global; a creator cannot cap an
+  individual drop. See [`../ISSUES.md`](../ISSUES.md) §1.
 - **On-chain metadata hashing.** There is no commitment to the metadata content, so a
-  provider could serve different attributes than were reviewed at mint time.
+  provider could serve different attributes than were reviewed at mint time. See
+  [`../ISSUES.md`](../ISSUES.md) §2.
+- **Uniform batches.** `mint_batch_with_royalty` mints up to 25 tokens atomically,
+  but every token in a batch shares one recipient and one royalty rate. See
+  [`../ISSUES.md`](../ISSUES.md) §3.

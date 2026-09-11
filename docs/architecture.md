@@ -124,6 +124,12 @@ The user-facing contract that composes the other four atomically:
   mints the NFT, links it to the collection and configures its royalty in one
   invocation. If any step fails the whole call reverts: no orphan tokens, no
   unlinked mints, no partially configured royalties.
+- **`mint_batch_with_royalty(caller, to, collection_id, metadata_uris, basis_points)`**
+  runs that same sequence for every URI in a batch bounded by `MAX_BATCH_MINT` (25),
+  inside one invocation. A drop is therefore minted in one transaction and either
+  completes fully or reverts fully; a ten-piece collection no longer costs ten
+  signatures, ten fees and ten chances to be left half-finished. Each token emits
+  its own `NftMinted` event, so the event stream keeps one shape.
 - **`burn_nft(caller, collection_id, token_id)`** burns the token and removes it
   from its collection, so `nft_count` cannot drift from reality.
 - **`create_collection_for_creator(caller, metadata_uri)`** creates the collection
@@ -131,6 +137,10 @@ The user-facing contract that composes the other four atomically:
 - **`set_contracts(nft, collection, royalty, creator)`** wires the platform and
   hands the Royalty admin role to the Factory. It rejects the zero account, the
   Factory's own address, and duplicates.
+- **`set_royalty_admin(new_admin)`** moves the Royalty admin role on the Factory's
+  behalf. It exists so the hand-off above is reversible: otherwise the Factory
+  would hold the role and forward no `upgrade`, and the Royalty contract could
+  never be upgraded again.
 
 Every cross-contract mutation delegates its authorization to the callee, and the
 Factory's `configure_royalty` call authenticates because `set_contracts` transferred
@@ -149,6 +159,15 @@ role. A constructor has no such window.
 `upgrade(new_wasm_hash)` is admin-only (`update_current_contract_wasm`), preserving
 all storage. There is no downgrade protection beyond the admin key, so that key must
 be held operationally — see [`mainnet-readiness.md`](./mainnet-readiness.md).
+
+Because storage survives an upgrade, the code that reads it may not match the code
+that wrote it. Every contract declares a `STORAGE_VERSION`, exposes it through
+`version()`, and asserts it at the top of every mutating function. When a release
+changes the persisted layout it bumps `STORAGE_VERSION`, and the admin runs
+`migrate(from_version)` after `upgrade`: until then, mutations fail with a named
+error rather than decoding old entries into a new struct and returning garbage. The
+full procedure, including why a rollback after a migration is not a simple
+`upgrade`, is in [`deployment-runbook.md`](./deployment-runbook.md).
 
 ---
 
