@@ -1,6 +1,6 @@
 # BezaMint — Contributor Backlog
 
-100 open issues, every one verified against the current tree. Each entry names the
+99 open issues, every one verified against the current tree. Each entry names the
 problem, the evidence that it is real, and acceptance criteria a reviewer can check
 objectively. Every entry here corresponds to an open issue in the tracker, and every
 issue in the tracker corresponds to an entry here — the two are kept in step
@@ -21,11 +21,13 @@ implemented, one adding a second module duplicating `apps/web/src/lib/explorer.t
 adding a `CONTRIBUTING.md` that already existed. Those issues were closed and the tracker
 was reduced to the work that was genuinely open.
 
-It has since been grown back to 100 — which is only defensible because every new entry
-was checked against the tree first and carries the command or file that demonstrates the
-gap. An entry whose evidence no longer holds should be closed, not rewritten. The
-distinction that matters is not the count, it is whether opening an issue tells a
-contributor something true.
+It has since been grown back to 100, and now stands at **99** after the admin-rotation
+work landed and closed #133 and #134. That count is only defensible because every new
+entry was checked against the tree first and carries the command or file that
+demonstrates the gap. An entry whose evidence no longer holds should be closed, not
+rewritten — #133 and #134 were closed the moment the fix shipped, rather than being
+kept open to hold the number up. The distinction that matters is not the count, it is
+whether opening an issue tells a contributor something true.
 
 Labels: `good first issue` for scoped work needing no context, `difficulty: easy`/
 `medium`/`hard`, and `design-decision-needed` where the work cannot start before a
@@ -109,29 +111,6 @@ decision is recorded.
 **Problem.** `mint_batch_with_royalty` mints a bounded batch atomically, but every token in the batch shares one recipient and one royalty rate. A drop with distinct recipients, or per-item royalty terms, still costs one transaction per item — which is the cost the batch path exists to remove.
 **Acceptance criteria.** Either a documented statement that uniform batches are the intended scope, recorded in `contracts/README.md` with the reasoning, or a batch entry point that takes per-item terms, bounded and proven atomic by the same mid-batch-failure test the existing batch has.
 **Notes.** The per-item variant needs a bounded argument shape: a `Vec` of recipient/rate pairs is unbounded by construction unless the same `MAX_BATCH_MINT` guard is applied to it, which is the first thing to get right.
-
-### 133. [security] Only the Royalty contract can rotate its admin
-
-**Problem.**
-Four of the five contracts have no way to change the admin after deployment, so a lost or compromised admin key is unrecoverable: `upgrade` and `migrate` stay bound to it forever.
-**Evidence.**
-`grep -c 'pub fn set_admin' contracts/*/src/lib.rs` reports 1 for `royalty` and 0 for `nft`, `collection`, `creator` and `factory`. This contradicts `docs/mainnet-readiness.md` requirement 2 (admin key custody and rotation policy).
-**Acceptance criteria.**
-
-- [ ] Each contract exposes an admin-only `set_admin(new_admin)` that rejects the zero account.
-- [ ] The transfer is covered by a test proving the old admin loses and the new admin gains authority.
-- [ ] `docs/deployment-runbook.md` documents the rotation sequence end to end.
-
-### 134. [security] Admin changes emit no event on four of five contracts
-
-**Problem.**
-An admin rotation is invisible to indexers and monitors on every contract except Royalty, so a hostile `set_admin` would leave no on-chain trace for the activity feed to surface.
-**Evidence.**
-`AdminChanged` appears only in `contracts/royalty/src/lib.rs`; `nft`, `collection`, `creator` and `factory` emit no admin event.
-**Acceptance criteria.**
-
-- [ ] Every contract that can change its admin emits an `AdminChanged(Address)` event.
-- [ ] Contract tests assert the event is emitted, matching the existing style in `royalty/src/test.rs`.
 
 ### 135. [contracts] TTL policy constants are duplicated verbatim across all five contracts
 
@@ -251,16 +230,17 @@ The Factory's wiring can be replaced at any time by the admin, which redirects e
 - [ ] Documented in the deployment runbook.
 - [ ] Covered by a test.
 
-### 146. [contracts] factory wasm is at 94% of its size budget
+### 146. [contracts] factory wasm headroom is thin and the budget has already been raised once
 
 **Problem.**
-The Factory has 849 bytes of headroom before `check-wasm-size.sh` fails. Adding the typed error enum consumed most of the slack, so the next feature will trip the budget and the natural response is to raise it, which removes the regression signal entirely.
+The Factory has little headroom before `check-wasm-size.sh` fails, and the budget has now been raised once (16000 → 17000) rather than reclaimed. Each raise erodes the regression signal, so the next feature that does not fit will repeat the choice. The underlying concern is not the number but the absence of a policy for when a raise is acceptable and a warning tier below the limit.
 **Evidence.**
-`bash scripts/check-wasm-size.sh` reports `bezamint_factory: 15151 bytes (94% of 16000 budget)`.
+`bash scripts/check-wasm-size.sh` reports `bezamint_factory: 16085 bytes (94% of 17000 budget)` — 915 bytes of headroom — after the admin-rotation change justified going from 16000. The earlier evidence (15151 bytes of 16000) no longer holds.
 **Acceptance criteria.**
 
-- [ ] Either reclaim size, or raise the budget in a commit that justifies the new number.
+- [ ] Either reclaim size, or raise the budget in a commit that justifies the new number, as recorded above.
 - [ ] The budget retains enough headroom to catch a real regression (a few percent, not zero).
+- [ ] The policy for raising a budget is written down, so the next raise is a decision rather than a default.
 
 ### 147. [contracts] royalty wasm is at 90% of its size budget
 
@@ -960,6 +940,17 @@ The coverage report is uploaded as an artifact but nothing compares it to the pr
 
 - [ ] Per-commit coverage is recorded and the delta is visible on a PR.
 - [ ] A sustained decline is surfaced rather than only a threshold breach.
+
+### 208. [ci] contract:size and contract:abi verify stale wasm instead of rebuilding
+
+**Problem.**
+Both npm scripts measure whatever wasm is already in `contracts/target/wasm32-unknown-unknown/release/`; neither rebuilds, and neither checks that the artifacts are newer than the sources they came from. Edit a contract, run either script, and you get a confident verdict about code that is no longer being built. CI is safe only because `ci.yml` builds the wasm first (line 136) before running the checks (lines 139 and 141); the scripts themselves carry no such ordering.
+**Evidence.**
+After editing all five contracts, `pnpm run contract:size` reported `bezamint_factory: 15151 bytes (94% of 16000 budget)` and `pnpm run contract:abi` reported `Contract ABI unchanged for 5 contracts` — both against wasm built before the edits. A rebuild showed the real state: the Factory over budget (16085 bytes) and all five interfaces changed.
+**Acceptance criteria.**
+
+- [ ] `contract:size` and `contract:abi` rebuild first (`pnpm run contract:build && …`), or fail with "artifacts are older than sources" rather than reporting on stale ones.
+- [ ] The failure path is demonstrated — a test or CI step that shows the stale case failing instead of passing.
 
 ## Documentation
 
