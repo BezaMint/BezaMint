@@ -64,6 +64,18 @@ jobs:
       - name: Run unit tests
         run: pnpm run test
 
+      - name: Run unit tests with coverage
+        run: pnpm --filter @bezamint/web run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-coverage
+          path: apps/web/coverage
+          retention-days: 7
+          if-no-files-found: warn
+
   contract-tests:
     name: Contract Tests
     runs-on: ubuntu-latest
