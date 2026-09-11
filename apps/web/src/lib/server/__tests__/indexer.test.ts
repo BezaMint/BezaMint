@@ -228,6 +228,28 @@ describe('indexer', () => {
     expect(indexerStats().nft_minted).toBe(1);
   });
 
+  // Without a deadline on the RPC call, a hung upstream does not fail a refresh
+  // -- it never settles, and because concurrent callers share one in-flight
+  // refresh promise, every endpoint that touches the store waits with it.
+  // `/api/stats` was observed at 71 seconds before the client gave up.
+  it('fails a refresh whose RPC call never settles, rather than hanging', async () => {
+    vi.useFakeTimers();
+    try {
+      // A promise that never resolves or rejects: the hung upstream.
+      mockedRpc.getEvents.mockReturnValue(new Promise(() => {}));
+
+      const pending = refreshIndexer(true);
+      const assertion = expect(pending).rejects.toThrow(/timed out/i);
+      await vi.advanceTimersByTimeAsync(8_000);
+      await assertion;
+
+      expect(getIndexerHealth().lastErrorMessage).toMatch(/timed out/i);
+      expect(getIndexerHealth().stalled).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   // The cursor only moves forward, so replacing the store with each page left it
   // holding only what was newer than the cursor -- nothing, on a quiet network --
   // and the feed drained to empty seconds after a successful refresh.

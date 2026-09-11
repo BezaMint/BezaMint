@@ -47,6 +47,7 @@ import { scValToNative, rpc as SorobanRpc } from '@stellar/stellar-sdk';
 import { getRpcClient } from '@/services/stellar';
 import { CONTRACT_IDS } from '@/services';
 import { errorMessage, normalizeError } from './errors';
+import { withTimeout } from './http';
 import { logger } from './logger';
 
 export type IndexedEventType =
@@ -97,6 +98,26 @@ const DEFAULT_LOOKBACK_LEDGERS = 10_000;
  * empty feed on a quiet network rather than admit the window is wrong.
  */
 const MIN_LOOKBACK_LEDGERS = 300;
+
+/**
+ * Hard ceiling on one RPC round trip.
+ *
+ * These calls had no timeout, so a hung RPC did not fail a refresh -- it never
+ * settled at all. That is worse than a failure, because concurrent callers share
+ * a single in-flight refresh promise: one hung call held every endpoint that
+ * touches the store open indefinitely. `/api/stats` was observed at 71 seconds
+ * before the client gave up, and `/api/health`, which waits on the same
+ * promise, timed out alongside it.
+ *
+ * A bounded call turns that into an ordinary reported failure: the refresh
+ * rejects, `getIndexerHealth` reports the message and marks the store stalled,
+ * and the route answers 504 TIMEOUT rather than hanging.
+ */
+const RPC_TIMEOUT_MS = 8_000;
+
+function withRpcTimeout<T>(promise: Promise<T>, what: string): Promise<T> {
+  return withTimeout(promise, RPC_TIMEOUT_MS, `Soroban RPC ${what} timed out`);
+}
 
 function lookbackLedgers(): number {
   const raw = process.env.INDEXER_LOOKBACK_LEDGERS;
@@ -298,15 +319,18 @@ async function discoverColdStart(
   limit: number,
   sourceByContract: Map<string, SourceConfig>,
 ): Promise<{ events: IndexedEvent[]; cursor?: string }> {
-  const latest = await rpc.getLatestLedger();
+  const latest = await withRpcTimeout(rpc.getLatestLedger(), 'getLatestLedger');
   let window = lookbackLedgers();
 
   for (;;) {
-    const response = await rpc.getEvents({
-      startLedger: Math.max(1, latest.sequence - window),
-      filters,
-      limit,
-    });
+    const response = await withRpcTimeout(
+      rpc.getEvents({
+        startLedger: Math.max(1, latest.sequence - window),
+        filters,
+        limit,
+      }),
+      'getEvents',
+    );
     const events = decodeResponse(response, sourceByContract);
 
     if (events.length > 0 || window <= MIN_LOOKBACK_LEDGERS) {
@@ -344,7 +368,7 @@ async function fetchEvents(limit = 50): Promise<{ events: IndexedEvent[]; cursor
   const sourceByContract = new Map(sources().map((s) => [s.contractId, s]));
 
   if (cursor) {
-    const response = await rpc.getEvents({ cursor, filters, limit });
+    const response = await withRpcTimeout(rpc.getEvents({ cursor, filters, limit }), 'getEvents');
     return { events: decodeResponse(response, sourceByContract), cursor: response.cursor };
   }
 
