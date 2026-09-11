@@ -278,6 +278,28 @@ the project's credibility more than any missing feature.
 **Remediation.** Regenerate both against the actual tree, with a per-item status
 and an evidence pointer.
 
+**Follow-up (incomplete the first time).** Rewriting the two files fixed the
+documents, not the thing they mirror. The 100 issues themselves were still open in
+the tracker, auto-generated from the old `ISSUES.md`, so the finding was only
+two-thirds remediated: the files told the truth while the tracker still told the
+old story, and a contributor reading the tracker saw exactly the misrepresentation
+this finding describes. It had already cost real time — two pull requests were
+opened against issues that were already implemented, one adding a second module
+duplicating `apps/web/src/lib/explorer.ts` and one adding a `CONTRIBUTING.md` that
+already existed.
+
+The tracker has now been reconciled the same way the files were. Each of the 100
+issues was checked against the tree: 78 were closed with a comment naming the file
+or function that satisfies their acceptance criteria, and 22 genuinely open ones
+were kept, rewritten to be self-contained and labeled by difficulty. `ISSUES.md`
+now lists exactly those 22, so the file and the tracker can be compared directly
+and any disagreement is a bug. The two stale pull requests were closed with an
+explanation and a pointer to work that is actually open.
+
+Lessons worth keeping: a document that mirrors an external system has to be fixed
+in both places or the fix is cosmetic, and verifying an issue is closed means
+running the check, not reading the issue.
+
 ### 9. Storage versions are written but never enforced
 
 `initialize` wrote `Version = 1` in every contract, and no read path ever consulted
