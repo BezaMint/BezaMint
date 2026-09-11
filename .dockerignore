@@ -1,9 +1,40 @@
+# Keep the build context limited to what the image build actually reads.
 node_modules/
+**/node_modules/
 .next/
+**/.next/
 dist/
 target/
+contracts/target/
+.turbo/
+**/.turbo/
+
+# Never bake credentials into an image layer.
+.env
+.env.*
+**/.env.local
+**/.env*.local
+
+# Repository metadata and tooling the build does not need.
 .git/
-.env.local
-.env*.local
+.github/
+.husky/
+.vscode/
+.idea/
+
+# Documentation, demo media and issue backlog: not read by `next build`.
+docs/
+assets/
+screenshots/
+demo-video.mp4
+ISSUES.md
+DEMO.md
+CHANGELOG.md
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
+SECURITY.md
+
+# Local noise.
 *.log
 .DS_Store
+coverage/

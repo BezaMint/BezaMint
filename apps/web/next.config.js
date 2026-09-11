@@ -1,8 +1,16 @@
 /** @type {import('next').NextConfig} */
+const path = require('path');
+
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
-  outputFileTracingRoot: process.cwd(),
+  // Tracing must start at the monorepo root, not at apps/web. Workspace
+  // dependencies resolve through node_modules above this package (the shared
+  // package is imported by path, and pnpm stores packages in a store beside the
+  // root), so a root of apps/web makes the tracer treat those files as outside
+  // the output and copy nothing — producing a standalone server that cannot
+  // start. Tracing from the root captures them at their real locations.
+  outputFileTracingRoot: path.join(__dirname, '..', '..'),
   poweredByHeader: false,
   // gzip compression for the self-hosted server; CDN deployments (Vercel)
   // compress at the edge instead.
