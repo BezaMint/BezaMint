@@ -24,9 +24,66 @@ function dummySource() {
   return new Account(Keypair.random().publicKey(), '0');
 }
 
+const MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER);
+const MIN_SAFE = -MAX_SAFE;
+
+/**
+ * Recursively convert a contract value into something JSON can hold.
+ *
+ * `scValToNative` returns a `bigint` for the 64- and 128-bit integer types, so
+ * that no value is silently rounded on the way in. `JSON.stringify` cannot
+ * serialize a `bigint` at all -- it throws "Do not know how to serialize a
+ * BigInt" -- so every route returning a contract struct with a u64 in it (a
+ * timestamp, a count, an id) answered `500 INTERNAL` the first time it ran
+ * against a real deployment that had data to return.
+ *
+ * That is why this was invisible for so long: with an empty indexer the routes
+ * took an early branch and enriched nothing, so no contract value ever reached
+ * the serializer. The route tests mock the reader and hand back plain numbers.
+ * The bug needed a seeded chain to appear, and it appeared on all three list
+ * endpoints at once.
+ *
+ * A `bigint` that fits in the safe integer range becomes a number, which is
+ * what every caller already assumes for counters, ids and timestamps. A larger
+ * one becomes a decimal string instead of a rounded number: an i128 token
+ * amount can exceed 2^53, and losing digits in a balance would be worse than a
+ * type change.
+ *
+ * `Map` is converted to a plain object and `Set`/typed arrays to arrays, because
+ * neither survives `JSON.stringify` either and Soroban maps (`recipients` in a
+ * royalty config) decode to a `Map`.
+ */
+export function toJsonSafe(value: unknown): unknown {
+  if (typeof value === 'bigint') {
+    return value <= MAX_SAFE && value >= MIN_SAFE ? Number(value) : value.toString();
+  }
+  if (Array.isArray(value)) {
+    return value.map(toJsonSafe);
+  }
+  if (value instanceof Map) {
+    const out: Record<string, unknown> = {};
+    for (const [key, entry] of value) {
+      out[String(key)] = toJsonSafe(entry);
+    }
+    return out;
+  }
+  if (value instanceof Set) {
+    return [...value].map(toJsonSafe);
+  }
+  if (value !== null && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(value)) {
+      out[key] = toJsonSafe(entry);
+    }
+    return out;
+  }
+  return value;
+}
+
 /**
  * Simulate a read-only contract call and return the native JS value of the
- * return value. Throws a normalized ApiError on failure.
+ * return value, normalized so it can be serialized as JSON. Throws a
+ * normalized ApiError on failure.
  */
 export async function simulateRead<T = unknown>(
   contractId: string,
@@ -52,7 +109,9 @@ export async function simulateRead<T = unknown>(
     if (!result.result?.retval) {
       throw new ApiError('CONTRACT_ERROR', `Empty result from ${method}`, 422);
     }
-    return scValToNative(result.result.retval) as T;
+    // Normalized here rather than at each response, so a new route cannot
+    // reintroduce the crash by forgetting to convert.
+    return toJsonSafe(scValToNative(result.result.retval)) as T;
   } catch (err) {
     throw normalizeError(err);
   }
