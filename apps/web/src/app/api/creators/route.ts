@@ -25,7 +25,11 @@ interface CreatorProfile {
   bio: string;
   avatar_uri: string;
   banner_uri: string;
-  social_links: { platform: string; handle: string }[];
+  // The contract's `SocialLink` is `{ platform, url }`. Typing it as `handle`
+  // here misdescribed the response: the value is passed through unchanged, so
+  // the JSON was right but the declared shape -- and anything generated from
+  // it, including the API reference -- documented a field that does not exist.
+  social_links: { platform: string; url: string }[];
   created_at: number;
   updated_at: number;
   is_verified: boolean;
