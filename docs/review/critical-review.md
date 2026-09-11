@@ -33,15 +33,14 @@ dangerous class of bug because they survive every green check.
 | 1   | **Critical** | API       | Event indexer decodes a topic layout the contracts never emit; every indexed endpoint is silently empty                                           | Fixed  |
 | 2   | **Critical** | API       | Indexer requests `startLedger: 0`, outside the RPC retention window; the request itself fails                                                     | Fixed  |
 | 3   | **Critical** | Contracts | `initialize()` is front-runnable: deploy and init are separate transactions, so an attacker can seize the admin role                              | Fixed  |
-| 4   | **High**     | Tooling   | Security overrides live in a `package.json` field pnpm 9 honours but has deprecated and pnpm 10 removes; nothing guards against a silent pin loss | Fixed  |     | 5   | **High**   | Contracts | Secondary-sale royalties are configured but never collected; the platform's core promise is unimplemented | Fixed |
+| 4   | **High**     | Tooling   | Security overrides live in a `package.json` field pnpm 9 honours but has deprecated and pnpm 10 removes; nothing guards against a silent pin loss | Fixed  |     | 5   | **High**   | Contracts | Secondary-sale royalties are configured but never collected; the platform's core promise is unimplemented                  | Fixed |
 | 6   | **High**     | Contracts | `set_contracts` accepts zero and self addresses; a wiring mistake bricks the mint path with no recovery path                                      | Open   |
 | 7   | **High**     | API       | The indexer test asserts the same wrong wire format as the code, so a green suite certifies a broken feature                                      | Fixed  |
 | 8   | **High**     | Docs      | `ISSUES.md` advertises 100 open issues, most of which are already implemented; it misrepresents the project to contributors and reviewers         | Open   |
 | 9   | **High**     | Contracts | Storage `Version` keys are written but never read, so a schema change corrupts reads silently                                                     | Open   |
 | 10  | **High**     | Tooling   | CI has no coverage gate, no wasm ABI drift check, and no bundle budget; regressions are invisible                                                 | Open   |
 | 11  | **Medium**   | Contracts | Factory getters panic with a bare `unwrap()` and are unusable before wiring                                                                       | Open   |
-| 12  | **Medium**   | Contracts | No batch mint; a 10-piece drop costs 10 transactions                                                                                              | Open   |
-| 13  | **Medium**   | Contracts | No boundary tests at the 512-byte metadata-URI limit (511/512/513)                                                                                | Open   |     | 14  | **Medium** | API       | Readiness ignores the contract configuration: a deploy with every contract ID unset answers 200 healthy   | Fixed |
+| 12  | **Medium**   | Contracts | No batch mint; a 10-piece drop costs 10 transactions                                                                                              | Open   |     | 13  | **Medium** | Contracts | Boundary coverage at the 512-byte URI limit was inconsistent; NFT and Creator could regress to an exclusive limit silently | Fixed |     | 14  | **Medium** | API | Readiness ignores the contract configuration: a deploy with every contract ID unset answers 200 healthy | Fixed |
 | 15  | **Medium**   | Docs      | No architecture overview or contract interface reference for integrators                                                                          | Open   |
 
 ---
@@ -292,12 +291,20 @@ deploy tooling calls to verify wiring.
 ten signatures and ten fees. A batch entry point is a straightforward, high-value
 addition provided it is atomic and bounded.
 
-### 13. No boundary tests at the URI limit
+### 13. Boundary coverage at the URI limit was inconsistent
 
-Length caps are asserted for values comfortably under and over the limit, but not
-at exactly 511, 512 and 513 bytes. Off-by-one errors in `<=` versus `<` are the
-classic failure mode for exactly this kind of guard, and the collection update path
-previously had no validation at all before it was fixed.
+Off-by-one errors in `<=` versus `<` are the classic failure mode for a length
+guard, and they fail _open_ in one direction: a limit that becomes exclusive
+silently rejects URLs the contract previously accepted, with no error anywhere.
+
+The Collection contract already had the 512-accept boundary test. The NFT contract
+only asserted the 513 rejection, so a `<` regression in `mint` would have shipped
+undetected, and the Creator contract's 512-byte avatar/banner limit had no boundary
+test at all.
+
+**Remediation.** Add the missing boundaries: NFT `mint` at 511 and 512 (both
+accepted, measured on the stored URI), and Creator `register` at a 512-byte avatar
+(accepted) and 513 (rejected with the field-named message).
 
 ### 14. Readiness ignored the contract configuration
 

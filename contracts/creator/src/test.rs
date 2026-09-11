@@ -68,6 +68,50 @@ fn test_constructor_binds_admin() {
     assert_eq!(client.get_admin(), admin);
 }
 
+/// Profile URIs share the 512-byte limit with the NFT and Collection metadata
+/// URIs. The bound is inclusive, so the byte immediately below and the limit
+/// itself must both be accepted, and the first byte over rejected — only the
+/// rejection was covered before.
+#[test]
+fn test_register_accepts_boundary_avatar_uri() {
+    let (env, _, client) = setup();
+    let creator = Address::generate(&env);
+
+    // 512 bytes total, scheme included, so only the length bound is exercised.
+    let mut bytes = b"https://".to_vec();
+    bytes.extend(core::iter::repeat_n(b'x', 504));
+    let avatar = String::from_bytes(&env, &bytes);
+    assert_eq!(avatar.len(), 512);
+
+    client.register(
+        &creator,
+        &String::from_str(&env, "Alice"),
+        &String::from_str(&env, ""),
+        &avatar,
+        &String::from_str(&env, ""),
+    );
+    assert_eq!(client.get_profile(&creator).avatar_uri.len(), 512);
+}
+
+#[test]
+#[should_panic(expected = "avatar URI exceeds 512 chars")]
+fn test_register_rejects_oversized_avatar_uri() {
+    let (env, _, client) = setup();
+    let creator = Address::generate(&env);
+    let mut bytes = b"https://".to_vec();
+    bytes.extend(core::iter::repeat_n(b'x', 505));
+    let avatar = String::from_bytes(&env, &bytes);
+    assert_eq!(avatar.len(), 513);
+
+    client.register(
+        &creator,
+        &String::from_str(&env, "Alice"),
+        &String::from_str(&env, ""),
+        &avatar,
+        &String::from_str(&env, ""),
+    );
+}
+
 fn register(env: &Env, client: &BezaMintCreatorClient, creator: &Address, name: &str) {
     client.register(
         creator,

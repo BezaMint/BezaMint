@@ -718,6 +718,32 @@ fn test_mint_rejects_oversized_metadata() {
     contract.mint(&user, &0, &String::from_str(&env, &long_uri));
 }
 
+/// The 512-character limit is inclusive, so both neighbours of the boundary
+/// must be accepted. Asserting only the 513 rejection would let an off-by-one
+/// (`<` instead of `<=`) ship as a regression that silently rejects URLs the
+/// contract previously stored.
+#[test]
+fn test_mint_accepts_boundary_metadata_lengths() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
+
+    // 511 and 512 bytes total, scheme included, so only the length bound is
+    // exercised and the URI stays scheme-valid.
+    for extra in [504usize, 505usize] {
+        let mut bytes = b"ipfs://".to_vec();
+        bytes.extend(core::iter::repeat_n(b'x', extra));
+        let uri = String::from_bytes(&env, &bytes);
+        let token_id = contract.mint(&user, &0, &uri);
+        assert_eq!(
+            contract.token_data(&token_id).metadata_uri.len(),
+            (7 + extra) as u32
+        );
+    }
+}
+
 /// An arbitrary URI scheme is a stored-XSS vector: the frontend renders the
 /// metadata URI into the DOM. Only https/http/ipfs may be stored.
 #[test]
