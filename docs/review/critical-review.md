@@ -29,13 +29,20 @@ What blocked release was a small number of **silent failures**: things that look
 correct, pass tests, and return wrong answers in production. Those are the most
 dangerous class of bug because they survive every green check.
 
-All eighteen findings below are fixed, each in its own commit with tests that fail
-against the previous behaviour. "Fixed" means the code and its tests changed, not
-that the risk is gone: the review found the problems a reviewer can find by reading
-this repository, and passing tests are not evidence of absence. What remains open
-is tracked, with acceptance criteria, in [`../../ISSUES.md`](../../ISSUES.md), and
-what cannot be discharged by code at all is in
-[`../mainnet-readiness.md`](../mainnet-readiness.md).
+All twenty-seven findings below are fixed, each in its own commit with tests that
+fail against the previous behaviour. "Fixed" means the code and its tests changed,
+not that the risk is gone: the review found the problems a reviewer can find by
+reading this repository, and passing tests are not evidence of absence. What
+remains open is tracked, with acceptance criteria, in
+[`../../ISSUES.md`](../../ISSUES.md), and what cannot be discharged by code at all
+is in [`../mainnet-readiness.md`](../mainnet-readiness.md).
+
+The first eighteen findings came from reading the repository. The last nine came
+from **running it against a seeded testnet deployment**, which is a different
+exercise and found a different class of defect: the whole server-side read path
+was broken in three independent ways, and every one of them was invisible to a
+suite that mocks the RPC. That experience is the argument for finding 24, and the
+reason `scripts/smoke-test.sh` now exists.
 
 | #   | Severity     | Area      | Finding                                                                                                                                           | Status |
 | --- | ------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
@@ -57,6 +64,15 @@ what cannot be discharged by code at all is in
 | 16  | **Medium**   | API       | The declared `TIMEOUT` error code is never produced: a hung upstream is reported as 500 INTERNAL                                                  | Fixed  |
 | 17  | **High**     | Contracts | The Royalty admin hand-off is one-way, leaving the Royalty contract permanently un-upgradable                                                     | Fixed  |
 | 18  | **Low**      | Docs      | This document's own status table contradicted its remediation log, reporting fixed findings as open                                               | Fixed  |
+| 19  | **Critical** | API       | The indexer's event filter is rejected by Soroban RPC, so `/api/stats`, `/api/nfts`, `/api/collections` and `/api/creators` all answer 500        | Fixed  |
+| 20  | **Critical** | API       | The indexer's cold-start ledger window sits outside the event retention period and returns zero events, silently and permanently                  | Fixed  |
+| 21  | **Critical** | API       | Contract values arrive as `bigint`, which `JSON.stringify` rejects; three list routes answer 500 the moment the chain has data                    | Fixed  |
+| 22  | **High**     | API       | Indexer refreshes replace the store rather than merging, so the feed drains to empty seconds after a successful refresh                           | Fixed  |
+| 23  | **High**     | API       | Indexer RPC calls have no deadline; one hung call holds every route open (`/api/stats` observed at 71s)                                           | Fixed  |
+| 24  | **High**     | Tooling   | No check exercises the app against a live chain, which is why findings 19-23 shipped with a green suite                                           | Fixed  |
+| 25  | **High**     | Docs      | The advertised live demo predates the API surface and 404s every route, and the contract table names a superseded deployment                      | Fixed  |
+| 26  | **Medium**   | API       | `/api/stats` reads `total_collections` from the Factory, which has no such function, on every request                                             | Fixed  |
+| 27  | **Medium**   | Docs      | Royalties are described as "enforced" and events as "real-time"; `src/services` sat at 14% line coverage                                          | Fixed  |
 
 ---
 
@@ -427,6 +443,133 @@ this pass's findings (16–18) added.
 
 ---
 
+## Findings from the seeded-deployment pass
+
+These are recorded separately because the _method_ that found them is the finding.
+Each was reproduced against the live testnet contracts named in the README, and
+none of them could have been found by reading the code or by the mocked tests.
+
+### 19. The indexer's event filter is rejected by the RPC
+
+`fetchEvents` requested events with `topics: [[], ['*']]`. The RPC rejects that
+outright:
+
+```
+filter 1 invalid: topic 1 invalid: topic must have at least 1 segment
+```
+
+An empty segment is not a wildcard; it is an error, and because every filter in a
+request is validated before any event is returned, this failed the entire
+`getEvents` call. `/api/stats`, `/api/nfts`, `/api/collections` and `/api/creators`
+therefore answered `500 INTERNAL` — while the suite stayed green, because the
+indexer test mocks the RPC. The filter is now omitted entirely: `contractIds`
+already scopes the query, and the decoder verifies the topic symbol before
+decoding, so nothing is lost by leaving it out.
+
+### 20. The cold-start window is outside the event retention period
+
+Measured on the public testnet RPC: a 10,500-ledger lookback returns events, an
+11,000-ledger lookback returns **zero events and no error**. `getHealth()` reports
+a `ledgerRetentionWindow` of 120,960, which is the range a `startLedger` may fall
+in — it is not the range that still holds events, and the two differ by an order of
+magnitude.
+
+The previous fixed 17,000-ledger window therefore sat outside the event window, so
+every fetch returned nothing and the feed was empty permanently rather than
+temporarily. A cold start now searches downward until the RPC returns events, which
+keeps the indexer correct on a node with different retention instead of encoding
+one measurement as an assumption.
+
+### 21. Contract values arrive as `bigint`, and `JSON.stringify` will not take one
+
+`scValToNative` returns a `bigint` for 64- and 128-bit integers so that nothing is
+rounded on the way in. `JSON.stringify` throws on a `bigint` rather than degrading,
+so `/api/nfts`, `/api/collections` and `/api/creators` each answered
+`500 INTERNAL` as soon as a contract returned a struct containing a u64 — an
+`nft_count`, a timestamp, a token id. The observable error was
+`Do not know how to serialize a BigInt`.
+
+This is the clearest example of why the mocked suite was not enough. With an empty
+indexer those routes took an early branch, enriched nothing, and never touched a
+contract value; the route tests mock the reader and return plain numbers. The bug
+required a seeded chain to appear, and then it appeared on three endpoints at once.
+
+`simulateRead` now normalizes what it returns, so a new route cannot reintroduce it
+by forgetting: a safe-range `bigint` becomes a number, and a larger one becomes a
+string rather than a silently rounded one, because an i128 amount can exceed 2^53.
+
+### 22. Refreshes replace the store, so the feed drains to empty
+
+Events were fetched with a forward-only cursor and the store was _replaced_ with
+each page. That means the store held only what was newer than the cursor — usually
+nothing — so a correct refresh emptied the feed seconds after filling it. Pages are
+now merged, deduplicated by paging token (a retry can re-deliver a page) and
+trimmed to the bound.
+
+### 23. RPC calls had no deadline, so one hang held every route open
+
+`getEvents` and `getLatestLedger` were called without a timeout. A hung upstream
+did not fail a refresh; it never settled, and because concurrent callers share a
+single in-flight refresh promise, every endpoint that touches the store waited with
+it. Measured: `/api/stats` held a request open for **71 seconds**, and `/api/health`,
+which refreshes the same store, timed out alongside it. Calls are now bounded, which
+converts an unbounded hang into a reported `504` and an alertable `indexer.stalled`.
+
+### 24. Nothing exercised the app against a live chain
+
+Findings 19 through 23 share a single cause: every boundary was mocked, so the one
+integration nobody stubbed — the app talking to Soroban RPC — was unverified.
+`scripts/smoke-test.sh` now asserts, over HTTP against a real deployment, that
+readiness reports all five contracts wired, that the RPC answers, that the indexer
+has ingested events, and that the token and collection payloads carry the fields the
+UI renders. Its first run found finding 23.
+
+### 25. The advertised deployment was not the code in the repository
+
+The README's live demo was built before the API surface existed: every `/api/*`
+route on it returned 404 and its pages rendered placeholder content that is not in
+this repository. The contract table, the deployer address and the deployment date
+all referred to a superseded deployment whose `initialize` transactions no longer
+even correspond to a function in the interface. A reviewer checking any claim in
+the first five minutes would have found the contradiction.
+
+This is recorded as a finding rather than quietly corrected because it is the same
+failure as finding 8 (the backlog) and finding 18 (this document): a claim that no
+longer matches what is deployed. Documentation drift is not cosmetic when the
+document is the evidence.
+
+### 26. `/api/stats` read a function from the wrong contract
+
+The Factory has no `total_collections` function — only the Collection contract does
+— so that read always failed with `trying to invoke non-existent contract function`.
+It was harmless to the response, because the fallback expression resolved to the
+collection counter either way, which is exactly why it went unnoticed: every request
+paid for a doomed RPC round trip and logged a warning, and the comment explaining
+the preference named a function that does not exist.
+
+### 27. Overstated claims and untested service modules
+
+Two README claims were overstated rather than stale. Royalties were described as
+"enforced by the Royalty smart contract"; a bare NFT transfer carries no payment, so
+the contract quotes payouts and settlement is the caller's job — which is what the
+rest of the documentation already said. Event handling was described as "real-time
+streaming"; both the client hook and the server indexer poll. Separately,
+`src/services` sat at 14% line coverage while being the code every wallet
+interaction passes through; it is now 34%, with the two branch-heavy modules at 96%
+and 68%.
+
+### A note on a defect introduced during this pass
+
+Adding the demo metadata, this review introduced a defect and then found it in the
+same pass: the seeded tokens point at `raw.githubusercontent.com`, which
+`next.config.js` did not allow in `images.remotePatterns`, so every seeded token
+would have failed to load its image at render time with nothing in the build output
+to indicate a problem. The fix is one line, and the test is the point — it walks the
+demo documents and requires each image host to be in the allowlist, so the next host
+added fails in CI rather than in a browser.
+
+---
+
 ## What is already strong
 
 Reviewing honestly cuts both ways, and these are not accidents:
@@ -471,9 +614,11 @@ All eighteen findings above are fixed. What remains open is tracked in
   cannot answer historical queries and is inconsistent across instances.
 - **A shared rate-limit store.** The limiter is per instance, so limits multiply
   under horizontal scaling.
-- **End-to-end smoke tests.** The critical path is covered by unit and component
-  tests that stub every boundary, so an integration break against a real RPC would
-  not be caught.
+
+The end-to-end gap listed in the previous revision of this document is closed:
+`scripts/smoke-test.sh` exercises the running app against a live deployment, and
+the runbook documents when to run it. It is deliberately not a CI gate, because it
+needs a live RPC and a seeded deployment and would be flaky there.
 
 Anything not marked _Fixed_ above should be treated as unverified. Neither this
 review nor the status document asserts correctness for it.

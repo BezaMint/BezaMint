@@ -90,15 +90,22 @@ development and tests; a documented failure mode for when the store is unreachab
 
 ## Tests
 
-### 6. [tests] End-to-end smoke tests
+### 6. [tests] Browser-driven end-to-end suite for the write path
 
-**Problem.** There are no E2E tests. The critical path — connect wallet, create a
-collection, mint, view the result — is covered only by unit and component tests
-that stub every boundary, so an integration break between the app and the RPC
-would not be caught.
+**Partially addressed.** `scripts/smoke-test.sh` covers the **read** path over HTTP
+against a live deployment, which is what the mocked unit suite could not reach; run
+it per `docs/deployment-runbook.md` § 2.1.
 
-**Acceptance criteria.** A browser-driven smoke suite for the mint flow against a
-testnet deployment, run on a schedule or before release.
+**Problem.** The **write** path — connect wallet, create a collection, mint, confirm
+and view the result — is still covered only by unit and component tests that stub
+every boundary. A break in signing, submission or confirmation handling would not
+be caught before a user hits it, and a wallet extension is exactly the kind of
+dependency a headless test cannot stand in for convincingly.
+
+**Acceptance criteria.** A browser-driven suite that drives a real or mocked wallet
+against a testnet deployment, asserting a minted token appears with the metadata it
+was minted with. Run before a release rather than on every push, since it needs a
+funded account and a live network.
 
 ---
 
