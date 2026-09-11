@@ -20,7 +20,8 @@
 //! State expiration is managed explicitly (same policy as the NFT contract).
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, Map, Vec,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
+    BytesN, Env, Map, Vec,
 };
 
 // ─────────────────────────── Constants ───────────────────────────
@@ -119,10 +120,51 @@ fn assert_version(env: &Env) {
         .instance()
         .get(&RoyaltyKey::Version)
         .unwrap_or(0);
-    assert!(
-        found == STORAGE_VERSION,
-        "Royalty: storage version {found} does not match this build ({STORAGE_VERSION}); run migrate"
-    );
+    if found != STORAGE_VERSION {
+        panic_with_error!(env, RoyaltyError::StorageVersionMismatch);
+    }
+}
+
+// ─────────────────────────── Errors ───────────────────────────
+
+/// Typed contract errors.
+///
+/// A numeric code is part of the contract's public interface and the committed
+/// ABI snapshot; callers switch on it instead of substring-matching a message.
+/// Codes are grouped by subsystem and are never renumbered once shipped: add
+/// new variants at the end of their group and leave existing numbers alone.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum RoyaltyError {
+    /// The contract has not been constructed.
+    NotInitialized = 1,
+    /// Stored schema version does not match this build; run `migrate`.
+    StorageVersionMismatch = 2,
+    /// `migrate` was given a `from_version` that is not what is stored.
+    StoredVersionMismatch = 3,
+    /// `migrate` called when storage is already at this build's version.
+    AlreadyAtCurrentVersion = 4,
+    /// No royalty terms exist for the target.
+    NoConfig = 5,
+    /// Terms already exist; use `update_royalty` instead.
+    ConfigAlreadyExists = 6,
+    /// Rate exceeds `MAX_BASIS_POINTS`.
+    BasisPointsTooHigh = 7,
+    /// Caller is neither the recorded creator nor the royalty admin.
+    CallerCannotUpdate = 8,
+    /// Terms are frozen and cannot be amended or removed.
+    ConfigFrozen = 9,
+    /// More recipients than `MAX_RECIPIENTS`.
+    TooManyRecipients = 10,
+    /// A recipient was given a zero share.
+    ZeroShare = 11,
+    /// Recipient shares do not sum to exactly `TOTAL_SHARE`.
+    SharesMustSumToTotal = 12,
+    /// `quote_royalty` was given a negative sale price.
+    SalePriceNegative = 13,
+    /// `sale_price * basis_points` overflowed i128.
+    SalePriceTooLarge = 14,
 }
 
 // ─────────────────────────── Contract ───────────────────────────
@@ -159,7 +201,7 @@ impl BezaMintRoyalty {
         env.storage()
             .instance()
             .get(&RoyaltyKey::Admin)
-            .unwrap_or_else(|| panic!("Royalty: not initialized"))
+            .unwrap_or_else(|| panic_with_error!(&env, RoyaltyError::NotInitialized))
     }
 
     /// Returns `true` once `initialize` has succeeded.
@@ -187,7 +229,7 @@ impl BezaMintRoyalty {
             .storage()
             .instance()
             .get(&RoyaltyKey::Admin)
-            .unwrap_or_else(|| panic!("Royalty: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, RoyaltyError::NotInitialized));
         admin.require_auth();
 
         let stored: u32 = env
@@ -195,14 +237,12 @@ impl BezaMintRoyalty {
             .instance()
             .get(&RoyaltyKey::Version)
             .unwrap_or(0);
-        assert!(
-            stored == from_version,
-            "Royalty: stored version is {stored}, not {from_version}"
-        );
-        assert!(
-            from_version != STORAGE_VERSION,
-            "Royalty: already at version {STORAGE_VERSION}"
-        );
+        if stored != from_version {
+            panic_with_error!(&env, RoyaltyError::StoredVersionMismatch);
+        }
+        if from_version == STORAGE_VERSION {
+            panic_with_error!(&env, RoyaltyError::AlreadyAtCurrentVersion);
+        }
 
         env.storage()
             .instance()
@@ -222,7 +262,7 @@ impl BezaMintRoyalty {
             .storage()
             .instance()
             .get(&RoyaltyKey::Admin)
-            .unwrap_or_else(|| panic!("Royalty: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, RoyaltyError::NotInitialized));
         admin.require_auth();
 
         env.deployer().update_current_contract_wasm(new_wasm_hash);
@@ -242,7 +282,7 @@ impl BezaMintRoyalty {
             .storage()
             .instance()
             .get(&RoyaltyKey::Admin)
-            .unwrap_or_else(|| panic!("Royalty: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, RoyaltyError::NotInitialized));
         admin.require_auth();
 
         env.storage().instance().set(&RoyaltyKey::Admin, &new_admin);
@@ -272,14 +312,13 @@ impl BezaMintRoyalty {
             .storage()
             .instance()
             .get(&RoyaltyKey::Admin)
-            .unwrap_or_else(|| panic!("Royalty: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, RoyaltyError::NotInitialized));
         admin.require_auth();
 
-        assert!(
-            Self::validate_basis_points(basis_points),
-            "Royalty: basis points must be <= {MAX_BASIS_POINTS}"
-        );
-        Self::validate_recipients(&recipients);
+        if !Self::validate_basis_points(basis_points) {
+            panic_with_error!(&env, RoyaltyError::BasisPointsTooHigh);
+        }
+        Self::validate_recipients(&env, &recipients);
 
         let key = if is_collection {
             RoyaltyKey::ConfigCollection(target_id)
@@ -291,10 +330,9 @@ impl BezaMintRoyalty {
         // them. Before this guard a frozen config could be replaced outright,
         // which made `freeze_royalty` advisory rather than binding, and a live
         // config could be swapped without any `Updated` event being emitted.
-        assert!(
-            !env.storage().persistent().has(&key),
-            "Royalty: config already exists for target {target_id}; use update_royalty"
-        );
+        if env.storage().persistent().has(&key) {
+            panic_with_error!(&env, RoyaltyError::ConfigAlreadyExists);
+        }
 
         let config = RoyaltyConfig {
             creator,
@@ -335,7 +373,7 @@ impl BezaMintRoyalty {
             .storage()
             .instance()
             .get(&RoyaltyKey::Admin)
-            .unwrap_or_else(|| panic!("Royalty: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, RoyaltyError::NotInitialized));
 
         let key = if is_collection {
             RoyaltyKey::ConfigCollection(target_id)
@@ -347,21 +385,18 @@ impl BezaMintRoyalty {
             .storage()
             .persistent()
             .get(&key)
-            .unwrap_or_else(|| panic!("Royalty: no config for target {target_id}"));
+            .unwrap_or_else(|| panic_with_error!(&env, RoyaltyError::NoConfig));
 
-        assert!(
-            caller == admin || caller == config.creator,
-            "Royalty: caller cannot update this config"
-        );
-        assert!(
-            !config.is_frozen,
-            "Royalty: config is frozen for {target_id}"
-        );
-        assert!(
-            Self::validate_basis_points(basis_points),
-            "Royalty: basis points must be <= {MAX_BASIS_POINTS}"
-        );
-        Self::validate_recipients(&recipients);
+        if caller != admin && caller != config.creator {
+            panic_with_error!(&env, RoyaltyError::CallerCannotUpdate);
+        }
+        if config.is_frozen {
+            panic_with_error!(&env, RoyaltyError::ConfigFrozen);
+        }
+        if !Self::validate_basis_points(basis_points) {
+            panic_with_error!(&env, RoyaltyError::BasisPointsTooHigh);
+        }
+        Self::validate_recipients(&env, &recipients);
 
         config.basis_points = basis_points;
         config.recipients = recipients;
@@ -385,7 +420,7 @@ impl BezaMintRoyalty {
             .storage()
             .instance()
             .get(&RoyaltyKey::Admin)
-            .unwrap_or_else(|| panic!("Royalty: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, RoyaltyError::NotInitialized));
         admin.require_auth();
 
         let key = if is_collection {
@@ -398,11 +433,10 @@ impl BezaMintRoyalty {
             .storage()
             .persistent()
             .get(&key)
-            .unwrap_or_else(|| panic!("Royalty: no config for target {target_id}"));
-        assert!(
-            !config.is_frozen,
-            "Royalty: config is frozen for {target_id}"
-        );
+            .unwrap_or_else(|| panic_with_error!(&env, RoyaltyError::NoConfig));
+        if config.is_frozen {
+            panic_with_error!(&env, RoyaltyError::ConfigFrozen);
+        }
 
         env.storage().persistent().remove(&key);
         env.storage()
@@ -420,7 +454,7 @@ impl BezaMintRoyalty {
             .storage()
             .instance()
             .get(&RoyaltyKey::Admin)
-            .unwrap_or_else(|| panic!("Royalty: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, RoyaltyError::NotInitialized));
         admin.require_auth();
 
         let key = if is_collection {
@@ -433,7 +467,7 @@ impl BezaMintRoyalty {
             .storage()
             .persistent()
             .get(&key)
-            .unwrap_or_else(|| panic!("Royalty: no config for target {target_id}"));
+            .unwrap_or_else(|| panic_with_error!(&env, RoyaltyError::NoConfig));
 
         config.is_frozen = true;
         env.storage().persistent().set(&key, &config);
@@ -474,12 +508,14 @@ impl BezaMintRoyalty {
         is_collection: bool,
         sale_price: i128,
     ) -> Vec<RoyaltyPayout> {
-        assert!(sale_price >= 0, "Royalty: sale price cannot be negative");
+        if sale_price < 0 {
+            panic_with_error!(&env, RoyaltyError::SalePriceNegative);
+        }
 
         let config = Self::get_royalty(env.clone(), target_id, is_collection);
         let total = sale_price
             .checked_mul(config.basis_points as i128)
-            .unwrap_or_else(|| panic!("Royalty: sale price is too large to quote"))
+            .unwrap_or_else(|| panic_with_error!(&env, RoyaltyError::SalePriceTooLarge))
             / (MAX_BASIS_POINTS as i128);
 
         let mut payouts = Vec::new(&env);
@@ -523,29 +559,26 @@ impl BezaMintRoyalty {
     /// 250% of a sale (impossible, so every payout would underflow or the
     /// listed recipients would silently receive less than configured) or 40%
     /// (leaving the remainder unaccounted for).
-    fn validate_recipients(recipients: &Map<Address, u32>) {
+    fn validate_recipients(env: &Env, recipients: &Map<Address, u32>) {
         if recipients.is_empty() {
             return;
         }
 
-        assert!(
-            recipients.len() <= MAX_RECIPIENTS,
-            "Royalty: at most {MAX_RECIPIENTS} recipients are allowed"
-        );
+        if recipients.len() > MAX_RECIPIENTS {
+            panic_with_error!(env, RoyaltyError::TooManyRecipients);
+        }
 
         let mut total: u32 = 0;
         for (_, share) in recipients.iter() {
-            assert!(
-                share > 0,
-                "Royalty: every recipient share must be greater than zero"
-            );
+            if share == 0 {
+                panic_with_error!(env, RoyaltyError::ZeroShare);
+            }
             total = total.saturating_add(share);
         }
 
-        assert!(
-            total == TOTAL_SHARE,
-            "Royalty: recipient shares must sum to {TOTAL_SHARE}"
-        );
+        if total != TOTAL_SHARE {
+            panic_with_error!(env, RoyaltyError::SharesMustSumToTotal);
+        }
     }
 
     pub fn get_royalty(env: Env, target_id: u64, is_collection: bool) -> RoyaltyConfig {
@@ -564,7 +597,7 @@ impl BezaMintRoyalty {
                 bump_ttl(&env, &key);
                 config
             }
-            None => panic!("Royalty: no config for target {target_id}"),
+            None => panic_with_error!(&env, RoyaltyError::NoConfig),
         }
     }
 

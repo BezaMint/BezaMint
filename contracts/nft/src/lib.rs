@@ -28,7 +28,8 @@
 //! past half-life, so ownership records cannot silently archive.
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, String, Vec,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
+    BytesN, Env, String, Vec,
 };
 
 // ── Constants ──────────────────────────────────────────────────
@@ -70,6 +71,56 @@ const TTL_LEDGERS: u32 = 6_312_000;
 /// Entries at or below this remaining TTL are bumped back to [`TTL_LEDGERS`]
 /// on access, i.e. reads refresh past half-life.
 const TTL_THRESHOLD: u32 = TTL_LEDGERS / 2;
+
+// ── Errors ─────────────────────────────────────────────────────
+
+/// Typed contract errors.
+///
+/// Every failure path returns a stable numeric code instead of a formatted
+/// string. Callers (the web API, integrators, indexers) can switch on the code
+/// rather than substring-match a message, and the codes are part of the
+/// contract's committed ABI snapshot, so adding or renumbering one is a
+/// reviewable interface change rather than a silent edit to a panic message.
+///
+/// Codes are grouped by subsystem and must never be renumbered: a code that has
+/// shipped is part of the public interface. Add new variants at the end of
+/// their group and leave the existing numbers alone.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum NftError {
+    /// The contract has not been constructed.
+    NotInitialized = 1,
+    /// Stored schema version does not match this build; run `migrate`.
+    StorageVersionMismatch = 2,
+    /// `migrate` was given a `from_version` that is not what is stored.
+    StoredVersionMismatch = 3,
+    /// `migrate` called when storage is already at this build's version.
+    AlreadyAtCurrentVersion = 4,
+    /// Metadata URI is empty.
+    MetadataUriEmpty = 5,
+    /// Metadata URI exceeds [`MAX_METADATA_URI_LEN`].
+    MetadataUriTooLong = 6,
+    /// Metadata URI does not use an https, http or ipfs scheme.
+    MetadataUriSchemeInvalid = 7,
+    /// The all-zero account was supplied where a real account is required.
+    ZeroAddress = 8,
+    /// [`MAX_SUPPLY`] has been reached.
+    MaxSupplyReached = 9,
+    /// No token exists with the supplied id.
+    TokenNotFound = 10,
+    /// `transfer` caller is not the current owner.
+    CallerNotOwner = 11,
+    /// `transfer_from` `from` is not the current owner.
+    FromIsNotOwner = 12,
+    /// `transfer_from` spender holds no per-token or blanket approval.
+    SpenderNotApproved = 13,
+    /// The token exists but its data record is gone (for example after a burn).
+    TokenDataNotFound = 14,
+    /// The per-owner index is inconsistent. Indicates a logic defect, not
+    /// caller error; reachable only if the swap-removal invariant is broken.
+    OwnershipIndexInconsistent = 15,
+}
 
 // ── Storage keys ───────────────────────────────────────────────
 
@@ -191,10 +242,9 @@ fn bump_ttl(env: &Env, key: &NftKey) {
 /// corrupting state.
 fn assert_version(env: &Env) {
     let found: u32 = env.storage().instance().get(&NftKey::Version).unwrap_or(0);
-    assert!(
-        found == STORAGE_VERSION,
-        "NFT: storage version {found} does not match this build ({STORAGE_VERSION}); run migrate"
-    );
+    if found != STORAGE_VERSION {
+        panic_with_error!(env, NftError::StorageVersionMismatch);
+    }
 }
 
 /// True when `s` begins with `prefix`. Soroban's `String` has no
@@ -248,7 +298,7 @@ impl BezaMintNft {
         env.storage()
             .instance()
             .get(&NftKey::Admin)
-            .unwrap_or_else(|| panic!("NFT: not initialized"))
+            .unwrap_or_else(|| panic_with_error!(&env, NftError::NotInitialized))
     }
 
     /// Returns `true` once `initialize` has succeeded. Deploy tooling uses this
@@ -276,18 +326,16 @@ impl BezaMintNft {
             .storage()
             .instance()
             .get(&NftKey::Admin)
-            .unwrap_or_else(|| panic!("NFT: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, NftError::NotInitialized));
         admin.require_auth();
 
         let stored: u32 = env.storage().instance().get(&NftKey::Version).unwrap_or(0);
-        assert!(
-            stored == from_version,
-            "NFT: stored version is {stored}, not {from_version}"
-        );
-        assert!(
-            from_version != STORAGE_VERSION,
-            "NFT: already at version {STORAGE_VERSION}"
-        );
+        if stored != from_version {
+            panic_with_error!(&env, NftError::StoredVersionMismatch);
+        }
+        if from_version == STORAGE_VERSION {
+            panic_with_error!(&env, NftError::AlreadyAtCurrentVersion);
+        }
 
         env.storage()
             .instance()
@@ -307,7 +355,7 @@ impl BezaMintNft {
             .storage()
             .instance()
             .get(&NftKey::Admin)
-            .unwrap_or_else(|| panic!("NFT: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, NftError::NotInitialized));
         admin.require_auth();
 
         env.deployer().update_current_contract_wasm(new_wasm_hash);
@@ -327,35 +375,32 @@ impl BezaMintNft {
         env.storage()
             .instance()
             .get::<NftKey, Address>(&NftKey::Admin)
-            .unwrap_or_else(|| panic!("NFT: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, NftError::NotInitialized));
         // Recipient-gated: the recipient authorizes the mint so any user can
         // mint through the Factory instead of requiring the contract admin.
         to.require_auth();
 
-        assert!(
-            !metadata_uri.is_empty(),
-            "NFT: metadata URI cannot be empty"
-        );
-        assert!(
-            metadata_uri.len() <= MAX_METADATA_URI_LEN,
-            "NFT: metadata URI exceeds {MAX_METADATA_URI_LEN} chars"
-        );
+        if metadata_uri.is_empty() {
+            panic_with_error!(&env, NftError::MetadataUriEmpty);
+        }
+        if metadata_uri.len() > MAX_METADATA_URI_LEN {
+            panic_with_error!(&env, NftError::MetadataUriTooLong);
+        }
         // Only real web/IPFS URLs are accepted. The frontend renders this
         // string into the DOM, so an arbitrary scheme (javascript:, data:) is a
         // stored-XSS vector, and the Collection contract applies the same rule.
-        assert!(
-            starts_with(&metadata_uri, b"https://")
-                || starts_with(&metadata_uri, b"http://")
-                || starts_with(&metadata_uri, b"ipfs://"),
-            "NFT: metadata URI must use an https, http or ipfs scheme"
-        );
-        Self::assert_not_zero(&env, &to, "mint recipient");
+        if !(starts_with(&metadata_uri, b"https://")
+            || starts_with(&metadata_uri, b"http://")
+            || starts_with(&metadata_uri, b"ipfs://"))
+        {
+            panic_with_error!(&env, NftError::MetadataUriSchemeInvalid);
+        }
+        Self::assert_not_zero(&env, &to);
 
         let counter: u64 = env.storage().instance().get(&NftKey::Counter).unwrap_or(0);
-        assert!(
-            counter < MAX_SUPPLY,
-            "NFT: max supply of {MAX_SUPPLY} reached"
-        );
+        if counter >= MAX_SUPPLY {
+            panic_with_error!(&env, NftError::MaxSupplyReached);
+        }
         let token_id = counter + 1;
         let ledger = env.ledger();
 
@@ -395,9 +440,11 @@ impl BezaMintNft {
             .storage()
             .persistent()
             .get(&NftKey::Owner(token_id))
-            .unwrap_or_else(|| panic!("NFT: token {token_id} not found"));
-        assert!(current == from, "NFT: caller not owner");
-        Self::assert_not_zero(&env, &to, "transfer recipient");
+            .unwrap_or_else(|| panic_with_error!(&env, NftError::TokenNotFound));
+        if current != from {
+            panic_with_error!(&env, NftError::CallerNotOwner);
+        }
+        Self::assert_not_zero(&env, &to);
 
         Self::move_token(&env, &from, &to, token_id);
     }
@@ -416,13 +463,17 @@ impl BezaMintNft {
             .storage()
             .persistent()
             .get(&NftKey::Owner(token_id))
-            .unwrap_or_else(|| panic!("NFT: token {token_id} not found"));
-        assert!(current == from, "NFT: from is not the token owner");
+            .unwrap_or_else(|| panic_with_error!(&env, NftError::TokenNotFound));
+        if current != from {
+            panic_with_error!(&env, NftError::FromIsNotOwner);
+        }
 
         let authorised = Self::is_approved(env.clone(), spender.clone(), token_id)
             || Self::is_approved_for_all(env.clone(), from.clone(), spender.clone());
-        assert!(authorised, "NFT: spender is not approved for token");
-        Self::assert_not_zero(&env, &to, "transfer recipient");
+        if !authorised {
+            panic_with_error!(&env, NftError::SpenderNotApproved);
+        }
+        Self::assert_not_zero(&env, &to);
 
         Self::move_token(&env, &from, &to, token_id);
     }
@@ -435,11 +486,10 @@ impl BezaMintNft {
     /// Soroban has no null address, so the all-zero account is rejected as an
     /// explicit sentinel. Without this a typo, a truncated input or an
     /// uninitialised value can permanently strand an asset.
-    fn assert_not_zero(env: &Env, address: &Address, context: &str) {
-        assert!(
-            address != &Address::from_str(env, ZERO_ADDRESS),
-            "NFT: zero address is not allowed as {context}"
-        );
+    fn assert_not_zero(env: &Env, address: &Address) {
+        if address == &Address::from_str(env, ZERO_ADDRESS) {
+            panic_with_error!(env, NftError::ZeroAddress);
+        }
     }
     fn move_token(env: &Env, from: &Address, to: &Address, token_id: u64) {
         Self::index_remove(env, from, token_id);
@@ -510,7 +560,7 @@ impl BezaMintNft {
                 .storage()
                 .persistent()
                 .get(&NftKey::OwnedToken(owner.clone(), last))
-                .unwrap_or_else(|| panic!("NFT: ownership index is inconsistent"));
+                .unwrap_or_else(|| panic_with_error!(env, NftError::OwnershipIndexInconsistent));
             env.storage()
                 .persistent()
                 .set(&NftKey::OwnedToken(owner.clone(), index), &moved);
@@ -540,9 +590,9 @@ impl BezaMintNft {
             .storage()
             .persistent()
             .get(&NftKey::Owner(token_id))
-            .unwrap_or_else(|| panic!("NFT: token {token_id} not found"));
+            .unwrap_or_else(|| panic_with_error!(&env, NftError::TokenNotFound));
         owner.require_auth();
-        Self::assert_not_zero(&env, &operator, "approval operator");
+        Self::assert_not_zero(&env, &operator);
         bump_ttl(&env, &NftKey::Owner(token_id));
         env.storage()
             .persistent()
@@ -558,7 +608,7 @@ impl BezaMintNft {
         assert_version(&env);
         owner_addr.require_auth();
         if approved {
-            Self::assert_not_zero(&env, &operator, "approval operator");
+            Self::assert_not_zero(&env, &operator);
         }
         let key = NftKey::OperatorApproval(owner_addr, operator);
         env.storage().persistent().set(&key, &approved);
@@ -574,7 +624,7 @@ impl BezaMintNft {
             .storage()
             .persistent()
             .get(&NftKey::Owner(token_id))
-            .unwrap_or_else(|| panic!("NFT: token {token_id} not found"));
+            .unwrap_or_else(|| panic_with_error!(&env, NftError::TokenNotFound));
         owner.require_auth();
         Self::index_remove(&env, &owner, token_id);
         env.storage().persistent().remove(&NftKey::Owner(token_id));
@@ -602,7 +652,7 @@ impl BezaMintNft {
                 bump_ttl(&env, &key);
                 owner
             }
-            None => panic!("NFT: token {token_id} not found"),
+            None => panic_with_error!(&env, NftError::TokenNotFound),
         }
     }
 
@@ -615,7 +665,7 @@ impl BezaMintNft {
                 bump_ttl(&env, &key);
                 data
             }
-            None => panic!("NFT: data for token {token_id} not found"),
+            None => panic_with_error!(&env, NftError::TokenDataNotFound),
         }
     }
 

@@ -21,7 +21,8 @@
 //! State expiration is managed explicitly (same policy as the NFT contract).
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, String, Vec,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
+    BytesN, Env, String, Vec,
 };
 
 // ─────────────────────────── Constants ───────────────────────────
@@ -137,10 +138,9 @@ fn assert_version(env: &Env) {
         .instance()
         .get(&CreatorKey::Version)
         .unwrap_or(0);
-    assert!(
-        found == STORAGE_VERSION,
-        "Creator: storage version {found} does not match this build ({STORAGE_VERSION}); run migrate"
-    );
+    if found != STORAGE_VERSION {
+        panic_with_error!(env, CreatorError::StorageVersionMismatch);
+    }
 }
 
 /// True when `s` begins with `prefix`. Soroban's `String` has no
@@ -173,51 +173,95 @@ fn eq_ignore_ascii_case(s: &String, expected: &[u8]) -> bool {
 /// URL and fit within [`MAX_URI_LEN`]. Arbitrary schemes such as `javascript:`
 /// or `data:` are rejected because the frontend renders these strings into the
 /// DOM, where they would be a stored-XSS vector.
-fn validate_uri(uri: &String, field: &str) {
+fn validate_uri(env: &Env, uri: &String) {
     if uri.is_empty() {
         return;
     }
-    assert!(
-        uri.len() <= MAX_URI_LEN,
-        "Creator: {field} exceeds {MAX_URI_LEN} chars"
-    );
-    assert!(
-        starts_with(uri, b"https://")
-            || starts_with(uri, b"http://")
-            || starts_with(uri, b"ipfs://"),
-        "Creator: {field} must use an https, http or ipfs URL"
-    );
+    if uri.len() > MAX_URI_LEN {
+        panic_with_error!(env, CreatorError::UriTooLong);
+    }
+    if !(starts_with(uri, b"https://")
+        || starts_with(uri, b"http://")
+        || starts_with(uri, b"ipfs://"))
+    {
+        panic_with_error!(env, CreatorError::UriSchemeInvalid);
+    }
 }
 
 /// Validate the platform and URL of every social link: the platform must be on
 /// the allowlist and the URL must be a real `http(s)` link. No `ipfs://` here
 /// because a social link that browsers cannot open is useless, and no length
 /// surprises: a link is bounded by [`MAX_SOCIAL_URL_LEN`].
-fn validate_social_links(links: &Vec<SocialLink>) {
-    assert!(
-        links.len() <= MAX_SOCIAL_LINKS,
-        "Creator: max {MAX_SOCIAL_LINKS} social links"
-    );
-    for link in links.iter() {
-        assert!(
-            link.platform.len() <= MAX_PLATFORM_LEN,
-            "Creator: platform name too long"
-        );
-        assert!(
-            ALLOWED_PLATFORMS
-                .iter()
-                .any(|p| eq_ignore_ascii_case(&link.platform, p)),
-            "Creator: unsupported social platform"
-        );
-        assert!(
-            !link.url.is_empty() && link.url.len() <= MAX_SOCIAL_URL_LEN,
-            "Creator: social URL must be 1-{MAX_SOCIAL_URL_LEN} chars"
-        );
-        assert!(
-            starts_with(&link.url, b"https://") || starts_with(&link.url, b"http://"),
-            "Creator: social URL must use an https or http scheme"
-        );
+fn validate_social_links(env: &Env, links: &Vec<SocialLink>) {
+    if links.len() > MAX_SOCIAL_LINKS {
+        panic_with_error!(env, CreatorError::TooManySocialLinks);
     }
+    for link in links.iter() {
+        if link.platform.len() > MAX_PLATFORM_LEN {
+            panic_with_error!(env, CreatorError::PlatformNameTooLong);
+        }
+        if !ALLOWED_PLATFORMS
+            .iter()
+            .any(|p| eq_ignore_ascii_case(&link.platform, p))
+        {
+            panic_with_error!(env, CreatorError::UnsupportedPlatform);
+        }
+        if link.url.is_empty() || link.url.len() > MAX_SOCIAL_URL_LEN {
+            panic_with_error!(env, CreatorError::SocialUrlLengthInvalid);
+        }
+        if !(starts_with(&link.url, b"https://") || starts_with(&link.url, b"http://")) {
+            panic_with_error!(env, CreatorError::SocialUrlSchemeInvalid);
+        }
+    }
+}
+
+// ─────────────────────────── Errors ───────────────────────────
+
+/// Typed contract errors.
+///
+/// A numeric code is part of the contract's public interface and the committed
+/// ABI snapshot; callers switch on it instead of substring-matching a message.
+/// Codes are grouped by subsystem and are never renumbered once shipped.
+///
+/// The URI codes are shared by every profile field (avatar and banner), so the
+/// offending field is no longer named in the message. Field-level detail is
+/// the caller's to add: the client already knows which field it sent.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum CreatorError {
+    /// The contract has not been constructed.
+    NotInitialized = 1,
+    /// Stored schema version does not match this build; run `migrate`.
+    StorageVersionMismatch = 2,
+    /// `migrate` was given a `from_version` that is not what is stored.
+    StoredVersionMismatch = 3,
+    /// `migrate` called when storage is already at this build's version.
+    AlreadyAtCurrentVersion = 4,
+    /// Display name is empty.
+    DisplayNameEmpty = 5,
+    /// Display name exceeds `MAX_DISPLAY_NAME_LEN`.
+    DisplayNameTooLong = 6,
+    /// Bio exceeds `MAX_BIO_LEN`.
+    BioTooLong = 7,
+    /// A profile URI exceeds `MAX_URI_LEN`.
+    UriTooLong = 8,
+    /// A profile URI does not use an https, http or ipfs scheme.
+    UriSchemeInvalid = 9,
+    /// The address is already registered.
+    AlreadyRegistered = 10,
+    /// No profile exists for the address.
+    ProfileNotFound = 11,
+    /// More links than `MAX_SOCIAL_LINKS`.
+    TooManySocialLinks = 12,
+    /// Platform name exceeds `MAX_PLATFORM_LEN`.
+    PlatformNameTooLong = 13,
+    /// Platform is not on the allowlist.
+    UnsupportedPlatform = 14,
+    /// Social URL is empty or exceeds `MAX_SOCIAL_URL_LEN`.
+    SocialUrlLengthInvalid = 15,
+    /// Social URL does not use an https or http scheme.
+    SocialUrlSchemeInvalid = 16,
 }
 
 // ─────────────────────────── Contract ───────────────────────────
@@ -255,7 +299,7 @@ impl BezaMintCreator {
         env.storage()
             .instance()
             .get(&CreatorKey::Admin)
-            .unwrap_or_else(|| panic!("Creator: not initialized"))
+            .unwrap_or_else(|| panic_with_error!(&env, CreatorError::NotInitialized))
     }
 
     /// Returns `true` once `initialize` has succeeded.
@@ -283,7 +327,7 @@ impl BezaMintCreator {
             .storage()
             .instance()
             .get(&CreatorKey::Admin)
-            .unwrap_or_else(|| panic!("Creator: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, CreatorError::NotInitialized));
         admin.require_auth();
 
         let stored: u32 = env
@@ -291,14 +335,12 @@ impl BezaMintCreator {
             .instance()
             .get(&CreatorKey::Version)
             .unwrap_or(0);
-        assert!(
-            stored == from_version,
-            "Creator: stored version is {stored}, not {from_version}"
-        );
-        assert!(
-            from_version != STORAGE_VERSION,
-            "Creator: already at version {STORAGE_VERSION}"
-        );
+        if stored != from_version {
+            panic_with_error!(&env, CreatorError::StoredVersionMismatch);
+        }
+        if from_version == STORAGE_VERSION {
+            panic_with_error!(&env, CreatorError::AlreadyAtCurrentVersion);
+        }
 
         env.storage()
             .instance()
@@ -318,7 +360,7 @@ impl BezaMintCreator {
             .storage()
             .instance()
             .get(&CreatorKey::Admin)
-            .unwrap_or_else(|| panic!("Creator: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, CreatorError::NotInitialized));
         admin.require_auth();
 
         env.deployer().update_current_contract_wasm(new_wasm_hash);
@@ -338,23 +380,24 @@ impl BezaMintCreator {
         assert_version(&env);
         creator.require_auth();
 
-        assert!(!display_name.is_empty(), "Creator: display name required");
-        assert!(
-            display_name.len() <= MAX_DISPLAY_NAME_LEN,
-            "Creator: display name exceeds {MAX_DISPLAY_NAME_LEN} chars"
-        );
-        assert!(
-            bio.len() <= MAX_BIO_LEN,
-            "Creator: bio exceeds {MAX_BIO_LEN} chars"
-        );
-        validate_uri(&avatar_uri, "avatar URI");
-        validate_uri(&banner_uri, "banner URI");
-        assert!(
-            !env.storage()
-                .persistent()
-                .has(&CreatorKey::Profile(creator.clone())),
-            "Creator: already registered"
-        );
+        if display_name.is_empty() {
+            panic_with_error!(&env, CreatorError::DisplayNameEmpty);
+        }
+        if display_name.len() > MAX_DISPLAY_NAME_LEN {
+            panic_with_error!(&env, CreatorError::DisplayNameTooLong);
+        }
+        if bio.len() > MAX_BIO_LEN {
+            panic_with_error!(&env, CreatorError::BioTooLong);
+        }
+        validate_uri(&env, &avatar_uri);
+        validate_uri(&env, &banner_uri);
+        if env
+            .storage()
+            .persistent()
+            .has(&CreatorKey::Profile(creator.clone()))
+        {
+            panic_with_error!(&env, CreatorError::AlreadyRegistered);
+        }
 
         let counter: u64 = env
             .storage()
@@ -405,22 +448,22 @@ impl BezaMintCreator {
             .storage()
             .persistent()
             .get(&CreatorKey::Profile(creator.clone()))
-            .unwrap_or_else(|| panic!("Creator: profile not found"));
+            .unwrap_or_else(|| panic_with_error!(&env, CreatorError::ProfileNotFound));
 
         // The same validation as `register`: an update must not be able to
         // move a profile into a state it could never have been created in
         // (empty display name, oversized bio, or an arbitrary URI scheme).
-        assert!(!display_name.is_empty(), "Creator: display name required");
-        assert!(
-            display_name.len() <= MAX_DISPLAY_NAME_LEN,
-            "Creator: display name exceeds {MAX_DISPLAY_NAME_LEN} chars"
-        );
-        assert!(
-            bio.len() <= MAX_BIO_LEN,
-            "Creator: bio exceeds {MAX_BIO_LEN} chars"
-        );
-        validate_uri(&avatar_uri, "avatar URI");
-        validate_uri(&banner_uri, "banner URI");
+        if display_name.is_empty() {
+            panic_with_error!(&env, CreatorError::DisplayNameEmpty);
+        }
+        if display_name.len() > MAX_DISPLAY_NAME_LEN {
+            panic_with_error!(&env, CreatorError::DisplayNameTooLong);
+        }
+        if bio.len() > MAX_BIO_LEN {
+            panic_with_error!(&env, CreatorError::BioTooLong);
+        }
+        validate_uri(&env, &avatar_uri);
+        validate_uri(&env, &banner_uri);
 
         profile.display_name = display_name;
         profile.bio = bio;
@@ -440,13 +483,13 @@ impl BezaMintCreator {
         assert_version(&env);
         creator.require_auth();
 
-        validate_social_links(&links);
+        validate_social_links(&env, &links);
 
         let mut profile: CreatorProfile = env
             .storage()
             .persistent()
             .get(&CreatorKey::Profile(creator.clone()))
-            .unwrap_or_else(|| panic!("Creator: profile not found"));
+            .unwrap_or_else(|| panic_with_error!(&env, CreatorError::ProfileNotFound));
 
         profile.social_links = links;
         profile.updated_at = env.ledger().timestamp();
@@ -470,14 +513,14 @@ impl BezaMintCreator {
             .storage()
             .instance()
             .get(&CreatorKey::Admin)
-            .unwrap_or_else(|| panic!("Creator: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, CreatorError::NotInitialized));
         stored_admin.require_auth();
 
         let mut profile: CreatorProfile = env
             .storage()
             .persistent()
             .get(&CreatorKey::Profile(creator.clone()))
-            .unwrap_or_else(|| panic!("Creator: profile not found"));
+            .unwrap_or_else(|| panic_with_error!(&env, CreatorError::ProfileNotFound));
 
         profile.is_verified = true;
         profile.updated_at = env.ledger().timestamp();
@@ -510,7 +553,7 @@ impl BezaMintCreator {
                 bump_ttl(&env, &key);
                 profile
             }
-            None => panic!("Creator: profile not found"),
+            None => panic_with_error!(&env, CreatorError::ProfileNotFound),
         }
     }
 

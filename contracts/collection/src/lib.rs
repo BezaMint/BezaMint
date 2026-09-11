@@ -26,7 +26,8 @@
 //! State expiration is managed explicitly (same policy as the NFT contract).
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, String, Vec,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
+    BytesN, Env, String, Vec,
 };
 
 /// Upper bound on how many NFTs a single collection may hold. Kept at module
@@ -127,10 +128,9 @@ fn bump_ttl(env: &Env, key: &ColKey) {
 /// the version first so the mismatch is loud and immediate.
 fn assert_version(env: &Env) {
     let found: u32 = env.storage().instance().get(&ColKey::Version).unwrap_or(0);
-    assert!(
-        found == STORAGE_VERSION,
-        "Collection: storage version {found} does not match this build ({STORAGE_VERSION}); run migrate"
-    );
+    if found != STORAGE_VERSION {
+        panic_with_error!(env, CollectionError::StorageVersionMismatch);
+    }
 }
 
 /// True when `s` begins with `prefix`. Soroban's `String` has no
@@ -144,6 +144,46 @@ fn starts_with(s: &String, prefix: &[u8]) -> bool {
     let slice = &mut buf[..s.len() as usize];
     s.copy_into_slice(slice);
     slice.starts_with(prefix)
+}
+
+// ─────────────────────────── Errors ───────────────────────────
+
+/// Typed contract errors.
+///
+/// A numeric code is part of the contract's public interface and the committed
+/// ABI snapshot; callers switch on it instead of substring-matching a message.
+/// Codes are grouped by subsystem and are never renumbered once shipped.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum CollectionError {
+    /// The contract has not been constructed.
+    NotInitialized = 1,
+    /// Stored schema version does not match this build; run `migrate`.
+    StorageVersionMismatch = 2,
+    /// `migrate` was given a `from_version` that is not what is stored.
+    StoredVersionMismatch = 3,
+    /// `migrate` called when storage is already at this build's version.
+    AlreadyAtCurrentVersion = 4,
+    /// Metadata URI is empty.
+    MetadataUriEmpty = 5,
+    /// Metadata URI exceeds [`MAX_METADATA_URI_LEN`].
+    MetadataUriTooLong = 6,
+    /// Metadata URI does not use an https, http or ipfs scheme.
+    MetadataUriSchemeInvalid = 7,
+    /// No collection exists with the supplied id.
+    CollectionNotFound = 8,
+    /// Caller is not the collection's creator.
+    NotCollectionCreator = 9,
+    /// The collection is archived and cannot be mutated.
+    CollectionArchived = 10,
+    /// [`MAX_NFTS_PER_COLLECTION`] reached.
+    CollectionFull = 11,
+    /// The token already belongs to a collection.
+    TokenAlreadyInCollection = 12,
+    /// Internal membership index is out of bounds. Indicates a logic defect,
+    /// not caller error.
+    NftIndexOutOfBounds = 13,
 }
 
 // ─────────────────────────── Contract ───────────────────────────
@@ -181,7 +221,7 @@ impl BezaMintCollection {
         env.storage()
             .instance()
             .get(&ColKey::Admin)
-            .unwrap_or_else(|| panic!("Collection: not initialized"))
+            .unwrap_or_else(|| panic_with_error!(&env, CollectionError::NotInitialized))
     }
 
     /// Returns `true` once `initialize` has succeeded.
@@ -206,18 +246,16 @@ impl BezaMintCollection {
             .storage()
             .instance()
             .get(&ColKey::Admin)
-            .unwrap_or_else(|| panic!("Collection: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, CollectionError::NotInitialized));
         admin.require_auth();
 
         let stored: u32 = env.storage().instance().get(&ColKey::Version).unwrap_or(0);
-        assert!(
-            stored == from_version,
-            "Collection: stored version is {stored}, not {from_version}"
-        );
-        assert!(
-            from_version != STORAGE_VERSION,
-            "Collection: already at version {STORAGE_VERSION}"
-        );
+        if stored != from_version {
+            panic_with_error!(&env, CollectionError::StoredVersionMismatch);
+        }
+        if from_version == STORAGE_VERSION {
+            panic_with_error!(&env, CollectionError::AlreadyAtCurrentVersion);
+        }
 
         env.storage()
             .instance()
@@ -237,7 +275,7 @@ impl BezaMintCollection {
             .storage()
             .instance()
             .get(&ColKey::Admin)
-            .unwrap_or_else(|| panic!("Collection: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, CollectionError::NotInitialized));
         admin.require_auth();
 
         env.deployer().update_current_contract_wasm(new_wasm_hash);
@@ -252,12 +290,12 @@ impl BezaMintCollection {
         env.storage()
             .instance()
             .get::<ColKey, Address>(&ColKey::Admin)
-            .unwrap_or_else(|| panic!("Collection: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, CollectionError::NotInitialized));
         // Creator-gated: the collection creator authorizes creation so any user
         // can create collections through the Factory instead of requiring admin.
         creator.require_auth();
 
-        Self::validate_metadata_uri(&metadata_uri);
+        Self::validate_metadata_uri(&env, &metadata_uri);
 
         let counter: u64 = env.storage().instance().get(&ColKey::Counter).unwrap_or(0);
 
@@ -309,17 +347,18 @@ impl BezaMintCollection {
             .storage()
             .persistent()
             .get(&ColKey::Collection(id))
-            .unwrap_or_else(|| panic!("Collection: {id} not found"));
+            .unwrap_or_else(|| panic_with_error!(&env, CollectionError::CollectionNotFound));
 
-        assert!(
-            data.creator == creator,
-            "Collection: caller is not the collection creator"
-        );
-        assert!(!data.is_archived, "Collection: {id} is archived");
+        if data.creator != creator {
+            panic_with_error!(&env, CollectionError::NotCollectionCreator);
+        }
+        if data.is_archived {
+            panic_with_error!(&env, CollectionError::CollectionArchived);
+        }
         // `create_collection` validates the URI; the update path previously did
         // not, so a collection could be edited into a state that could never
         // have been created (empty, or longer than the documented limit).
-        Self::validate_metadata_uri(&new_metadata_uri);
+        Self::validate_metadata_uri(&env, &new_metadata_uri);
 
         data.metadata_uri = new_metadata_uri;
         data.updated_at = env.ledger().timestamp();
@@ -340,12 +379,11 @@ impl BezaMintCollection {
             .storage()
             .persistent()
             .get(&ColKey::Collection(id))
-            .unwrap_or_else(|| panic!("Collection: {id} not found"));
+            .unwrap_or_else(|| panic_with_error!(&env, CollectionError::CollectionNotFound));
 
-        assert!(
-            data.creator == creator,
-            "Collection: caller is not the collection creator"
-        );
+        if data.creator != creator {
+            panic_with_error!(&env, CollectionError::NotCollectionCreator);
+        }
         data.is_archived = true;
         data.updated_at = env.ledger().timestamp();
 
@@ -363,21 +401,19 @@ impl BezaMintCollection {
     /// accepted: the frontend renders this string into the DOM, so a
     /// javascript:/data: URI is a stored-XSS vector, and the NFT and Creator
     /// contracts apply the same rule.
-    fn validate_metadata_uri(metadata_uri: &String) {
-        assert!(
-            !metadata_uri.is_empty(),
-            "Collection: metadata URI cannot be empty"
-        );
-        assert!(
-            metadata_uri.len() <= MAX_METADATA_URI_LEN,
-            "Collection: metadata URI exceeds {MAX_METADATA_URI_LEN} chars"
-        );
-        assert!(
-            starts_with(metadata_uri, b"https://")
-                || starts_with(metadata_uri, b"http://")
-                || starts_with(metadata_uri, b"ipfs://"),
-            "Collection: metadata URI must use an https, http or ipfs scheme"
-        );
+    fn validate_metadata_uri(env: &Env, metadata_uri: &String) {
+        if metadata_uri.is_empty() {
+            panic_with_error!(env, CollectionError::MetadataUriEmpty);
+        }
+        if metadata_uri.len() > MAX_METADATA_URI_LEN {
+            panic_with_error!(env, CollectionError::MetadataUriTooLong);
+        }
+        if !(starts_with(metadata_uri, b"https://")
+            || starts_with(metadata_uri, b"http://")
+            || starts_with(metadata_uri, b"ipfs://"))
+        {
+            panic_with_error!(env, CollectionError::MetadataUriSchemeInvalid);
+        }
     }
 
     /// Attach `token_id` to a collection.
@@ -393,14 +429,15 @@ impl BezaMintCollection {
             .storage()
             .persistent()
             .get(&ColKey::Collection(collection_id))
-            .unwrap_or_else(|| panic!("Collection: {collection_id} not found"));
+            .unwrap_or_else(|| panic_with_error!(&env, CollectionError::CollectionNotFound));
 
         data.creator.require_auth();
-        assert!(!data.is_archived, "Collection: {collection_id} is archived");
-        assert!(
-            data.nft_count < MAX_NFTS_PER_COLLECTION,
-            "Collection: {collection_id} is full"
-        );
+        if data.is_archived {
+            panic_with_error!(&env, CollectionError::CollectionArchived);
+        }
+        if data.nft_count >= MAX_NFTS_PER_COLLECTION {
+            panic_with_error!(&env, CollectionError::CollectionFull);
+        }
 
         // A token may belong to at most one collection. Without this guard the
         // same id could be pushed repeatedly, inflating `nft_count` past the
@@ -411,10 +448,9 @@ impl BezaMintCollection {
             .persistent()
             .get(&ColKey::NftCollection(token_id))
             .unwrap_or(0);
-        assert!(
-            existing == 0,
-            "Collection: token {token_id} already belongs to a collection"
-        );
+        if existing != 0 {
+            panic_with_error!(&env, CollectionError::TokenAlreadyInCollection);
+        }
 
         env.storage()
             .persistent()
@@ -456,7 +492,7 @@ impl BezaMintCollection {
             .storage()
             .persistent()
             .get(&ColKey::Collection(collection_id))
-            .unwrap_or_else(|| panic!("Collection: {collection_id} not found"));
+            .unwrap_or_else(|| panic_with_error!(&env, CollectionError::CollectionNotFound));
 
         data.creator.require_auth();
 
@@ -470,7 +506,7 @@ impl BezaMintCollection {
         for i in 0..nfts.len() {
             let id = nfts
                 .get(i)
-                .unwrap_or_else(|| panic!("Collection: nft index out of bounds"));
+                .unwrap_or_else(|| panic_with_error!(&env, CollectionError::NftIndexOutOfBounds));
             if id != token_id {
                 new_nfts.push_back(id);
             }
@@ -514,7 +550,7 @@ impl BezaMintCollection {
                 bump_ttl(&env, &key);
                 data
             }
-            None => panic!("Collection: {id} not found"),
+            None => panic_with_error!(&env, CollectionError::CollectionNotFound),
         }
     }
 

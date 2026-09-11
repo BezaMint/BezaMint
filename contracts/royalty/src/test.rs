@@ -246,7 +246,8 @@ fn test_quote_royalty_zero_price_owes_nothing() {
 }
 
 #[test]
-#[should_panic(expected = "cannot be negative")]
+// RoyaltyError::SalePriceNegative
+#[should_panic(expected = "Error(Contract, #13)")]
 fn test_quote_royalty_rejects_negative_price() {
     let (env, _, client) = setup();
     let creator = Address::generate(&env);
@@ -255,14 +256,16 @@ fn test_quote_royalty_rejects_negative_price() {
 }
 
 #[test]
-#[should_panic(expected = "no config for target")]
+// RoyaltyError::NoConfig
+#[should_panic(expected = "Error(Contract, #5)")]
 fn test_quote_royalty_requires_a_config() {
     let (_, _, client) = setup();
     client.quote_royalty(&999, &false, &1000);
 }
 
 #[test]
-#[should_panic(expected = "must sum to 100")]
+// RoyaltyError::SharesMustSumToTotal
+#[should_panic(expected = "Error(Contract, #12)")]
 fn test_recipients_summing_to_99_are_rejected() {
     let (env, _, client) = setup();
     let creator = Address::generate(&env);
@@ -273,7 +276,8 @@ fn test_recipients_summing_to_99_are_rejected() {
 }
 
 #[test]
-#[should_panic(expected = "must sum to 100")]
+// RoyaltyError::SharesMustSumToTotal
+#[should_panic(expected = "Error(Contract, #12)")]
 fn test_recipients_summing_over_100_are_rejected() {
     let (env, _, client) = setup();
     let creator = Address::generate(&env);
@@ -284,7 +288,8 @@ fn test_recipients_summing_over_100_are_rejected() {
 }
 
 #[test]
-#[should_panic(expected = "greater than zero")]
+// RoyaltyError::ZeroShare
+#[should_panic(expected = "Error(Contract, #11)")]
 fn test_zero_share_recipient_is_rejected() {
     let (env, _, client) = setup();
     let creator = Address::generate(&env);
@@ -295,7 +300,8 @@ fn test_zero_share_recipient_is_rejected() {
 }
 
 #[test]
-#[should_panic(expected = "at most 10 recipients")]
+// RoyaltyError::TooManyRecipients
+#[should_panic(expected = "Error(Contract, #10)")]
 fn test_too_many_recipients_are_rejected() {
     let (env, _, client) = setup();
     let creator = Address::generate(&env);
@@ -307,7 +313,8 @@ fn test_too_many_recipients_are_rejected() {
 }
 
 #[test]
-#[should_panic(expected = "must sum to 100")]
+// RoyaltyError::SharesMustSumToTotal
+#[should_panic(expected = "Error(Contract, #12)")]
 fn test_update_royalty_validates_recipients() {
     let (env, _, client) = setup();
     let creator = Address::generate(&env);
@@ -363,7 +370,8 @@ fn test_configure_royalty_for_collection() {
 }
 
 #[test]
-#[should_panic(expected = "basis points must be")]
+// RoyaltyError::BasisPointsTooHigh
+#[should_panic(expected = "Error(Contract, #7)")]
 fn test_configure_invalid_basis_points_fails() {
     let (env, _, client) = setup();
     let creator = Address::generate(&env);
@@ -372,7 +380,8 @@ fn test_configure_invalid_basis_points_fails() {
 
 /// A frozen configuration must not be replaceable through `configure_royalty`.
 #[test]
-#[should_panic(expected = "config already exists")]
+// RoyaltyError::ConfigAlreadyExists
+#[should_panic(expected = "Error(Contract, #6)")]
 fn test_configure_royalty_cannot_overwrite_frozen_config() {
     let (env, _, client) = setup();
     let creator = Address::generate(&env);
@@ -384,7 +393,8 @@ fn test_configure_royalty_cannot_overwrite_frozen_config() {
 /// Even an unfrozen configuration is created once; changing it is the job of
 /// `update_royalty`, which emits a distinct `Updated` event.
 #[test]
-#[should_panic(expected = "config already exists")]
+// RoyaltyError::ConfigAlreadyExists
+#[should_panic(expected = "Error(Contract, #6)")]
 fn test_configure_royalty_cannot_overwrite_live_config() {
     let (env, _, client) = setup();
     let creator = Address::generate(&env);
@@ -433,7 +443,8 @@ fn test_creator_can_update_own_royalty() {
 /// A stranger who is neither the recorded creator nor the admin must not be
 /// able to amend someone else's terms.
 #[test]
-#[should_panic(expected = "caller cannot update")]
+// RoyaltyError::CallerCannotUpdate
+#[should_panic(expected = "Error(Contract, #8)")]
 fn test_stranger_cannot_update_royalty() {
     let (env, _, client) = setup();
     let creator = Address::generate(&env);
@@ -484,7 +495,8 @@ fn test_remove_royalty_deletes_config() {
 /// A frozen config is permanent: freezing is the creator's guarantee that
 /// their terms cannot change, so even the admin cannot delete it.
 #[test]
-#[should_panic(expected = "frozen")]
+// RoyaltyError::ConfigFrozen
+#[should_panic(expected = "Error(Contract, #9)")]
 fn test_remove_royalty_refuses_frozen_config() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
@@ -495,7 +507,8 @@ fn test_remove_royalty_refuses_frozen_config() {
 }
 
 #[test]
-#[should_panic(expected = "no config")]
+// RoyaltyError::NoConfig
+#[should_panic(expected = "Error(Contract, #5)")]
 fn test_remove_unknown_royalty_panics() {
     let (_, _, client) = setup();
     client.remove_royalty(&999, &false);
@@ -564,7 +577,8 @@ fn test_freeze_prevents_updates() {
 }
 
 #[test]
-#[should_panic(expected = "frozen")]
+// RoyaltyError::ConfigFrozen
+#[should_panic(expected = "Error(Contract, #9)")]
 fn test_update_frozen_royalty_fails() {
     let (env, _, client) = setup();
     let creator = Address::generate(&env);
@@ -576,7 +590,8 @@ fn test_update_frozen_royalty_fails() {
 }
 
 #[test]
-#[should_panic(expected = "no config")]
+// RoyaltyError::NoConfig
+#[should_panic(expected = "Error(Contract, #5)")]
 fn test_get_nonexistent_royalty_panics() {
     let (_, _, client) = setup();
     client.get_royalty(&999, &false);
@@ -607,7 +622,8 @@ fn test_freeze_royalty() {
 }
 
 #[test]
-#[should_panic(expected = "frozen")]
+// RoyaltyError::ConfigFrozen
+#[should_panic(expected = "Error(Contract, #9)")]
 fn test_royalty_update_blocked_when_frozen() {
     let (env, _, client) = setup();
     let creator = Address::generate(&env);
@@ -631,7 +647,8 @@ fn test_get_royalty_returns_config() {
 }
 
 #[test]
-#[should_panic(expected = "basis points must be")]
+// RoyaltyError::BasisPointsTooHigh
+#[should_panic(expected = "Error(Contract, #7)")]
 fn test_validate_basis_points_limit() {
     let (env, _, client) = setup();
     let creator = Address::generate(&env);

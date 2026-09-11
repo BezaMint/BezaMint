@@ -152,7 +152,8 @@ fn test_update_collection_metadata() {
 }
 
 #[test]
-#[should_panic(expected = "is archived")]
+// CollectionError::CollectionArchived
+#[should_panic(expected = "Error(Contract, #10)")]
 fn test_update_archived_collection_fails() {
     let (env, _admin, client) = setup();
     env.ledger().with_mut(|l| l.timestamp = 12345);
@@ -229,7 +230,8 @@ fn test_remove_nft_from_collection() {
 }
 
 #[test]
-#[should_panic(expected = "metadata URI cannot be empty")]
+// CollectionError::MetadataUriEmpty
+#[should_panic(expected = "Error(Contract, #5)")]
 fn test_update_collection_rejects_empty_uri() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
@@ -238,7 +240,8 @@ fn test_update_collection_rejects_empty_uri() {
 }
 
 #[test]
-#[should_panic(expected = "metadata URI exceeds 512 chars")]
+// CollectionError::MetadataUriTooLong
+#[should_panic(expected = "Error(Contract, #6)")]
 fn test_update_collection_rejects_oversized_uri() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
@@ -266,7 +269,8 @@ fn test_update_collection_accepts_boundary_uri() {
 /// collection metadata URIs into the DOM. Create and update must both reject
 /// it, consistently with the NFT and Creator contracts.
 #[test]
-#[should_panic(expected = "must use an https, http or ipfs scheme")]
+// CollectionError::MetadataUriSchemeInvalid
+#[should_panic(expected = "Error(Contract, #7)")]
 fn test_create_collection_rejects_javascript_uri() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
@@ -274,7 +278,8 @@ fn test_create_collection_rejects_javascript_uri() {
 }
 
 #[test]
-#[should_panic(expected = "must use an https, http or ipfs scheme")]
+// CollectionError::MetadataUriSchemeInvalid
+#[should_panic(expected = "Error(Contract, #7)")]
 fn test_update_collection_rejects_data_uri() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
@@ -332,7 +337,8 @@ fn test_add_nft_requires_creator_auth() {
 }
 
 #[test]
-#[should_panic(expected = "already belongs to a collection")]
+// CollectionError::TokenAlreadyInCollection
+#[should_panic(expected = "Error(Contract, #12)")]
 fn test_add_nft_rejects_duplicate_token() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
@@ -346,7 +352,8 @@ fn test_add_nft_rejects_duplicate_token() {
 /// its first one, otherwise `get_collection_for_nft` and the reverse lookup
 /// would disagree.
 #[test]
-#[should_panic(expected = "already belongs to a collection")]
+// CollectionError::TokenAlreadyInCollection
+#[should_panic(expected = "Error(Contract, #12)")]
 fn test_add_nft_rejects_token_in_another_collection() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
@@ -515,7 +522,8 @@ fn test_get_collections_by_creator_empty_for_unknown_address() {
 }
 
 #[test]
-#[should_panic(expected = "not the collection creator")]
+// CollectionError::NotCollectionCreator
+#[should_panic(expected = "Error(Contract, #9)")]
 fn test_update_collection_by_non_owner_fails() {
     let (env, _admin, client) = setup();
     env.ledger().with_mut(|l| l.timestamp = 12345);
@@ -527,7 +535,8 @@ fn test_update_collection_by_non_owner_fails() {
 }
 
 #[test]
-#[should_panic(expected = "not the collection creator")]
+// CollectionError::NotCollectionCreator
+#[should_panic(expected = "Error(Contract, #9)")]
 fn test_archive_collection_by_non_owner_fails() {
     let (env, _admin, client) = setup();
     env.ledger().with_mut(|l| l.timestamp = 12345);
@@ -539,7 +548,8 @@ fn test_archive_collection_by_non_owner_fails() {
 }
 
 #[test]
-#[should_panic(expected = "not found")]
+// CollectionError::CollectionNotFound
+#[should_panic(expected = "Error(Contract, #8)")]
 fn test_get_nonexistent_collection_panics() {
     let (_, _, client) = setup();
     client.get_collection(&999);

@@ -211,7 +211,8 @@ fn test_burn_clears_approval() {
 const ZERO: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
 
 #[test]
-#[should_panic(expected = "zero address")]
+// NftError::ZeroAddress
+#[should_panic(expected = "Error(Contract, #8)")]
 fn test_transfer_rejects_zero_recipient() {
     let env = Env::default();
     env.mock_all_auths();
@@ -224,7 +225,8 @@ fn test_transfer_rejects_zero_recipient() {
 }
 
 #[test]
-#[should_panic(expected = "zero address")]
+// NftError::ZeroAddress
+#[should_panic(expected = "Error(Contract, #8)")]
 fn test_transfer_from_rejects_zero_recipient() {
     let env = Env::default();
     env.mock_all_auths();
@@ -239,7 +241,8 @@ fn test_transfer_from_rejects_zero_recipient() {
 }
 
 #[test]
-#[should_panic(expected = "zero address")]
+// NftError::ZeroAddress
+#[should_panic(expected = "Error(Contract, #8)")]
 fn test_approve_rejects_zero_operator() {
     let env = Env::default();
     env.mock_all_auths();
@@ -252,7 +255,8 @@ fn test_approve_rejects_zero_operator() {
 }
 
 #[test]
-#[should_panic(expected = "zero address")]
+// NftError::ZeroAddress
+#[should_panic(expected = "Error(Contract, #8)")]
 fn test_set_approval_for_all_rejects_zero_operator_when_granting() {
     let env = Env::default();
     env.mock_all_auths();
@@ -451,7 +455,8 @@ fn test_transfer_from_with_operator_approval() {
 }
 
 #[test]
-#[should_panic(expected = "spender is not approved")]
+// NftError::SpenderNotApproved
+#[should_panic(expected = "Error(Contract, #13)")]
 fn test_transfer_from_rejects_unapproved_spender() {
     let env = Env::default();
     env.mock_all_auths();
@@ -466,7 +471,8 @@ fn test_transfer_from_rejects_unapproved_spender() {
 }
 
 #[test]
-#[should_panic(expected = "from is not the token owner")]
+// NftError::FromIsNotOwner
+#[should_panic(expected = "Error(Contract, #12)")]
 fn test_transfer_from_rejects_wrong_from() {
     let env = Env::default();
     env.mock_all_auths();
@@ -483,7 +489,8 @@ fn test_transfer_from_rejects_wrong_from() {
 }
 
 #[test]
-#[should_panic(expected = "not found")]
+// NftError::TokenNotFound
+#[should_panic(expected = "Error(Contract, #10)")]
 fn test_transfer_from_rejects_nonexistent_token() {
     let env = Env::default();
     env.mock_all_auths();
@@ -601,7 +608,8 @@ fn test_transfer_changes_ownership() {
 }
 
 #[test]
-#[should_panic(expected = "caller not owner")]
+// NftError::CallerNotOwner
+#[should_panic(expected = "Error(Contract, #11)")]
 fn test_transfer_fails_if_not_owner() {
     let env = Env::default();
     env.mock_all_auths();
@@ -770,7 +778,8 @@ fn test_mint_requires_recipient_auth() {
 }
 
 #[test]
-#[should_panic(expected = "metadata URI cannot be empty")]
+// NftError::MetadataUriEmpty
+#[should_panic(expected = "Error(Contract, #5)")]
 fn test_mint_rejects_empty_metadata() {
     let env = Env::default();
     env.mock_all_auths();
@@ -781,7 +790,8 @@ fn test_mint_rejects_empty_metadata() {
 }
 
 #[test]
-#[should_panic(expected = "metadata URI exceeds 512 chars")]
+// NftError::MetadataUriTooLong
+#[should_panic(expected = "Error(Contract, #6)")]
 fn test_mint_rejects_oversized_metadata() {
     let env = Env::default();
     env.mock_all_auths();
@@ -821,7 +831,8 @@ fn test_mint_accepts_boundary_metadata_lengths() {
 /// An arbitrary URI scheme is a stored-XSS vector: the frontend renders the
 /// metadata URI into the DOM. Only https/http/ipfs may be stored.
 #[test]
-#[should_panic(expected = "must use an https, http or ipfs scheme")]
+// NftError::MetadataUriSchemeInvalid
+#[should_panic(expected = "Error(Contract, #7)")]
 fn test_mint_rejects_javascript_uri() {
     let env = Env::default();
     env.mock_all_auths();
@@ -832,7 +843,8 @@ fn test_mint_rejects_javascript_uri() {
 }
 
 #[test]
-#[should_panic(expected = "must use an https, http or ipfs scheme")]
+// NftError::MetadataUriSchemeInvalid
+#[should_panic(expected = "Error(Contract, #7)")]
 fn test_mint_rejects_data_uri() {
     let env = Env::default();
     env.mock_all_auths();
@@ -862,7 +874,8 @@ fn test_mint_accepts_http_uri() {
 }
 
 #[test]
-#[should_panic(expected = "zero address is not allowed as mint recipient")]
+// NftError::ZeroAddress
+#[should_panic(expected = "Error(Contract, #8)")]
 fn test_mint_rejects_zero_address() {
     let env = Env::default();
     env.mock_all_auths();

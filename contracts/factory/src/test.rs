@@ -171,7 +171,8 @@ fn test_mint_with_royalty_returns_token() {
 /// every cross-contract call fails, and the failure would surface to users
 /// rather than at the moment of the mistake.
 #[test]
-#[should_panic(expected = "must not be the zero account")]
+// FactoryError::WiringZeroAddress
+#[should_panic(expected = "Error(Contract, #6)")]
 fn test_set_contracts_rejects_zero_address() {
     let (env, admin, factory) = wiring_fixture();
     // The Stellar all-zero ed25519 account: a valid Address value for which no
@@ -192,7 +193,8 @@ fn test_set_contracts_rejects_zero_address() {
 /// Pointing a slot at the Factory itself would make every cross-contract call
 /// recurse back into the Factory instead of reaching a real platform contract.
 #[test]
-#[should_panic(expected = "must not point at the Factory itself")]
+// FactoryError::WiringSelfReference
+#[should_panic(expected = "Error(Contract, #7)")]
 fn test_set_contracts_rejects_self_reference() {
     let (env, admin, factory) = wiring_fixture();
     let royalty_id = env.register(BezaMintRoyalty, (admin.clone(),));
@@ -207,7 +209,8 @@ fn test_set_contracts_rejects_self_reference() {
 /// Two roles resolving to the same contract means one of them is called through
 /// the wrong interface; reject the ambiguity at write time.
 #[test]
-#[should_panic(expected = "must be distinct")]
+// FactoryError::WiringDuplicate
+#[should_panic(expected = "Error(Contract, #8)")]
 fn test_set_contracts_rejects_duplicate_addresses() {
     let (env, admin, factory) = wiring_fixture();
     let royalty_id = env.register(BezaMintRoyalty, (admin.clone(),));
@@ -219,7 +222,8 @@ fn test_set_contracts_rejects_duplicate_addresses() {
 /// succeeded, so an unwired slot must name itself instead of raising an
 /// anonymous host panic.
 #[test]
-#[should_panic(expected = "Factory: NFT contract not set")]
+// FactoryError::NftContractNotSet
+#[should_panic(expected = "Error(Contract, #11)")]
 fn test_getter_names_the_unset_slot() {
     let (_, _, factory) = wiring_fixture();
     factory.get_nft_contract();
@@ -733,7 +737,8 @@ fn test_integration_burn_unlinks_from_collection() {
 /// mint is rolled back together with the collection link, so no orphan NFT is
 /// ever created.
 #[test]
-#[should_panic(expected = "not found")]
+// Propagated from the Collection contract: CollectionError::CollectionNotFound
+#[should_panic(expected = "Error(Contract, #8)")]
 fn test_mint_into_missing_collection_fails() {
     let env = Env::default();
 

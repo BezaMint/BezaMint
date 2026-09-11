@@ -125,7 +125,8 @@ fn test_register_accepts_boundary_avatar_uri() {
 }
 
 #[test]
-#[should_panic(expected = "avatar URI exceeds 512 chars")]
+// CreatorError::UriTooLong
+#[should_panic(expected = "Error(Contract, #8)")]
 fn test_register_rejects_oversized_avatar_uri() {
     let (env, _, client) = setup();
     let creator = Address::generate(&env);
@@ -173,7 +174,8 @@ fn test_register_and_get_profile() {
 }
 
 #[test]
-#[should_panic(expected = "already registered")]
+// CreatorError::AlreadyRegistered
+#[should_panic(expected = "Error(Contract, #10)")]
 fn test_duplicate_registration_fails() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
@@ -271,7 +273,8 @@ fn test_unregistered_address() {
 }
 
 #[test]
-#[should_panic(expected = "profile not found")]
+// CreatorError::ProfileNotFound
+#[should_panic(expected = "Error(Contract, #11)")]
 fn test_update_nonexistent_fails() {
     let (env, _admin, client) = setup();
     let stranger = Address::generate(&env);
@@ -310,7 +313,8 @@ fn test_social_links_update_emits_profile_updated_event() {
 }
 
 #[test]
-#[should_panic(expected = "already registered")]
+// CreatorError::AlreadyRegistered
+#[should_panic(expected = "Error(Contract, #10)")]
 fn test_prevent_duplicate_registration() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
@@ -383,7 +387,8 @@ fn test_events_cover_all_mutations() {
 /// rejected because the frontend renders these strings into the DOM where they
 /// would be a stored-XSS vector.
 #[test]
-#[should_panic(expected = "must use an https, http or ipfs URL")]
+// CreatorError::UriSchemeInvalid
+#[should_panic(expected = "Error(Contract, #9)")]
 fn test_register_rejects_javascript_avatar_uri() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
@@ -398,7 +403,8 @@ fn test_register_rejects_javascript_avatar_uri() {
 }
 
 #[test]
-#[should_panic(expected = "must use an https, http or ipfs URL")]
+// CreatorError::UriSchemeInvalid
+#[should_panic(expected = "Error(Contract, #9)")]
 fn test_register_rejects_data_uri() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
@@ -429,7 +435,8 @@ fn test_register_accepts_http_uris() {
 }
 
 #[test]
-#[should_panic(expected = "must use an https, http or ipfs URL")]
+// CreatorError::UriSchemeInvalid
+#[should_panic(expected = "Error(Contract, #9)")]
 fn test_update_profile_rejects_javascript_uri() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
@@ -445,7 +452,8 @@ fn test_update_profile_rejects_javascript_uri() {
 }
 
 #[test]
-#[should_panic(expected = "unsupported social platform")]
+// CreatorError::UnsupportedPlatform
+#[should_panic(expected = "Error(Contract, #14)")]
 fn test_set_social_links_rejects_unknown_platform() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
@@ -462,7 +470,8 @@ fn test_set_social_links_rejects_unknown_platform() {
 }
 
 #[test]
-#[should_panic(expected = "must use an https or http scheme")]
+// CreatorError::SocialUrlSchemeInvalid
+#[should_panic(expected = "Error(Contract, #16)")]
 fn test_set_social_links_rejects_javascript_url() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);
@@ -479,7 +488,8 @@ fn test_set_social_links_rejects_javascript_url() {
 }
 
 #[test]
-#[should_panic(expected = "max 8 social links")]
+// CreatorError::TooManySocialLinks
+#[should_panic(expected = "Error(Contract, #12)")]
 fn test_set_social_links_rejects_too_many() {
     let (env, _admin, client) = setup();
     let creator = Address::generate(&env);

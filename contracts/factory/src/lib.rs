@@ -24,8 +24,8 @@
 //! unlinked mints, no partial burns.
 
 use soroban_sdk::{
-    contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, IntoVal, Map, String,
-    Symbol, Val, Vec,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
+    BytesN, Env, IntoVal, Map, String, Symbol, Val, Vec,
 };
 
 #[contracttype]
@@ -88,10 +88,54 @@ fn assert_version(env: &Env) {
         .instance()
         .get(&FactoryKey::Version)
         .unwrap_or(0);
-    assert!(
-        found == STORAGE_VERSION,
-        "Factory: storage version {found} does not match this build ({STORAGE_VERSION}); run migrate"
-    );
+    if found != STORAGE_VERSION {
+        panic_with_error!(env, FactoryError::StorageVersionMismatch);
+    }
+}
+
+// ─────────────────────────── Errors ───────────────────────────
+
+/// Typed contract errors.
+///
+/// A numeric code is part of the contract's public interface and the committed
+/// ABI snapshot; callers switch on it instead of substring-matching a message.
+/// Codes are grouped by subsystem and are never renumbered once shipped.
+///
+/// The four `*ContractNotSet` codes replace the previous single generic
+/// message that interpolated the slot name. Distinct codes make the unwired
+/// slot machine-readable, which is what deployment tooling actually needs.
+#[contracterror]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[repr(u32)]
+pub enum FactoryError {
+    /// The contract has not been constructed.
+    NotInitialized = 1,
+    /// Stored schema version does not match this build; run `migrate`.
+    StorageVersionMismatch = 2,
+    /// `migrate` was given a `from_version` that is not what is stored.
+    StoredVersionMismatch = 3,
+    /// `migrate` called when storage is already at this build's version.
+    AlreadyAtCurrentVersion = 4,
+    /// `set_royalty_admin` was given the all-zero account.
+    RoyaltyAdminZeroAddress = 5,
+    /// A wired contract address is the all-zero account.
+    WiringZeroAddress = 6,
+    /// A wired contract slot points at the Factory itself.
+    WiringSelfReference = 7,
+    /// Two or more wired slots resolve to the same contract.
+    WiringDuplicate = 8,
+    /// `mint_batch_with_royalty` was given an empty batch.
+    BatchEmpty = 9,
+    /// `mint_batch_with_royalty` exceeded [`MAX_BATCH_MINT`].
+    BatchTooLarge = 10,
+    /// The NFT contract slot is not wired.
+    NftContractNotSet = 11,
+    /// The Collection contract slot is not wired.
+    CollectionContractNotSet = 12,
+    /// The Royalty contract slot is not wired.
+    RoyaltyContractNotSet = 13,
+    /// The Creator contract slot is not wired.
+    CreatorContractNotSet = 14,
 }
 
 #[contract]
@@ -128,7 +172,7 @@ impl BezaMintFactory {
         env.storage()
             .instance()
             .get(&FactoryKey::Admin)
-            .unwrap_or_else(|| panic!("Factory: not initialized"))
+            .unwrap_or_else(|| panic_with_error!(&env, FactoryError::NotInitialized))
     }
 
     /// Returns `true` once `initialize` has succeeded.
@@ -156,7 +200,7 @@ impl BezaMintFactory {
             .storage()
             .instance()
             .get(&FactoryKey::Admin)
-            .unwrap_or_else(|| panic!("Factory: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, FactoryError::NotInitialized));
         admin.require_auth();
 
         let stored: u32 = env
@@ -164,14 +208,12 @@ impl BezaMintFactory {
             .instance()
             .get(&FactoryKey::Version)
             .unwrap_or(0);
-        assert!(
-            stored == from_version,
-            "Factory: stored version is {stored}, not {from_version}"
-        );
-        assert!(
-            from_version != STORAGE_VERSION,
-            "Factory: already at version {STORAGE_VERSION}"
-        );
+        if stored != from_version {
+            panic_with_error!(&env, FactoryError::StoredVersionMismatch);
+        }
+        if from_version == STORAGE_VERSION {
+            panic_with_error!(&env, FactoryError::AlreadyAtCurrentVersion);
+        }
 
         env.storage()
             .instance()
@@ -191,7 +233,7 @@ impl BezaMintFactory {
             .storage()
             .instance()
             .get(&FactoryKey::Admin)
-            .unwrap_or_else(|| panic!("Factory: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, FactoryError::NotInitialized));
         admin.require_auth();
 
         env.deployer().update_current_contract_wasm(new_wasm_hash);
@@ -217,7 +259,7 @@ impl BezaMintFactory {
             .storage()
             .instance()
             .get(&FactoryKey::Admin)
-            .unwrap_or_else(|| panic!("Factory: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, FactoryError::NotInitialized));
         stored_admin.require_auth();
 
         // Reject a wiring call that stores a pointer the Factory can never use.
@@ -275,19 +317,18 @@ impl BezaMintFactory {
             .storage()
             .instance()
             .get(&FactoryKey::Admin)
-            .unwrap_or_else(|| panic!("Factory: not initialized"));
+            .unwrap_or_else(|| panic_with_error!(&env, FactoryError::NotInitialized));
         stored_admin.require_auth();
 
-        assert!(
-            new_admin != Address::from_str(&env, ZERO_ADDRESS),
-            "Factory: the Royalty admin must not be the zero account"
-        );
+        if new_admin == Address::from_str(&env, ZERO_ADDRESS) {
+            panic_with_error!(&env, FactoryError::RoyaltyAdminZeroAddress);
+        }
 
         let royalty_addr: Address = env
             .storage()
             .instance()
             .get(&FactoryKey::RoyaltyContract)
-            .unwrap_or_else(|| panic!("Factory: Royalty contract not set"));
+            .unwrap_or_else(|| panic_with_error!(&env, FactoryError::RoyaltyContractNotSet));
 
         let args = soroban_sdk::vec![&env, new_admin.into_val(&env)];
         env.invoke_contract::<()>(&royalty_addr, &Symbol::new(&env, "set_admin"), args);
@@ -309,26 +350,24 @@ impl BezaMintFactory {
         creator: &Address,
     ) {
         let zero = Address::from_str(env, ZERO_ADDRESS);
-        assert!(
-            nft != &zero && collection != &zero && royalty != &zero && creator != &zero,
-            "Factory: a contract address must not be the zero account"
-        );
+        if nft == &zero || collection == &zero || royalty == &zero || creator == &zero {
+            panic_with_error!(env, FactoryError::WiringZeroAddress);
+        }
 
         let this = env.current_contract_address();
-        assert!(
-            nft != &this && collection != &this && royalty != &this && creator != &this,
-            "Factory: a contract slot must not point at the Factory itself"
-        );
+        if nft == &this || collection == &this || royalty == &this || creator == &this {
+            panic_with_error!(env, FactoryError::WiringSelfReference);
+        }
 
-        assert!(
-            nft != collection
-                && nft != royalty
-                && nft != creator
-                && collection != royalty
-                && collection != creator
-                && royalty != creator,
-            "Factory: the four contract addresses must be distinct"
-        );
+        if nft == collection
+            || nft == royalty
+            || nft == creator
+            || collection == royalty
+            || collection == creator
+            || royalty == creator
+        {
+            panic_with_error!(env, FactoryError::WiringDuplicate);
+        }
     }
 
     /// Cross-contract: mint NFT then configure royalty atomically.
@@ -390,14 +429,12 @@ impl BezaMintFactory {
         assert_version(&env);
         caller.require_auth();
 
-        assert!(
-            !metadata_uris.is_empty(),
-            "Factory: batch must contain at least one token"
-        );
-        assert!(
-            metadata_uris.len() <= MAX_BATCH_MINT,
-            "Factory: batch exceeds the {MAX_BATCH_MINT}-token limit"
-        );
+        if metadata_uris.is_empty() {
+            panic_with_error!(&env, FactoryError::BatchEmpty);
+        }
+        if metadata_uris.len() > MAX_BATCH_MINT {
+            panic_with_error!(&env, FactoryError::BatchTooLarge);
+        }
 
         let contracts = Self::mint_contracts(&env);
         let mut token_ids = Vec::new(&env);
@@ -429,17 +466,17 @@ impl BezaMintFactory {
             .storage()
             .instance()
             .get(&FactoryKey::NftContract)
-            .unwrap_or_else(|| panic!("Factory: NFT contract not set"));
+            .unwrap_or_else(|| panic_with_error!(&env, FactoryError::NftContractNotSet));
         let collection_addr: Address = env
             .storage()
             .instance()
             .get(&FactoryKey::CollectionContract)
-            .unwrap_or_else(|| panic!("Factory: Collection contract not set"));
+            .unwrap_or_else(|| panic_with_error!(&env, FactoryError::CollectionContractNotSet));
         let royalty_addr: Address = env
             .storage()
             .instance()
             .get(&FactoryKey::RoyaltyContract)
-            .unwrap_or_else(|| panic!("Factory: Royalty contract not set"));
+            .unwrap_or_else(|| panic_with_error!(&env, FactoryError::RoyaltyContractNotSet));
         (nft_addr, collection_addr, royalty_addr)
     }
 
@@ -520,12 +557,12 @@ impl BezaMintFactory {
             .storage()
             .instance()
             .get(&FactoryKey::NftContract)
-            .unwrap_or_else(|| panic!("Factory: NFT contract not set"));
+            .unwrap_or_else(|| panic_with_error!(&env, FactoryError::NftContractNotSet));
         let collection_addr: Address = env
             .storage()
             .instance()
             .get(&FactoryKey::CollectionContract)
-            .unwrap_or_else(|| panic!("Factory: Collection contract not set"));
+            .unwrap_or_else(|| panic_with_error!(&env, FactoryError::CollectionContractNotSet));
 
         // Cross-contract call 1: burn the NFT (owner auth enforced there).
         let burn_args = soroban_sdk::vec![&env, token_id.into_val(&env)];
@@ -556,12 +593,12 @@ impl BezaMintFactory {
             .storage()
             .instance()
             .get(&FactoryKey::CollectionContract)
-            .unwrap_or_else(|| panic!("Factory: Collection contract not set"));
+            .unwrap_or_else(|| panic_with_error!(&env, FactoryError::CollectionContractNotSet));
         let creator_addr: Address = env
             .storage()
             .instance()
             .get(&FactoryKey::CreatorContract)
-            .unwrap_or_else(|| panic!("Factory: Creator contract not set"));
+            .unwrap_or_else(|| panic_with_error!(&env, FactoryError::CreatorContractNotSet));
 
         // Cross-contract call 1: create the collection
         let col_args = soroban_sdk::vec![
@@ -612,19 +649,35 @@ impl BezaMintFactory {
     // ── Queries ─────────────────────────────────────────────
 
     pub fn get_nft_contract(env: Env) -> Address {
-        Self::wired_address(&env, &FactoryKey::NftContract, "NFT")
+        Self::wired_address(
+            &env,
+            &FactoryKey::NftContract,
+            FactoryError::NftContractNotSet,
+        )
     }
 
     pub fn get_collection_contract(env: Env) -> Address {
-        Self::wired_address(&env, &FactoryKey::CollectionContract, "Collection")
+        Self::wired_address(
+            &env,
+            &FactoryKey::CollectionContract,
+            FactoryError::CollectionContractNotSet,
+        )
     }
 
     pub fn get_royalty_contract(env: Env) -> Address {
-        Self::wired_address(&env, &FactoryKey::RoyaltyContract, "Royalty")
+        Self::wired_address(
+            &env,
+            &FactoryKey::RoyaltyContract,
+            FactoryError::RoyaltyContractNotSet,
+        )
     }
 
     pub fn get_creator_contract(env: Env) -> Address {
-        Self::wired_address(&env, &FactoryKey::CreatorContract, "Creator")
+        Self::wired_address(
+            &env,
+            &FactoryKey::CreatorContract,
+            FactoryError::CreatorContractNotSet,
+        )
     }
 
     /// Read a wired contract pointer, failing with a named error when the slot is
@@ -634,11 +687,11 @@ impl BezaMintFactory {
     /// wiring, so a bare `unwrap()` here produced an anonymous host panic at the
     /// one moment an operator needed a clear message. Every other failure in this
     /// contract is prefixed with `Factory: `; these now match.
-    fn wired_address(env: &Env, key: &FactoryKey, slot: &str) -> Address {
+    fn wired_address(env: &Env, key: &FactoryKey, missing: FactoryError) -> Address {
         env.storage()
             .instance()
             .get(key)
-            .unwrap_or_else(|| panic!("Factory: {slot} contract not set"))
+            .unwrap_or_else(|| panic_with_error!(env, missing))
     }
 }
 
