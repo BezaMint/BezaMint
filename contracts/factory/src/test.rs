@@ -185,6 +185,16 @@ fn test_set_contracts_rejects_duplicate_addresses() {
     factory.set_contracts(&shared, &shared, &royalty_id, &Address::generate(&env));
 }
 
+/// The wiring getters are what deployment tooling reads to confirm a bootstrap
+/// succeeded, so an unwired slot must name itself instead of raising an
+/// anonymous host panic.
+#[test]
+#[should_panic(expected = "Factory: NFT contract not set")]
+fn test_getter_names_the_unset_slot() {
+    let (_, _, factory) = wiring_fixture();
+    factory.get_nft_contract();
+}
+
 /// Admin + deployed Factory, shared by the wiring-validation tests.
 fn wiring_fixture() -> (Env, Address, BezaMintFactoryClient<'static>) {
     let env = Env::default();

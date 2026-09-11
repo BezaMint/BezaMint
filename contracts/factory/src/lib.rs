@@ -402,31 +402,33 @@ impl BezaMintFactory {
     // ── Queries ─────────────────────────────────────────────
 
     pub fn get_nft_contract(env: Env) -> Address {
-        env.storage()
-            .instance()
-            .get(&FactoryKey::NftContract)
-            .unwrap()
+        Self::wired_address(&env, &FactoryKey::NftContract, "NFT")
     }
 
     pub fn get_collection_contract(env: Env) -> Address {
-        env.storage()
-            .instance()
-            .get(&FactoryKey::CollectionContract)
-            .unwrap()
+        Self::wired_address(&env, &FactoryKey::CollectionContract, "Collection")
     }
 
     pub fn get_royalty_contract(env: Env) -> Address {
-        env.storage()
-            .instance()
-            .get(&FactoryKey::RoyaltyContract)
-            .unwrap()
+        Self::wired_address(&env, &FactoryKey::RoyaltyContract, "Royalty")
     }
 
     pub fn get_creator_contract(env: Env) -> Address {
+        Self::wired_address(&env, &FactoryKey::CreatorContract, "Creator")
+    }
+
+    /// Read a wired contract pointer, failing with a named error when the slot is
+    /// still unset.
+    ///
+    /// These getters are exactly what deployment tooling calls to confirm the
+    /// wiring, so a bare `unwrap()` here produced an anonymous host panic at the
+    /// one moment an operator needed a clear message. Every other failure in this
+    /// contract is prefixed with `Factory: `; these now match.
+    fn wired_address(env: &Env, key: &FactoryKey, slot: &str) -> Address {
         env.storage()
             .instance()
-            .get(&FactoryKey::CreatorContract)
-            .unwrap()
+            .get(key)
+            .unwrap_or_else(|| panic!("Factory: {slot} contract not set"))
     }
 }
 
