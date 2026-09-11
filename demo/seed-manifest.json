@@ -1,0 +1,62 @@
+{
+  "generatedAt": "2026-09-11T16:23:04.607Z",
+  "network": "testnet",
+  "explorer": "https://stellar.expert/explorer/testnet",
+  "contracts": {
+    "factory": "CAC7WIC7OWQIKYQA7DRYRBGMHTRZW2TL7L52BYX6Q7OTX7OUMGXWBQVW",
+    "collection": "CAPHMXQ2ODBKGN5YVMRFDXVAOQIFDMM36KAIE5GFWKJXPYD7ZPYH5W2Y",
+    "nft": "CCW5JLGZQM25TDC2RKUB7OBYDNXDZSWIUP3AAXPT4F36S3D66RLUL33S"
+  },
+  "tokensBefore": 2,
+  "tokensAfter": 20,
+  "seeded": [
+    {
+      "slug": "01-stellar-drift",
+      "collectionId": 2,
+      "royaltyBasisPoints": 250,
+      "metadataUri": "https://raw.githubusercontent.com/BezaMint/BezaMint/main/demo/metadata/collections/01-stellar-drift.json",
+      "createTx": "9cd031f6585d50104c1d592f9997a8dd1660fe5a597e6bf6790ed315009360d4",
+      "mintTx": "dfe45c10f7b56ca843ba5f6c2ddc2b5e1784dadfd269844be8588502efc26153",
+      "tokenIds": [
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ]
+    },
+    {
+      "slug": "02-soroban-signals",
+      "collectionId": 3,
+      "royaltyBasisPoints": 500,
+      "metadataUri": "https://raw.githubusercontent.com/BezaMint/BezaMint/main/demo/metadata/collections/02-soroban-signals.json",
+      "createTx": "90ebb51c1c1340c91b04492aa79a9052c6d84513892aa38fed54612f99e38703",
+      "mintTx": "6deafa86321f930f2d4553aa1a79fe22e0241c3c4734c6c05510239ce7473a83",
+      "tokenIds": [
+        9,
+        10,
+        11,
+        12,
+        13,
+        14
+      ]
+    },
+    {
+      "slug": "03-testnet-terrain",
+      "collectionId": 4,
+      "royaltyBasisPoints": 750,
+      "metadataUri": "https://raw.githubusercontent.com/BezaMint/BezaMint/main/demo/metadata/collections/03-testnet-terrain.json",
+      "createTx": "7978bde84e96b9be0fd5e104afce7904024a70a7e6835b92a82b66538f9529ea",
+      "mintTx": "289631a6d206440b0dfe31393421c3f0b6d95437dd3cc45bfb54f9fcb08607e6",
+      "tokenIds": [
+        15,
+        16,
+        17,
+        18,
+        19,
+        20
+      ]
+    }
+  ]
+}
