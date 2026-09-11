@@ -193,24 +193,115 @@ describe('indexer', () => {
     expect(all[0]!.id).toBe(9);
   });
 
-  it('starts from a ledger inside the RPC retention window, never zero', async () => {
+  it('starts from a ledger inside the event window, never zero', async () => {
     mockedRpc.getEvents.mockResolvedValue({ latestLedger: 100_000, cursor: 'c-1', events: [] });
 
     await refreshIndexer(true);
 
     const params = mockedRpc.getEvents.mock.calls[0]![0];
     expect(params.startLedger).toBeGreaterThan(0);
-    // latest 100_000 minus the 17_000-ledger lookback.
-    expect(params.startLedger).toBe(83_000);
+    // latest 100_000 minus the 10_000-ledger lookback.
+    expect(params.startLedger).toBe(90_000);
     // No cursor yet, so the request uses startLedger rather than cursor.
     expect(params.cursor).toBeUndefined();
+  });
+
+  // The measured failure this guards: the public testnet RPC returned events for
+  // a 10,500-ledger lookback and *zero* events for 11,000, with no error either
+  // way. A fixed window that is too wide therefore produces a feed that stays
+  // empty forever, which is what the previous hardcoded 17,000 did.
+  it('shrinks the window until the RPC returns events', async () => {
+    mockedRpc.getEvents
+      .mockResolvedValueOnce({ latestLedger: 100_000, cursor: 'c-1', events: [] })
+      .mockResolvedValue({
+        latestLedger: 100_000,
+        cursor: 'c-2',
+        events: [factoryEvent('NftMinted', [scvU64(7), scvAddress(ACTOR)])],
+      });
+
+    await refreshIndexer(true);
+
+    const [first, second] = mockedRpc.getEvents.mock.calls;
+    expect(first![0].startLedger).toBe(90_000);
+    // Halved: the too-wide window yielded nothing, so the search narrows.
+    expect(second![0].startLedger).toBe(95_000);
+    expect(indexerStats().nft_minted).toBe(1);
+  });
+
+  // The cursor only moves forward, so replacing the store with each page left it
+  // holding only what was newer than the cursor -- nothing, on a quiet network --
+  // and the feed drained to empty seconds after a successful refresh.
+  it('keeps events across refreshes instead of draining the store', async () => {
+    mockedRpc.getEvents.mockResolvedValue({
+      latestLedger: 100_000,
+      cursor: 'cursor-1',
+      events: [factoryEvent('NftMinted', [scvU64(5), scvAddress(ACTOR)], 100_000)],
+    });
+    await refreshIndexer(true);
+    expect(indexerStats().nft_minted).toBe(1);
+
+    // Next poll finds nothing new, which is the normal case.
+    mockedRpc.getEvents.mockResolvedValue({
+      latestLedger: 100_010,
+      cursor: 'cursor-2',
+      events: [],
+    });
+    await refreshIndexer(true);
+
+    expect(getIndexerState().eventCount).toBe(1);
+    expect(indexerStats().nft_minted).toBe(1);
+  });
+
+  it('does not double-count an event that appears in two pages', async () => {
+    const repeated = factoryEvent('NftMinted', [scvU64(5), scvAddress(ACTOR)], 100_000);
+    mockedRpc.getEvents.mockResolvedValue({
+      latestLedger: 100_000,
+      cursor: 'cursor-1',
+      events: [repeated],
+    });
+    await refreshIndexer(true);
+
+    // A retry or a rewound cursor can re-deliver a page.
+    mockedRpc.getEvents.mockResolvedValue({
+      latestLedger: 100_010,
+      cursor: 'cursor-2',
+      events: [repeated],
+    });
+    await refreshIndexer(true);
+
+    expect(indexerStats().nft_minted).toBe(1);
+  });
+
+  // Guards a bug that every unit test passed and no mock could have caught:
+  // the filter was sent as `topics: [[], ['*']]`, and a real RPC rejects that
+  // with "topic 1 invalid: topic must have at least 1 segment". Because the RPC
+  // validates every filter before returning any event, the rejected filter
+  // failed the whole call and every read endpoint answered 500 in production.
+  //
+  // The assertion is about the *absence* of a `topics` key rather than about a
+  // particular wildcard spelling, because the safe form is to omit it: the
+  // contract filter already scopes the query and the decoder verifies the
+  // symbol. A future edit that reintroduces a topic filter has to say why here.
+  it('sends no topic filter, which a live RPC rejects when empty', async () => {
+    mockedRpc.getEvents.mockResolvedValue({ latestLedger: 100_000, cursor: 'c-1', events: [] });
+
+    await refreshIndexer(true);
+
+    const params = mockedRpc.getEvents.mock.calls[0]![0];
+    expect(params.filters).toBeDefined();
+    expect(params.filters.length).toBeGreaterThan(0);
+    for (const filter of params.filters) {
+      expect(filter).toHaveProperty('type', 'contract');
+      expect(filter.contractIds?.length).toBeGreaterThan(0);
+      expect(filter).not.toHaveProperty('topics');
+    }
   });
 
   it('pages forward with the cursor once one is known', async () => {
     mockedRpc.getEvents.mockResolvedValue({
       latestLedger: 100_000,
       cursor: 'cursor-1',
-      events: [],
+      events: [factoryEvent('NftMinted', [scvU64(5), scvAddress(ACTOR)], 100_000)],
     });
     await refreshIndexer(true);
 

@@ -29,15 +29,24 @@
  *
  * ## Ledger window
  *
- * Soroban RPC retains only a bounded ledger range and rejects a `startLedger`
- * outside it, so the first fetch starts at `latestLedger - lookback` (clamped
- * into the retention window, overridable via `INDEXER_LOOKBACK_LEDGERS`) and
- * later fetches advance with the response cursor.
+ * Soroban RPC retains ledgers and events for different lengths of time, and the
+ * difference matters here. `getHealth().ledgerRetentionWindow` describes the
+ * range a `startLedger` may fall in; the range that actually *contains events*
+ * is much smaller. A request from outside it is not rejected -- it returns no
+ * events at all, which is indistinguishable from a quiet network.
+ *
+ * A cold start therefore searches: it begins at
+ * `latestLedger - INDEXER_LOOKBACK_LEDGERS` and halves the window until it finds
+ * events or reaches a floor. That keeps the indexer correct on an RPC with a
+ * different retention period instead of depending on one measured constant.
+ * Later fetches advance with the response cursor, and each page is merged into
+ * the store rather than replacing it, so the feed keeps the history it has
+ * already seen instead of draining to empty between refreshes.
  */
 import { scValToNative, rpc as SorobanRpc } from '@stellar/stellar-sdk';
 import { getRpcClient } from '@/services/stellar';
 import { CONTRACT_IDS } from '@/services';
-import { normalizeError } from './errors';
+import { errorMessage, normalizeError } from './errors';
 import { logger } from './logger';
 
 export type IndexedEventType =
@@ -63,12 +72,31 @@ export interface IndexedEvent {
 const MAX_STORED_EVENTS = 500;
 
 /**
- * How far back a cold start looks. Soroban RPC retains roughly 17,280 ledgers
- * (~24h at 5s per ledger) and rejects a `startLedger` outside that window;
- * 17,000 leaves headroom for the few ledgers that pass between reading the
- * latest sequence and issuing the events query.
+ * How far back a cold start looks for history.
+ *
+ * Measured against the public testnet RPC rather than assumed. `getHealth()`
+ * reports a `ledgerRetentionWindow` of 120,960 ledgers (~7 days), which is what
+ * the RPC will accept a `startLedger` in -- but events are retained for far
+ * less than that. Requests were answered with events from as far back as
+ * 10,500 ledgers and with *zero* events from 11,000, and the zero is not an
+ * error: asking for events from outside the event window returns an empty
+ * result and no indication that anything went wrong.
+ *
+ * That is what made the previous 17,000-ledger window a silent failure. Every
+ * fetch returned no events, so every list endpoint answered `200` with an empty
+ * array while the mocked tests, which never see a real retention limit, passed.
+ *
+ * `discoverColdStartLedger` shrinks further when a given RPC retains less, so
+ * this value is a starting point for the search rather than a hard assumption.
  */
-const DEFAULT_LOOKBACK_LEDGERS = 17_000;
+const DEFAULT_LOOKBACK_LEDGERS = 10_000;
+
+/**
+ * Floor for the cold-start search, about 25 minutes at 5s per ledger. Below
+ * this the indexer is pointed so close to the live edge that it would report an
+ * empty feed on a quiet network rather than admit the window is wrong.
+ */
+const MIN_LOOKBACK_LEDGERS = 300;
 
 function lookbackLedgers(): number {
   const raw = process.env.INDEXER_LOOKBACK_LEDGERS;
@@ -225,28 +253,19 @@ export function decodeEvent(
   }
 }
 
-/**
- * Fetch the latest events from the RPC.
- *
- * The first call after a cold start has no cursor, so it starts from a ledger
- * inside the RPC retention window; subsequent calls page forward from the
- * stored cursor.
- */
-async function fetchEvents(limit = 50): Promise<{ events: IndexedEvent[]; cursor?: string }> {
-  const rpc = getRpcClient();
-  const filters = sources().map((source) => ({
-    type: 'contract' as const,
-    contractIds: [source.contractId],
-    topics: [[], ['*']],
-  }));
+interface EventSourceLookup {
+  getLatestLedger: () => Promise<{ sequence: number }>;
+  getEvents: (params: SorobanRpc.Server.GetEventsRequest) => Promise<{
+    events?: SorobanRpc.Api.EventResponse[];
+    cursor?: string;
+  }>;
+}
 
-  const params: SorobanRpc.Server.GetEventsRequest = cursor
-    ? { cursor, filters, limit }
-    : { startLedger: await startLedgerFor(rpc), filters, limit };
-
-  const response = await rpc.getEvents(params);
-
-  const sourceByContract = new Map(sources().map((s) => [s.contractId, s]));
+/** Decode a raw response down to the events this indexer understands. */
+function decodeResponse(
+  response: { events?: SorobanRpc.Api.EventResponse[] },
+  sourceByContract: Map<string, SourceConfig>,
+): IndexedEvent[] {
   const decoded = (response.events || [])
     .filter((e) => e.inSuccessfulContractCall)
     .map((e) => {
@@ -257,15 +276,116 @@ async function fetchEvents(limit = 50): Promise<{ events: IndexedEvent[]; cursor
     .filter((e): e is IndexedEvent => e !== null);
 
   // Newest first (RPC returns ascending by paging token).
-  return { events: decoded.reverse(), cursor: response.cursor };
+  return decoded.reverse();
 }
 
-/** Resolve a `startLedger` guaranteed to fall inside the RPC retention window. */
+/**
+ * Find a `startLedger` that actually yields events.
+ *
+ * A window that reaches outside the RPC's event retention returns nothing at
+ * all, and nothing distinguishes that from a network where nothing has happened
+ * yet. So a cold start walks the window down until it finds events, which makes
+ * the indexer independent of any one RPC's retention: a window that is too wide
+ * for this deployment is corrected on the first refresh instead of producing a
+ * feed that stays empty forever.
+ *
+ * Only called when there is no cursor, so the extra requests happen once per
+ * process, not once per refresh.
+ */
+async function discoverColdStart(
+  rpc: EventSourceLookup,
+  filters: SorobanRpc.Api.EventFilter[],
+  limit: number,
+  sourceByContract: Map<string, SourceConfig>,
+): Promise<{ events: IndexedEvent[]; cursor?: string }> {
+  const latest = await rpc.getLatestLedger();
+  let window = lookbackLedgers();
+
+  for (;;) {
+    const response = await rpc.getEvents({
+      startLedger: Math.max(1, latest.sequence - window),
+      filters,
+      limit,
+    });
+    const events = decodeResponse(response, sourceByContract);
+
+    if (events.length > 0 || window <= MIN_LOOKBACK_LEDGERS) {
+      return { events, cursor: response.cursor };
+    }
+    window = Math.max(MIN_LOOKBACK_LEDGERS, Math.floor(window / 2));
+  }
+}
+
+/**
+ * Fetch events from the RPC.
+ *
+ * The first call after a cold start has no cursor, so it searches for the live
+ * edge of the event window; subsequent calls page forward from the stored
+ * cursor.
+ */
+async function fetchEvents(limit = 50): Promise<{ events: IndexedEvent[]; cursor?: string }> {
+  const rpc = getRpcClient();
+  // No `topics` filter, deliberately. The obvious spelling -- `topics: [[], ['*']]`
+  // -- is rejected by the RPC with "filter 1 invalid: topic 1 invalid: topic must
+  // have at least 1 segment": an empty segment is not a wildcard, it is an error,
+  // and every filter in a request is validated before any event is returned. That
+  // one invalid filter failed the whole `getEvents` call, which made every read
+  // endpoint answer 500 against a live RPC while the unit tests, which mock the
+  // RPC, stayed green.
+  //
+  // Nothing is lost by omitting it: `contractIds` already scopes the query to
+  // these exact contracts, and `decodeEvent` verifies the topic symbol matches the
+  // source before decoding, so a contract emitting an unexpected topic is dropped
+  // rather than misread.
+  const filters: SorobanRpc.Api.EventFilter[] = sources().map((source) => ({
+    type: 'contract' as const,
+    contractIds: [source.contractId],
+  }));
+  const sourceByContract = new Map(sources().map((s) => [s.contractId, s]));
+
+  if (cursor) {
+    const response = await rpc.getEvents({ cursor, filters, limit });
+    return { events: decodeResponse(response, sourceByContract), cursor: response.cursor };
+  }
+
+  return discoverColdStart(rpc, filters, limit, sourceByContract);
+}
+
+/**
+ * Resolve a `startLedger` inside the configured lookback window.
+ *
+ * Exported for the tests that pin the window; the cold-start path goes through
+ * `discoverColdStart`, which uses this as the upper bound of its search.
+ */
 export async function startLedgerFor(rpc: {
   getLatestLedger: () => Promise<{ sequence: number }>;
 }): Promise<number> {
   const latest = await rpc.getLatestLedger();
   return Math.max(1, latest.sequence - lookbackLedgers());
+}
+
+/**
+ * Merge a freshly-fetched page into the store.
+ *
+ * Newest first, deduplicated by paging token. The cursor only ever moves
+ * forward, so replacing the store with each page would leave it holding nothing
+ * but the events newer than the cursor -- which, on a quiet network, is usually
+ * nothing at all. That drained the feed to empty a few seconds after a
+ * successful refresh, while the RPC still held a full window of history.
+ *
+ * Deduplication matters because pages can overlap: a retry after a partial
+ * failure, or a cursor the RPC rewinds, would otherwise show the same mint
+ * twice in the activity feed.
+ */
+export function mergeEvents(incoming: IndexedEvent[], existing: IndexedEvent[]): IndexedEvent[] {
+  const seen = new Set(incoming.map((event) => event.pagingToken));
+  const merged = [...incoming, ...existing.filter((event) => !seen.has(event.pagingToken))];
+
+  // Paging tokens are only orderable as strings within one ledger, and pages can
+  // arrive with the same ledger, so order on the ledger first and the token only
+  // as a tie-break.
+  merged.sort((a, b) => b.ledger - a.ledger || (a.pagingToken < b.pagingToken ? 1 : -1));
+  return merged.slice(0, MAX_STORED_EVENTS);
 }
 
 /**
@@ -282,10 +402,7 @@ export async function refreshIndexer(force = false): Promise<IndexedEvent[]> {
   refreshPromise = (async () => {
     try {
       const fresh = await fetchEvents();
-      // The RPC window is the newest slice of the chain, so replacing the store
-      // (rather than appending) keeps it bounded and always reflects the
-      // current lookback window.
-      events = fresh.events.slice(0, MAX_STORED_EVENTS);
+      events = mergeEvents(fresh.events, events);
       if (fresh.cursor) cursor = fresh.cursor;
       lastRefreshAt = Date.now();
       lastError = null;
@@ -297,7 +414,7 @@ export async function refreshIndexer(force = false): Promise<IndexedEvent[]> {
       // a feed that has stopped advancing rather than only learning about it
       // from a user noticing an empty list.
       lastError = {
-        message: err instanceof Error ? err.message : String(err),
+        message: errorMessage(err),
         at: Date.now(),
       };
       logger.warn('indexer refresh failed', {
