@@ -11,7 +11,7 @@ tracked in the table at the end and in [`../../docs/improvements/plan.md`](../im
 
 Scope: this review targets **testnet deployment**. Mainnet migration, key custody
 in an HSM, and a third-party audit are explicitly out of scope and remain release
-blockers for mainnet (see [`mainnet-readiness.md`](./mainnet-readiness.md)).
+blockers for mainnet (see [`../mainnet-readiness.md`](../mainnet-readiness.md)).
 
 ---
 
@@ -370,13 +370,15 @@ Findings above are fixed in the order listed under "Execution" in the improvemen
 plan, one commit per item, each with tests. Anything not yet marked _Fixed_ in the
 table at the top is open and should not be assumed correct.
 
-## Out of scope for mainnet
+## Out of scope for this pass
 
-These are **not** optional for mainnet and are deliberately excluded from this pass:
+These are **not** optional for mainnet, are deliberately excluded here, and are
+tracked with owners and rationale in [`../mainnet-readiness.md`](../mainnet-readiness.md):
 
 - Third-party security audit of the five contracts.
 - Admin key custody (hardware wallet or HSM), rotation policy, and a documented
   recovery procedure for a lost admin key.
+- Durable indexer storage; the current store is per-instance and in memory.
 - Mainnet deployment, contract migration and state transfer from testnet.
 - Independent verification of Pinata's retention guarantees and a durable pinning
   fallback.
