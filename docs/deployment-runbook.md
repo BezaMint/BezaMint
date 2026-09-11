@@ -257,15 +257,37 @@ Read this before relying on it:
 
 ### Recovering a lost or compromised admin
 
-1. If the admin key is lost, the contracts cannot be upgraded or rewired. There is
-   no on-chain recovery. This is why `mainnet-readiness.md` requires the key to
-   live in a hardware wallet or HSM and why custody must be decided before launch.
-2. If the key is compromised, the attacker can replace contract code. Containment
-   is off-chain: revoke the API keys the app uses, take the frontend down, and
-   deploy fresh contracts. Contract state is public and a signed transaction cannot
-   be undone.
-3. The only _role_ that can be moved from the contract side is the Royalty admin,
-   via `factory.set_royalty_admin`.
+All five contracts expose `set_admin(new_admin)`, callable only by the **current**
+admin. It transfers the role, emits `AdminChanged`, and rejects the all-zero
+account (an admin that cannot sign is indistinguishable from no admin at all).
+This is the rotation mechanism `mainnet-readiness.md` expects to exist.
+
+1. **Planned rotation** — the key still signs, but custody is moving (new HSM,
+   personnel change, or a suspected-but-unconfirmed compromise). Call `set_admin`
+   on each contract from the current key:
+
+   ```bash
+   for ID in "$NFT_ID" "$COLLECTION_ID" "$CREATOR_ID" "$FACTORY_ID"; do
+     soroban contract invoke --id "$ID" "${CLI_ARGS[@]}" --source deployer -- \
+       set_admin --new_admin "$NEW_ADMIN_ADDR"
+   done
+   ```
+
+   Rotate the **Factory** first, then the **Royalty** admin if it should follow:
+   the Royalty admin is normally the Factory, so `factory.set_royalty_admin` is the
+   call that moves it, and it must be made by whoever holds the Factory admin role
+   at that moment. Finish with `scripts/verify-deploy.sh`, which asserts the role
+   holders are the ones you expect.
+
+2. **If the admin key is lost**, there is still no on-chain recovery: `set_admin`
+   is admin-only, so a key that cannot sign cannot be used to move the role. This
+   is why `mainnet-readiness.md` requires the key to live in a hardware wallet or
+   HSM and why custody must be decided before launch.
+3. **If the key is compromised**, the attacker can replace contract code. Rotation
+   is only safe while you still control the key; once the attacker holds it, move
+   fast but assume the code is theirs. Containment is off-chain: revoke the API
+   keys the app uses, take the frontend down, and deploy fresh contracts. Contract
+   state is public and a signed transaction cannot be undone.
 
 ---
 

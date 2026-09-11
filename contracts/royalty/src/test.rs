@@ -683,3 +683,22 @@ fn test_get_admin_reports_initialized_admin() {
     let client = BezaMintRoyaltyClient::new(&env, &contract_id);
     assert_eq!(client.get_admin(), admin);
 }
+
+/// `set_contracts` rejects the zero account before calling `set_admin`, but the
+/// Royalty admin can call it directly, so the check has to live here too: a zero
+/// admin would make the contract permanently un-upgradable with no recovery.
+#[test]
+fn test_set_admin_rejects_zero_address() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let client = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, (admin.clone(),)));
+
+    let zero = Address::from_str(
+        &env,
+        "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+    );
+    // RoyaltyError::AdminZeroAddress
+    assert!(client.try_set_admin(&zero).is_err());
+    assert_eq!(client.get_admin(), admin);
+}

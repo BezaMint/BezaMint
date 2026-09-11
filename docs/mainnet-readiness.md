@@ -35,8 +35,14 @@ Factory.
   or a hot key on a server.
 - `BEZAMINT_DEPLOYER_SECRET` in `scripts/deploy.sh` is a testnet convenience. It must
   not be used for a mainnet deployment.
-- Decide and document what happens if the admin key is lost. Today the answer is
-  "the contracts cannot be upgraded or rewired", which is safe but permanent.
+- The admin role is rotatable: every contract exposes admin-only
+  `set_admin(new_admin)`. The procedure is in
+  [`deployment-runbook.md`](./deployment-runbook.md#recovering-a-lost-or-compromised-admin).
+- Decide and document what happens if the admin key is **lost** — as opposed to
+  rotated. `set_admin` requires the current admin's signature, so a key that can no
+  longer sign still cannot be used to move the role: the answer remains "the
+  contracts cannot be upgraded or rewired". Name who holds the spare and how the
+  role would be transferred before launch.
 - Consider whether the admin should be a multisig or governed by a timelock before
   launch. The contracts support a contract address as admin, so this is a deployment
   choice rather than a code change.

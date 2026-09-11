@@ -24,6 +24,12 @@ use soroban_sdk::{
     BytesN, Env, Map, Vec,
 };
 
+/// The Stellar "zero" account (all-zero ed25519 public key). Soroban has no
+/// native null address, so this sentinel is used to reject obviously invalid
+/// destinations — here, an admin that could never authorize anything — rather
+/// than silently accepting them.
+const ZERO_ADDRESS: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+
 // ─────────────────────────── Constants ───────────────────────────
 
 /// Royalty rates are expressed in basis points, where 10,000 bp == 100%.
@@ -165,6 +171,8 @@ pub enum RoyaltyError {
     SalePriceNegative = 13,
     /// `sale_price * basis_points` overflowed i128.
     SalePriceTooLarge = 14,
+    /// `set_admin` was given the all-zero account.
+    AdminZeroAddress = 15,
 }
 
 // ─────────────────────────── Contract ───────────────────────────
@@ -284,6 +292,14 @@ impl BezaMintRoyalty {
             .get(&RoyaltyKey::Admin)
             .unwrap_or_else(|| panic_with_error!(&env, RoyaltyError::NotInitialized));
         admin.require_auth();
+
+        // `set_contracts` on the Factory rejects the zero account before calling
+        // this, but the Royalty admin can also call `set_admin` directly, so the
+        // check cannot live only in the caller: a zero admin here would make the
+        // contract permanently un-upgradable with no recovery path.
+        if new_admin == Address::from_str(&env, ZERO_ADDRESS) {
+            panic_with_error!(&env, RoyaltyError::AdminZeroAddress);
+        }
 
         env.storage().instance().set(&RoyaltyKey::Admin, &new_admin);
         env.storage()

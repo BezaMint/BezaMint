@@ -65,6 +65,7 @@ Authorization:
 | `transfer_from`                    | the approved spender, with a valid approval |
 | `approve` / `set_approval_for_all` | the token owner                             |
 | `burn`                             | the token owner                             |
+| `set_admin`                        | the contract admin                          |
 | `upgrade`                          | the contract admin                          |
 
 Approvals follow ERC-721 semantics (`getApproved` / `isApprovedForAll`), and a
@@ -141,6 +142,9 @@ The user-facing contract that composes the other four atomically:
   behalf. It exists so the hand-off above is reversible: otherwise the Factory
   would hold the role and forward no `upgrade`, and the Royalty contract could
   never be upgraded again.
+- **`set_admin(new_admin)`** transfers the Factory's own admin role. The Factory
+  admin can rewire every contract slot and seize the Royalty role, so it is the
+  most privileged key in the system and the one most in need of rotation.
 
 Every cross-contract mutation delegates its authorization to the callee, and the
 Factory's `configure_royalty` call authenticates because `set_contracts` transferred
@@ -157,8 +161,13 @@ separate transactions, anyone could call `initialize` first and seize the admin
 role. A constructor has no such window.
 
 `upgrade(new_wasm_hash)` is admin-only (`update_current_contract_wasm`), preserving
-all storage. There is no downgrade protection beyond the admin key, so that key must
-be held operationally — see [`mainnet-readiness.md`](./mainnet-readiness.md).
+all storage. `set_admin(new_admin)` is likewise admin-only on **all five** contracts:
+it moves the admin role and emits `AdminChanged`, so the role is rotatable rather
+than welded to the deployer address. The zero account is rejected, because Soroban
+has no null address and an admin that cannot sign is indistinguishable from no admin
+at all. There is no downgrade protection beyond the admin key, so that key must be
+held operationally — see [`mainnet-readiness.md`](./mainnet-readiness.md) for custody,
+and [`deployment-runbook.md`](./deployment-runbook.md) for the rotation procedure.
 
 Because storage survives an upgrade, the code that reads it may not match the code
 that wrote it. Every contract declares a `STORAGE_VERSION`, exposes it through

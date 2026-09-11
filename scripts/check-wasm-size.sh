@@ -27,12 +27,19 @@ WASM_DIR="${1:-$ROOT_DIR/contracts/target/wasm32-unknown-unknown/release}"
 HARD_LIMIT=65536
 
 # Per-contract budgets in bytes: name=budget
+#
+# bezamint_factory: raised 16000 -> 17000 in the same commit that added
+# `set_admin` plus the `AdminChanged` event (issue #133, admin key rotation).
+# Exported functions are not free in a small contract: each one contributes a
+# dispatch arm and a specs entry on top of the body, and the Factory was already
+# at 95% of 16000 before the change. Measured growth was 15151 -> 16085 bytes
+# (+934). Kept at 17000 rather than higher so the gate still catches regressions.
 BUDGETS=(
   "bezamint_nft=45000"
   "bezamint_collection=40000"
   "bezamint_royalty=34000"
   "bezamint_creator=34000"
-  "bezamint_factory=16000"
+  "bezamint_factory=17000"
 )
 
 purple='\033[0;35m'

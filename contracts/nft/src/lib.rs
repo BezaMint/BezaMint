@@ -217,6 +217,8 @@ pub enum NftEvent {
     Burned(u64, Address),
     /// A per-token operator approval was granted.
     Approved(u64, Address),
+    /// The admin role moved to a new address.
+    AdminChanged(Address),
 }
 
 fn emit_nft(env: &Env, event: NftEvent) {
@@ -362,6 +364,38 @@ impl BezaMintNft {
         env.storage()
             .instance()
             .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
+    }
+
+    /// Transfer the admin role to `new_admin`. Admin-only.
+    ///
+    /// Every privileged entry point on this contract is gated on the stored
+    /// admin, so without this function a lost or compromised admin key is
+    /// unrecoverable: `upgrade` and `migrate` would stay bound to it for the
+    /// life of the contract. Rotation is part of the recovery procedure, not a
+    /// convenience.
+    ///
+    /// The zero account is rejected. Soroban has no null address, so storing it
+    /// would leave the contract with an admin that can authorize nothing, which
+    /// is indistinguishable from bricking it.
+    pub fn set_admin(env: Env, new_admin: Address) {
+        assert_version(&env);
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&NftKey::Admin)
+            .unwrap_or_else(|| panic_with_error!(&env, NftError::NotInitialized));
+        admin.require_auth();
+
+        if new_admin == Address::from_str(&env, ZERO_ADDRESS) {
+            panic_with_error!(&env, NftError::ZeroAddress);
+        }
+
+        env.storage().instance().set(&NftKey::Admin, &new_admin);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
+
+        emit_nft(&env, NftEvent::AdminChanged(new_admin));
     }
 
     /// Mint a new NFT to `to` and return its token id. Recipient-gated: `to`

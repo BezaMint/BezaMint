@@ -25,6 +25,12 @@ use soroban_sdk::{
     BytesN, Env, String, Vec,
 };
 
+/// The Stellar "zero" account (all-zero ed25519 public key). Soroban has no
+/// native null address, so this sentinel is used to reject obviously invalid
+/// destinations — here, an admin that could never authorize anything — rather
+/// than silently accepting them.
+const ZERO_ADDRESS: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+
 // ─────────────────────────── Constants ───────────────────────────
 
 /// Upper bounds on profile fields so a profile can never grow past what a
@@ -111,6 +117,8 @@ pub enum CreatorEvent {
     Registered(Address),
     ProfileUpdated(Address),
     Verified(Address),
+    /// The admin role moved to a new address.
+    AdminChanged(Address),
 }
 
 fn emit(env: &Env, event: CreatorEvent) {
@@ -262,6 +270,8 @@ pub enum CreatorError {
     SocialUrlLengthInvalid = 15,
     /// Social URL does not use an https or http scheme.
     SocialUrlSchemeInvalid = 16,
+    /// `set_admin` was given the all-zero account.
+    AdminZeroAddress = 17,
 }
 
 // ─────────────────────────── Contract ───────────────────────────
@@ -367,6 +377,36 @@ impl BezaMintCreator {
         env.storage()
             .instance()
             .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
+    }
+
+    /// Transfer the admin role to `new_admin`. Admin-only.
+    ///
+    /// Verification is the platform admin's only power on this contract, so
+    /// without rotation a lost or compromised key permanently removes the
+    /// ability to verify creators. Rotation is part of the recovery procedure in
+    /// `docs/mainnet-readiness.md`.
+    ///
+    /// The zero account is rejected: an admin that cannot sign is
+    /// indistinguishable from no admin at all.
+    pub fn set_admin(env: Env, new_admin: Address) {
+        assert_version(&env);
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&CreatorKey::Admin)
+            .unwrap_or_else(|| panic_with_error!(&env, CreatorError::NotInitialized));
+        admin.require_auth();
+
+        if new_admin == Address::from_str(&env, ZERO_ADDRESS) {
+            panic_with_error!(&env, CreatorError::AdminZeroAddress);
+        }
+
+        env.storage().instance().set(&CreatorKey::Admin, &new_admin);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
+
+        emit(&env, CreatorEvent::AdminChanged(new_admin));
     }
 
     pub fn register(

@@ -931,3 +931,52 @@ fn test_get_admin_reports_initialized_admin() {
     let client = BezaMintFactoryClient::new(&env, &contract_id);
     assert_eq!(client.get_admin(), admin);
 }
+
+/// The role must actually move. Asserting only that `get_admin` changed would
+/// pass even if the old key kept working, so this authorizes with the previous
+/// admin alone and requires the call to be rejected. On this contract the stake
+/// is the highest: the admin can rewire every slot and seize the Royalty admin.
+#[test]
+fn test_set_admin_transfers_authority() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let old_admin = Address::generate(&env);
+    let new_admin = Address::generate(&env);
+    let contract_id = env.register(BezaMintFactory, (old_admin.clone(),));
+    let client = BezaMintFactoryClient::new(&env, &contract_id);
+
+    client.set_admin(&new_admin);
+    assert_eq!(client.get_admin(), new_admin.clone());
+
+    // Only the former admin signs: the role has moved, so this must be refused.
+    let third = Address::generate(&env);
+    env.mock_auths(&[soroban_sdk::testutils::MockAuth {
+        address: &old_admin,
+        invoke: &soroban_sdk::testutils::MockAuthInvoke {
+            contract: &contract_id,
+            fn_name: "set_admin",
+            args: soroban_sdk::IntoVal::into_val(&(third.clone(),), &env),
+            sub_invokes: &[],
+        },
+    }]);
+    assert!(client.try_set_admin(&third).is_err());
+    assert_eq!(client.get_admin(), new_admin);
+}
+
+/// An admin that cannot sign is indistinguishable from no admin, so the zero
+/// account is refused and the stored admin is left untouched.
+#[test]
+fn test_set_admin_rejects_zero_address() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let client = BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, (admin.clone(),)));
+
+    let zero = Address::from_str(
+        &env,
+        "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+    );
+    // FactoryError::AdminZeroAddress
+    assert!(client.try_set_admin(&zero).is_err());
+    assert_eq!(client.get_admin(), admin);
+}

@@ -46,6 +46,8 @@ pub enum FactoryEvent {
     NftMinted(u64, Address),
     NftBurned(u64, Address),
     CollectionCreated(u64, Address),
+    /// The admin role moved to a new address.
+    AdminChanged(Address),
 }
 
 /// State-expiration (TTL) policy. Soroban instance data and contract code are
@@ -136,6 +138,8 @@ pub enum FactoryError {
     RoyaltyContractNotSet = 13,
     /// The Creator contract slot is not wired.
     CreatorContractNotSet = 14,
+    /// `set_admin` was given the all-zero account.
+    AdminZeroAddress = 15,
 }
 
 #[contract]
@@ -240,6 +244,36 @@ impl BezaMintFactory {
         env.storage()
             .instance()
             .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
+    }
+
+    /// Transfer the Factory admin role to `new_admin`. Admin-only.
+    ///
+    /// The Factory admin can rewire every contract slot and seize the Royalty
+    /// admin role, so it is the most valuable key in the system. Without this
+    /// function a lost or compromised Factory admin key is unrecoverable, which
+    /// contradicts the rotation policy in `docs/mainnet-readiness.md`.
+    ///
+    /// The zero account is rejected: a Factory administered by an address that
+    /// cannot sign is permanently unrewireable.
+    pub fn set_admin(env: Env, new_admin: Address) {
+        assert_version(&env);
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&FactoryKey::Admin)
+            .unwrap_or_else(|| panic_with_error!(&env, FactoryError::NotInitialized));
+        admin.require_auth();
+
+        if new_admin == Address::from_str(&env, ZERO_ADDRESS) {
+            panic_with_error!(&env, FactoryError::AdminZeroAddress);
+        }
+
+        env.storage().instance().set(&FactoryKey::Admin, &new_admin);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
+
+        emit(&env, FactoryEvent::AdminChanged(new_admin));
     }
 
     /// Wire the four platform contracts. Admin-only: authorization comes from
