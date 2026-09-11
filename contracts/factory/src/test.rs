@@ -3,7 +3,37 @@ use soroban_sdk::{
     Address, Env, IntoVal, String, Symbol, TryFromVal,
 };
 
-use crate::{BezaMintFactory, BezaMintFactoryClient, FactoryEvent};
+use crate::{BezaMintFactory, BezaMintFactoryClient, FactoryEvent, FactoryKey};
+
+/// A stored schema version must gate every mutation, and only the admin may
+/// repair a mismatch by naming the version it is migrating from. A Factory that
+/// read a foreign key layout would resolve its wiring pointers incorrectly.
+#[test]
+fn test_storage_version_is_enforced() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(BezaMintFactory, (admin.clone(),));
+    let client = BezaMintFactoryClient::new(&env, &contract_id);
+
+    assert_eq!(client.version(), crate::STORAGE_VERSION);
+
+    env.as_contract(&contract_id, || {
+        env.storage().instance().set(&FactoryKey::Version, &99u32);
+    });
+
+    let nft = Address::generate(&env);
+    let collection = Address::generate(&env);
+    let royalty = Address::generate(&env);
+    let creator = Address::generate(&env);
+    assert!(client
+        .try_set_contracts(&nft, &collection, &royalty, &creator)
+        .is_err());
+    assert!(client.try_migrate(&0u32).is_err());
+
+    client.migrate(&99u32);
+    assert_eq!(client.version(), crate::STORAGE_VERSION);
+}
 
 /// Decode the single most recent event emitted by the Factory and assert
 /// emitter, topic and payload.

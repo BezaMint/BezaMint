@@ -4,7 +4,7 @@ use soroban_sdk::{
     Address, Env, IntoVal, String, Symbol, TryFromVal,
 };
 
-use crate::{BezaMintNft, BezaMintNftClient, NftEvent};
+use crate::{BezaMintNft, BezaMintNftClient, NftEvent, NftKey};
 
 /// Decode the single most recent event's data as an `NftEvent` and assert the
 /// contract that emitted it. Events are the contract's public interface for
@@ -69,6 +69,80 @@ fn test_constructor_binds_admin() {
     let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     assert!(client.is_initialized());
     assert_eq!(client.get_admin(), admin);
+}
+
+/// Every build declares the storage schema it expects, and a fresh contract
+/// reports it. The constructor has always written `Version`, but until now
+/// nothing read it back; this pins the value so a silent bump is visible.
+#[test]
+fn test_version_reports_storage_schema() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin,)));
+    assert_eq!(client.version(), crate::STORAGE_VERSION);
+}
+
+/// A store written by a different contract version must stop a mutating call
+/// instead of being decoded as garbage. This is the whole point of enforcing the
+/// version key: after an in-place `upgrade` that changed a struct, a read would
+/// otherwise reinterpret old bytes with no error anywhere.
+#[test]
+fn test_mutation_is_rejected_when_the_stored_version_differs() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
+    let client = BezaMintNftClient::new(&env, &contract_id);
+
+    env.as_contract(&contract_id, || {
+        env.storage().instance().set(&NftKey::Version, &99u32);
+    });
+
+    let to = Address::generate(&env);
+    let uri = String::from_str(&env, "ipfs://meta/1");
+    assert!(client.try_mint(&to, &0, &uri).is_err());
+}
+
+/// `migrate` is the only path that repairs a mismatch, so it must require the
+/// exact stored version, refuse to run when already current, and leave the
+/// contract usable afterwards.
+#[test]
+fn test_migrate_is_version_checked_and_repairs_a_mismatch() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
+    let client = BezaMintNftClient::new(&env, &contract_id);
+
+    // Already at the current version, and a wrong starting point, are refused.
+    assert!(client.try_migrate(&crate::STORAGE_VERSION).is_err());
+    assert!(client.try_migrate(&0u32).is_err());
+
+    // Repair a mismatch, then confirm the mutating path works again.
+    env.as_contract(&contract_id, || {
+        env.storage().instance().set(&NftKey::Version, &99u32);
+    });
+    client.migrate(&99u32);
+    assert_eq!(client.version(), crate::STORAGE_VERSION);
+
+    let to = Address::generate(&env);
+    let uri = String::from_str(&env, "ipfs://meta/1");
+    assert_eq!(client.mint(&to, &0, &uri), 1);
+}
+
+/// Without the admin's authorization, a mismatched version cannot be repaired by
+/// an arbitrary caller.
+#[test]
+fn test_migrate_requires_admin_auth() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(BezaMintNft, (admin,));
+    let client = BezaMintNftClient::new(&env, &contract_id);
+
+    env.mock_auths(&[]);
+    assert!(client.try_migrate(&0u32).is_err());
 }
 
 /// Token ids come from a monotonic counter that the constructor starts at zero.

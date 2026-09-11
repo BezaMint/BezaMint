@@ -42,6 +42,10 @@ pub const MAX_METADATA_URI_LEN: u32 = 512;
 /// caller cannot force an unbounded read of the creator index.
 pub const MAX_PAGE_SIZE: u32 = 100;
 
+/// Storage schema version written by this build. Bump it whenever the persisted
+/// layout changes and add the matching step to [`BezaMintCollection::migrate`].
+pub const STORAGE_VERSION: u32 = 1;
+
 /// State-expiration (TTL) policy. Soroban entries silently archive once their
 /// TTL elapses and then read as missing, so a collection whose record archived
 /// would vanish from listings while its id still exists. Every write refreshes
@@ -115,6 +119,20 @@ fn bump_ttl(env: &Env, key: &ColKey) {
         .extend_ttl(key, TTL_THRESHOLD, TTL_LEDGERS);
 }
 
+/// Panic unless the stored schema version matches this build.
+///
+/// The constructor writes `Version` but nothing used to read it, so an in-place
+/// `upgrade` that changed a stored layout would decode old entries into the new
+/// struct and return garbage rather than failing. Every mutating path consults
+/// the version first so the mismatch is loud and immediate.
+fn assert_version(env: &Env) {
+    let found: u32 = env.storage().instance().get(&ColKey::Version).unwrap_or(0);
+    assert!(
+        found == STORAGE_VERSION,
+        "Collection: storage version {found} does not match this build ({STORAGE_VERSION}); run migrate"
+    );
+}
+
 /// True when `s` begins with `prefix`. Soroban's `String` has no
 /// `starts_with`, so the string is copied into a stack buffer (bounded by
 /// [`MAX_METADATA_URI_LEN`]) and compared at the byte level.
@@ -171,6 +189,44 @@ impl BezaMintCollection {
         env.storage().instance().has(&ColKey::Admin)
     }
 
+    /// Stored schema version (`0` before the constructor runs).
+    pub fn version(env: Env) -> u32 {
+        env.storage().instance().get(&ColKey::Version).unwrap_or(0)
+    }
+
+    /// Advance the stored schema version after an in-place `upgrade`.
+    /// Admin-only.
+    ///
+    /// `from_version` must equal what is actually stored, so a migration cannot
+    /// be replayed or run against the wrong starting point. This is deliberately
+    /// the only mutating function exempt from `assert_version`: it is the step
+    /// that repairs a mismatch.
+    pub fn migrate(env: Env, from_version: u32) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&ColKey::Admin)
+            .unwrap_or_else(|| panic!("Collection: not initialized"));
+        admin.require_auth();
+
+        let stored: u32 = env.storage().instance().get(&ColKey::Version).unwrap_or(0);
+        assert!(
+            stored == from_version,
+            "Collection: stored version is {stored}, not {from_version}"
+        );
+        assert!(
+            from_version != STORAGE_VERSION,
+            "Collection: already at version {STORAGE_VERSION}"
+        );
+
+        env.storage()
+            .instance()
+            .set(&ColKey::Version, &STORAGE_VERSION);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
+    }
+
     /// Replace the contract code with a newly deployed wasm hash. Admin-only.
     /// The canonical Soroban upgrade path: the admin deploys the new wasm,
     /// then calls this with its hash to swap the code in place, preserving all
@@ -191,6 +247,7 @@ impl BezaMintCollection {
     }
 
     pub fn create_collection(env: Env, creator: Address, metadata_uri: String) -> u64 {
+        assert_version(&env);
         // Verify the contract has been initialized before use.
         env.storage()
             .instance()
@@ -245,6 +302,7 @@ impl BezaMintCollection {
     }
 
     pub fn update_collection(env: Env, creator: Address, id: u64, new_metadata_uri: String) {
+        assert_version(&env);
         creator.require_auth();
 
         let mut data: CollectionData = env
@@ -275,6 +333,7 @@ impl BezaMintCollection {
     }
 
     pub fn archive_collection(env: Env, creator: Address, id: u64) {
+        assert_version(&env);
         creator.require_auth();
 
         let mut data: CollectionData = env
@@ -329,6 +388,7 @@ impl BezaMintCollection {
     /// own address authorized the call. The parameter is gone; ownership of the
     /// collection is the authority.
     pub fn add_nft(env: Env, collection_id: u64, token_id: u64) {
+        assert_version(&env);
         let mut data: CollectionData = env
             .storage()
             .persistent()
@@ -391,6 +451,7 @@ impl BezaMintCollection {
     /// Authorization: the collection's creator must authorize, matching
     /// `add_nft`.
     pub fn remove_nft(env: Env, collection_id: u64, token_id: u64) {
+        assert_version(&env);
         let mut data: CollectionData = env
             .storage()
             .persistent()

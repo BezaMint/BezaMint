@@ -58,6 +58,10 @@ pub enum FactoryEvent {
 const TTL_LEDGERS: u32 = 6_312_000;
 const TTL_THRESHOLD: u32 = TTL_LEDGERS / 2;
 
+/// Storage schema version written by this build. Bump it whenever the persisted
+/// layout changes and add the matching step to [`BezaMintFactory::migrate`].
+pub const STORAGE_VERSION: u32 = 1;
+
 /// The Stellar "zero" account (all-zero ed25519 public key). Soroban has no
 /// native null address, so this sentinel is used to reject a wiring call that
 /// would otherwise store an unusable pointer.
@@ -65,6 +69,24 @@ const ZERO_ADDRESS: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
 fn emit(env: &Env, event: FactoryEvent) {
     env.events().publish((symbol_short!("factory"),), event);
+}
+
+/// Panic unless the stored schema version matches this build.
+///
+/// The constructor writes `Version` but nothing used to read it, so an in-place
+/// `upgrade` that changed the stored key layout would read the wiring pointers
+/// incorrectly rather than failing. Every mutating path consults the version
+/// first so the mismatch is loud and immediate.
+fn assert_version(env: &Env) {
+    let found: u32 = env
+        .storage()
+        .instance()
+        .get(&FactoryKey::Version)
+        .unwrap_or(0);
+    assert!(
+        found == STORAGE_VERSION,
+        "Factory: storage version {found} does not match this build ({STORAGE_VERSION}); run migrate"
+    );
 }
 
 #[contract]
@@ -109,6 +131,51 @@ impl BezaMintFactory {
         env.storage().instance().has(&FactoryKey::Admin)
     }
 
+    /// Stored schema version (`0` before the constructor runs).
+    pub fn version(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&FactoryKey::Version)
+            .unwrap_or(0)
+    }
+
+    /// Advance the stored schema version after an in-place `upgrade`.
+    /// Admin-only.
+    ///
+    /// `from_version` must equal what is actually stored, so a migration cannot
+    /// be replayed or run against the wrong starting point. This is deliberately
+    /// the only mutating function exempt from `assert_version`: it is the step
+    /// that repairs a mismatch.
+    pub fn migrate(env: Env, from_version: u32) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&FactoryKey::Admin)
+            .unwrap_or_else(|| panic!("Factory: not initialized"));
+        admin.require_auth();
+
+        let stored: u32 = env
+            .storage()
+            .instance()
+            .get(&FactoryKey::Version)
+            .unwrap_or(0);
+        assert!(
+            stored == from_version,
+            "Factory: stored version is {stored}, not {from_version}"
+        );
+        assert!(
+            from_version != STORAGE_VERSION,
+            "Factory: already at version {STORAGE_VERSION}"
+        );
+
+        env.storage()
+            .instance()
+            .set(&FactoryKey::Version, &STORAGE_VERSION);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
+    }
+
     /// Replace the contract code with a newly deployed wasm hash. Admin-only.
     /// The canonical Soroban upgrade path: the admin deploys the new wasm,
     /// then calls this with its hash to swap the code in place, preserving all
@@ -140,6 +207,7 @@ impl BezaMintFactory {
         royalty: Address,
         creator: Address,
     ) {
+        assert_version(&env);
         let stored_admin: Address = env
             .storage()
             .instance()
@@ -228,6 +296,7 @@ impl BezaMintFactory {
         metadata_uri: String,
         basis_points: u32,
     ) -> u64 {
+        assert_version(&env);
         caller.require_auth();
 
         let nft_addr: Address = env
@@ -305,6 +374,7 @@ impl BezaMintFactory {
     /// with the caller's signatures; a mismatched owner/creator fails
     /// atomically with nothing burned.
     pub fn burn_nft(env: Env, caller: Address, collection_id: u64, token_id: u64) {
+        assert_version(&env);
         caller.require_auth();
 
         let nft_addr: Address = env
@@ -340,6 +410,7 @@ impl BezaMintFactory {
 
     /// Cross-contract: create collection + auto-register creator
     pub fn create_collection_for_creator(env: Env, caller: Address, metadata_uri: String) -> u64 {
+        assert_version(&env);
         caller.require_auth();
 
         let collection_addr: Address = env

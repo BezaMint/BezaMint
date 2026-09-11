@@ -6,6 +6,37 @@ use soroban_sdk::{
 
 use crate::{BezaMintCollection, BezaMintCollectionClient, ColEvent, ColKey};
 
+/// A stored schema version must gate every mutation, and only the admin may
+/// repair a mismatch by naming the version it is migrating from. This is the
+/// guarantee the `Version` key always existed for but never provided: it was
+/// written by the constructor and never read back.
+#[test]
+fn test_storage_version_is_enforced() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let contract_id = env.register(BezaMintCollection, (admin.clone(),));
+    let client = BezaMintCollectionClient::new(&env, &contract_id);
+
+    assert_eq!(client.version(), crate::STORAGE_VERSION);
+
+    env.as_contract(&contract_id, || {
+        env.storage().instance().set(&ColKey::Version, &99u32);
+    });
+
+    let uri = String::from_str(&env, "ipfs://col");
+    assert!(client.try_create_collection(&creator, &uri).is_err());
+    // Neither "already current" nor a wrong starting point may migrate.
+    assert!(client.try_migrate(&crate::STORAGE_VERSION).is_err());
+    assert!(client.try_migrate(&0u32).is_err());
+
+    // Naming the version actually stored repairs the mismatch and unblocks use.
+    client.migrate(&99u32);
+    assert_eq!(client.version(), crate::STORAGE_VERSION);
+    assert_eq!(client.create_collection(&creator, &uri), 1);
+}
+
 /// Remaining TTL in ledgers of a specific persistent entry, or `None` when the
 /// entry does not exist.
 fn ttl_of(env: &Env, contract_id: &Address, data_key: &xdr::ScVal) -> Option<u32> {

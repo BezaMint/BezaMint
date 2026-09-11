@@ -35,6 +35,10 @@ const MAX_URI_LEN: u32 = 512;
 const MAX_SOCIAL_LINKS: u32 = 8;
 const MAX_PLATFORM_LEN: u32 = 32;
 const MAX_SOCIAL_URL_LEN: u32 = 256;
+
+/// Storage schema version written by this build. Bump it whenever the persisted
+/// layout changes and add the matching step to [`BezaMintCreator::migrate`].
+pub const STORAGE_VERSION: u32 = 1;
 /// Social platforms accepted in `set_social_links`. Anything else is rejected
 /// so the frontend can render link badges without an unbounded allowlist, and
 /// so a platform string cannot be used to smuggle a scheme or markup.
@@ -119,6 +123,24 @@ fn bump_ttl(env: &Env, key: &CreatorKey) {
     env.storage()
         .persistent()
         .extend_ttl(key, TTL_THRESHOLD, TTL_LEDGERS);
+}
+
+/// Panic unless the stored schema version matches this build.
+///
+/// The constructor writes `Version` but nothing used to read it, so an in-place
+/// `upgrade` that changed the `CreatorProfile` layout would decode old entries
+/// into the new struct and return garbage rather than failing. Every mutating
+/// path consults the version first so the mismatch is loud and immediate.
+fn assert_version(env: &Env) {
+    let found: u32 = env
+        .storage()
+        .instance()
+        .get(&CreatorKey::Version)
+        .unwrap_or(0);
+    assert!(
+        found == STORAGE_VERSION,
+        "Creator: storage version {found} does not match this build ({STORAGE_VERSION}); run migrate"
+    );
 }
 
 /// True when `s` begins with `prefix`. Soroban's `String` has no
@@ -241,6 +263,51 @@ impl BezaMintCreator {
         env.storage().instance().has(&CreatorKey::Admin)
     }
 
+    /// Stored schema version (`0` before the constructor runs).
+    pub fn version(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&CreatorKey::Version)
+            .unwrap_or(0)
+    }
+
+    /// Advance the stored schema version after an in-place `upgrade`.
+    /// Admin-only.
+    ///
+    /// `from_version` must equal what is actually stored, so a migration cannot
+    /// be replayed or run against the wrong starting point. This is deliberately
+    /// the only mutating function exempt from `assert_version`: it is the step
+    /// that repairs a mismatch.
+    pub fn migrate(env: Env, from_version: u32) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&CreatorKey::Admin)
+            .unwrap_or_else(|| panic!("Creator: not initialized"));
+        admin.require_auth();
+
+        let stored: u32 = env
+            .storage()
+            .instance()
+            .get(&CreatorKey::Version)
+            .unwrap_or(0);
+        assert!(
+            stored == from_version,
+            "Creator: stored version is {stored}, not {from_version}"
+        );
+        assert!(
+            from_version != STORAGE_VERSION,
+            "Creator: already at version {STORAGE_VERSION}"
+        );
+
+        env.storage()
+            .instance()
+            .set(&CreatorKey::Version, &STORAGE_VERSION);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
+    }
+
     /// Replace the contract code with a newly deployed wasm hash. Admin-only.
     /// The canonical Soroban upgrade path: the admin deploys the new wasm,
     /// then calls this with its hash to swap the code in place, preserving all
@@ -268,6 +335,7 @@ impl BezaMintCreator {
         avatar_uri: String,
         banner_uri: String,
     ) {
+        assert_version(&env);
         creator.require_auth();
 
         assert!(!display_name.is_empty(), "Creator: display name required");
@@ -328,6 +396,7 @@ impl BezaMintCreator {
         avatar_uri: String,
         banner_uri: String,
     ) {
+        assert_version(&env);
         creator.require_auth();
 
         // Resolve the profile first so a nonexistent creator gets the clear
@@ -368,6 +437,7 @@ impl BezaMintCreator {
     }
 
     pub fn set_social_links(env: Env, creator: Address, links: Vec<SocialLink>) {
+        assert_version(&env);
         creator.require_auth();
 
         validate_social_links(&links);
@@ -395,6 +465,7 @@ impl BezaMintCreator {
     /// ignored in favour of the stored admin, which misled callers into
     /// believing their own address authorized the call.
     pub fn verify_creator(env: Env, creator: Address) {
+        assert_version(&env);
         let stored_admin: Address = env
             .storage()
             .instance()

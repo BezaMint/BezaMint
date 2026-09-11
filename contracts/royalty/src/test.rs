@@ -6,6 +6,37 @@ use soroban_sdk::{
 
 use crate::{BezaMintRoyalty, BezaMintRoyaltyClient, RoyaltyEvent, RoyaltyKey};
 
+/// A stored schema version must gate every mutation, and only the admin may
+/// repair a mismatch by naming the version it is migrating from. Royalty shares
+/// the version at which a `RoyaltyConfig` layout could silently change and be
+/// paid out as garbage.
+#[test]
+fn test_storage_version_is_enforced() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let contract_id = env.register(BezaMintRoyalty, (admin.clone(),));
+    let client = BezaMintRoyaltyClient::new(&env, &contract_id);
+
+    assert_eq!(client.version(), crate::STORAGE_VERSION);
+
+    env.as_contract(&contract_id, || {
+        env.storage().instance().set(&RoyaltyKey::Version, &99u32);
+    });
+
+    let recipients: Map<Address, u32> = Map::new(&env);
+    assert!(client
+        .try_configure_royalty(&creator, &1u64, &500u32, &recipients, &false)
+        .is_err());
+    assert!(client.try_migrate(&0u32).is_err());
+
+    client.migrate(&99u32);
+    assert_eq!(client.version(), crate::STORAGE_VERSION);
+    client.configure_royalty(&creator, &1u64, &500u32, &recipients, &false);
+    assert_eq!(client.get_royalty(&1u64, &false).basis_points, 500);
+}
+
 /// Remaining TTL in ledgers of a specific persistent entry, or `None` when the
 /// entry does not exist.
 fn ttl_of(env: &Env, contract_id: &Address, data_key: &xdr::ScVal) -> Option<u32> {

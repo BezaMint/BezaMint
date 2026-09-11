@@ -48,6 +48,10 @@ pub const MAX_PAGE_SIZE: u32 = 100;
 /// rejected in the other.
 pub const MAX_METADATA_URI_LEN: u32 = 512;
 
+/// Storage schema version written by this build. Bump it whenever the persisted
+/// layout changes and add the matching step to [`BezaMintNft::migrate`].
+pub const STORAGE_VERSION: u32 = 1;
+
 /// The Stellar "zero" account (all-zero ed25519 public key). Soroban has no
 /// native null address, so this sentinel is used to reject obviously invalid
 /// destinations instead of silently accepting them.
@@ -177,6 +181,22 @@ fn bump_ttl(env: &Env, key: &NftKey) {
         .extend_ttl(key, TTL_THRESHOLD, TTL_LEDGERS);
 }
 
+/// Panic unless the stored schema version matches this build.
+///
+/// The constructor has always written `Version = 1`, but until now nothing read
+/// it back: after an in-place `upgrade` that changed a stored layout, entries
+/// written by the old code would be decoded into the new struct and read as
+/// garbage rather than failing. Every mutating entry point consults the version
+/// first, so a mismatch stops the call with a clear message instead of
+/// corrupting state.
+fn assert_version(env: &Env) {
+    let found: u32 = env.storage().instance().get(&NftKey::Version).unwrap_or(0);
+    assert!(
+        found == STORAGE_VERSION,
+        "NFT: storage version {found} does not match this build ({STORAGE_VERSION}); run migrate"
+    );
+}
+
 /// True when `s` begins with `prefix`. Soroban's `String` has no
 /// `starts_with`, so the string is copied into a stack buffer (bounded by
 /// [`MAX_METADATA_URI_LEN`]) and compared at the byte level.
@@ -237,6 +257,46 @@ impl BezaMintNft {
         env.storage().instance().has(&NftKey::Admin)
     }
 
+    /// Stored schema version (`0` before the constructor runs).
+    pub fn version(env: Env) -> u32 {
+        env.storage().instance().get(&NftKey::Version).unwrap_or(0)
+    }
+
+    /// Advance the stored schema version after an in-place `upgrade`.
+    /// Admin-only.
+    ///
+    /// `from_version` must equal what is actually stored, so a migration cannot
+    /// be replayed or run against the wrong starting point. This is deliberately
+    /// the only mutating function exempt from `assert_version`: it is
+    /// the step that repairs a mismatch. Note that the migration is a no-op at
+    /// version 1; it exists so the upgrade path is enforced and tested before it
+    /// is first needed rather than written during an incident.
+    pub fn migrate(env: Env, from_version: u32) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&NftKey::Admin)
+            .unwrap_or_else(|| panic!("NFT: not initialized"));
+        admin.require_auth();
+
+        let stored: u32 = env.storage().instance().get(&NftKey::Version).unwrap_or(0);
+        assert!(
+            stored == from_version,
+            "NFT: stored version is {stored}, not {from_version}"
+        );
+        assert!(
+            from_version != STORAGE_VERSION,
+            "NFT: already at version {STORAGE_VERSION}"
+        );
+
+        env.storage()
+            .instance()
+            .set(&NftKey::Version, &STORAGE_VERSION);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
+    }
+
     /// Replace the contract code with a newly deployed wasm hash. Admin-only.
     /// The canonical Soroban upgrade path: the admin deploys the new wasm,
     /// then calls this with its hash to swap the code in place, preserving all
@@ -262,6 +322,7 @@ impl BezaMintNft {
     /// is called by the Factory, which then links the token to its collection
     /// and configures its royalty.
     pub fn mint(env: Env, to: Address, collection_id: u64, metadata_uri: String) -> u64 {
+        assert_version(&env);
         // Verify the contract has been initialized before use.
         env.storage()
             .instance()
@@ -328,6 +389,7 @@ impl BezaMintNft {
     /// account, and any approval the old owner granted for this token is
     /// invalidated.
     pub fn transfer(env: Env, from: Address, to: Address, token_id: u64) {
+        assert_version(&env);
         from.require_auth();
         let current: Address = env
             .storage()
@@ -347,6 +409,7 @@ impl BezaMintNft {
     /// the actual owner at call time, so a stale approval cannot be used to
     /// move a token after it has changed hands.
     pub fn transfer_from(env: Env, spender: Address, from: Address, to: Address, token_id: u64) {
+        assert_version(&env);
         spender.require_auth();
 
         let current: Address = env
@@ -472,6 +535,7 @@ impl BezaMintNft {
     /// `approve`). Owner-only; replacing the operator overwrites the previous
     /// approval, and a transfer revokes it.
     pub fn approve(env: Env, operator: Address, token_id: u64) {
+        assert_version(&env);
         let owner: Address = env
             .storage()
             .persistent()
@@ -491,6 +555,7 @@ impl BezaMintNft {
     /// Grant or revoke `operator` the blanket right to transfer all of the
     /// owner's tokens (ERC-721 `setApprovalForAll`). Owner-only.
     pub fn set_approval_for_all(env: Env, owner_addr: Address, operator: Address, approved: bool) {
+        assert_version(&env);
         owner_addr.require_auth();
         if approved {
             Self::assert_not_zero(&env, &operator, "approval operator");
@@ -504,6 +569,7 @@ impl BezaMintNft {
     /// `total_supply` keeps counting the burned token; any per-token approval
     /// is removed so it cannot be revived into a latent privilege grant.
     pub fn burn(env: Env, token_id: u64) {
+        assert_version(&env);
         let owner: Address = env
             .storage()
             .persistent()

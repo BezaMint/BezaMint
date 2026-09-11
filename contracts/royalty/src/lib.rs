@@ -35,6 +35,10 @@ const TOTAL_SHARE: u32 = 100;
 /// create an unbounded payout fan-out.
 const MAX_RECIPIENTS: u32 = 10;
 
+/// Storage schema version written by this build. Bump it whenever the persisted
+/// layout changes and add the matching step to [`BezaMintRoyalty::migrate`].
+pub const STORAGE_VERSION: u32 = 1;
+
 /// State-expiration (TTL) policy. Soroban entries silently archive once their
 /// TTL elapses and then read as missing; a royalty config that archived would
 /// make `get_royalty` panic for an NFT that demonstrably still exists. Every
@@ -103,6 +107,24 @@ fn bump_ttl(env: &Env, key: &RoyaltyKey) {
         .extend_ttl(key, TTL_THRESHOLD, TTL_LEDGERS);
 }
 
+/// Panic unless the stored schema version matches this build.
+///
+/// The constructor writes `Version` but nothing used to read it, so an in-place
+/// `upgrade` that changed the `RoyaltyConfig` layout would decode old entries
+/// into the new struct and pay out garbage rather than failing. Every mutating
+/// path consults the version first so the mismatch is loud and immediate.
+fn assert_version(env: &Env) {
+    let found: u32 = env
+        .storage()
+        .instance()
+        .get(&RoyaltyKey::Version)
+        .unwrap_or(0);
+    assert!(
+        found == STORAGE_VERSION,
+        "Royalty: storage version {found} does not match this build ({STORAGE_VERSION}); run migrate"
+    );
+}
+
 // ─────────────────────────── Contract ───────────────────────────
 
 #[contract]
@@ -145,6 +167,51 @@ impl BezaMintRoyalty {
         env.storage().instance().has(&RoyaltyKey::Admin)
     }
 
+    /// Stored schema version (`0` before the constructor runs).
+    pub fn version(env: Env) -> u32 {
+        env.storage()
+            .instance()
+            .get(&RoyaltyKey::Version)
+            .unwrap_or(0)
+    }
+
+    /// Advance the stored schema version after an in-place `upgrade`.
+    /// Admin-only.
+    ///
+    /// `from_version` must equal what is actually stored, so a migration cannot
+    /// be replayed or run against the wrong starting point. This is deliberately
+    /// the only mutating function exempt from `assert_version`: it is the step
+    /// that repairs a mismatch.
+    pub fn migrate(env: Env, from_version: u32) {
+        let admin: Address = env
+            .storage()
+            .instance()
+            .get(&RoyaltyKey::Admin)
+            .unwrap_or_else(|| panic!("Royalty: not initialized"));
+        admin.require_auth();
+
+        let stored: u32 = env
+            .storage()
+            .instance()
+            .get(&RoyaltyKey::Version)
+            .unwrap_or(0);
+        assert!(
+            stored == from_version,
+            "Royalty: stored version is {stored}, not {from_version}"
+        );
+        assert!(
+            from_version != STORAGE_VERSION,
+            "Royalty: already at version {STORAGE_VERSION}"
+        );
+
+        env.storage()
+            .instance()
+            .set(&RoyaltyKey::Version, &STORAGE_VERSION);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
+    }
+
     /// Replace the contract code with a newly deployed wasm hash. Admin-only.
     /// The canonical Soroban upgrade path: the admin deploys the new wasm,
     /// then calls this with its hash to swap the code in place, preserving all
@@ -170,6 +237,7 @@ impl BezaMintRoyalty {
     /// admin, so without this transfer the flagship mint-with-royalty flow can
     /// only ever be authorized by a human deployer who is never present.
     pub fn set_admin(env: Env, new_admin: Address) {
+        assert_version(&env);
         let admin: Address = env
             .storage()
             .instance()
@@ -199,6 +267,7 @@ impl BezaMintRoyalty {
         recipients: Map<Address, u32>,
         is_collection: bool,
     ) {
+        assert_version(&env);
         let admin: Address = env
             .storage()
             .instance()
@@ -259,6 +328,7 @@ impl BezaMintRoyalty {
         recipients: Map<Address, u32>,
         is_collection: bool,
     ) {
+        assert_version(&env);
         caller.require_auth();
 
         let admin: Address = env
@@ -310,6 +380,7 @@ impl BezaMintRoyalty {
     /// that their terms cannot change, and deletion would be the ultimate
     /// change, so a frozen config is permanent by construction.
     pub fn remove_royalty(env: Env, target_id: u64, is_collection: bool) {
+        assert_version(&env);
         let admin: Address = env
             .storage()
             .instance()
@@ -344,6 +415,7 @@ impl BezaMintRoyalty {
     /// Permanently lock the terms for a target. Admin-only, and irreversible:
     /// once frozen, neither the creator nor the admin can amend them.
     pub fn freeze_royalty(env: Env, target_id: u64, is_collection: bool) {
+        assert_version(&env);
         let admin: Address = env
             .storage()
             .instance()
