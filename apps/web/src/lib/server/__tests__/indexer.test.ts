@@ -1,9 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { xdr, Address } from '@stellar/stellar-sdk';
+import { xdr, Address, Keypair } from '@stellar/stellar-sdk';
 
-// Decode logic is exercised through the exported refresh path; the decode
-// helpers are internal, so test via the module's public surface with a mocked
-// RPC getEvents.
+// Decode logic is exercised through the exported refresh path with a mocked
+// RPC getEvents. Fixtures are built the way the Soroban host actually encodes
+// a `#[contracttype]` enum: ONE topic (the contract symbol) and an event value
+// of `ScVal::Vec([Symbol("VariantName"), ...fields])`. Verified against the
+// host, so this test fails if the decoder regresses to the old assumption that
+// the variant index arrives in a second topic.
 vi.mock('@/services/stellar', () => ({
   getRpcClient: () => mockedRpc,
   CURRENT_NETWORK: { passphrase: 'Test SDF Network ; September 2015', rpcUrl: 'http://x' },
@@ -23,20 +26,22 @@ vi.mock('@/lib/server/logger', () => ({
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
 }));
 
+const FACTORY = 'F';
+const CREATOR = 'CR';
+
 const mockedRpc = {
   getEvents: vi.fn(),
+  getLatestLedger: vi.fn().mockResolvedValue({ sequence: 100_000 }),
 };
 
 // Import after mocks are registered.
-const { refreshIndexer, getIndexedEvents, indexerStats, getIndexerState } =
+const { refreshIndexer, getIndexedEvents, indexerStats, getIndexerState, __resetIndexer } =
   await import('@/lib/server/indexer');
+
+const ACTOR = Keypair.random().publicKey();
 
 function scvSymbol(value: string): xdr.ScVal {
   return xdr.ScVal.scvSymbol(value);
-}
-
-function scvU32(value: number): xdr.ScVal {
-  return xdr.ScVal.scvU32(value);
 }
 
 function scvU64(value: number): xdr.ScVal {
@@ -47,66 +52,64 @@ function scvAddress(value: string): xdr.ScVal {
   return new Address(value).toScVal();
 }
 
-function factoryEvent(
-  ledger: number,
-  variant: number,
-  payload: xdr.ScVal[],
-  txHash = 'tx1',
-  pagingToken = `p-${ledger}`,
-) {
+/**
+ * Build an event exactly as the host emits it: the contract symbol as the only
+ * topic, and the enum variant (name first, then fields) as the value.
+ */
+function contractEvent(opts: {
+  contractId: string;
+  symbol: string;
+  variant: string;
+  fields: xdr.ScVal[];
+  ledger?: number;
+  txHash?: string;
+}) {
+  const ledger = opts.ledger ?? 90;
   return {
-    id: `event-${ledger}`,
+    id: `event-${ledger}-${opts.variant}`,
     type: 'contract',
     ledger,
     ledgerClosedAt: '2026-08-02T00:00:00Z',
-    pagingToken,
+    pagingToken: `p-${ledger}-${opts.variant}`,
     inSuccessfulContractCall: true,
-    txHash,
-    contractId: { toString: () => 'F' },
-    topic: [scvSymbol('factory'), scvU32(variant)],
-    value: xdr.ScVal.scvVec(payload),
+    txHash: opts.txHash ?? 'tx1',
+    contractId: { toString: () => opts.contractId },
+    topic: [scvSymbol(opts.symbol)],
+    value: xdr.ScVal.scvVec([scvSymbol(opts.variant), ...opts.fields]),
   };
+}
+
+function factoryEvent(variant: string, fields: xdr.ScVal[], ledger = 90) {
+  return contractEvent({ contractId: FACTORY, symbol: 'factory', variant, fields, ledger });
+}
+
+function creatorEvent(variant: string, fields: xdr.ScVal[], ledger = 90) {
+  return contractEvent({ contractId: CREATOR, symbol: 'creator', variant, fields, ledger });
 }
 
 describe('indexer', () => {
   beforeEach(() => {
     mockedRpc.getEvents.mockReset();
+    mockedRpc.getLatestLedger.mockReset();
+    mockedRpc.getLatestLedger.mockResolvedValue({ sequence: 100_000 });
+    __resetIndexer();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
   });
 
-  it('decodes factory mint and collection events with correct variant indices', async () => {
+  it('decodes factory events from the variant name in the event data', async () => {
     mockedRpc.getEvents.mockResolvedValue({
       latestLedger: 100,
       cursor: 'c-100',
       events: [
+        factoryEvent('CollectionCreated', [scvU64(7), scvAddress(ACTOR)], 90),
+        factoryEvent('NftMinted', [scvU64(42), scvAddress(ACTOR)], 91),
         factoryEvent(
-          90,
-          2,
-          [scvU64(7), scvAddress('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF')],
-          'txA',
-          'p-90',
-        ),
-        factoryEvent(
-          91,
-          1,
-          [scvU64(42), scvAddress('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF')],
-          'txB',
-          'p-91',
-        ),
-        factoryEvent(
+          'ContractsSet',
+          [scvAddress(ACTOR), scvAddress(ACTOR), scvAddress(ACTOR), scvAddress(ACTOR)],
           92,
-          0,
-          [
-            scvAddress('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF'),
-            scvAddress('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF'),
-            scvAddress('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF'),
-            scvAddress('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF'),
-          ],
-          'txC',
-          'p-92',
         ),
       ],
     });
@@ -119,37 +122,109 @@ describe('indexer', () => {
     expect(all[0]!.type).toBe('contracts_set');
     expect(all[1]!.type).toBe('nft_minted');
     expect(all[1]!.id).toBe(42);
-    expect(all[1]!.actor).toBe('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF');
+    expect(all[1]!.actor).toBe(ACTOR);
     expect(all[2]!.type).toBe('collection_created');
     expect(all[2]!.id).toBe(7);
   });
 
-  it('skips events from other contracts and unparseable payloads', async () => {
-    const foreign = factoryEvent(50, 1, [
-      scvU64(1),
-      scvAddress('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF'),
-    ]);
+  it('decodes every creator variant, keyed by name rather than position', async () => {
+    mockedRpc.getEvents.mockResolvedValue({
+      latestLedger: 100,
+      cursor: 'c-100',
+      events: [
+        creatorEvent('Registered', [scvAddress(ACTOR)], 80),
+        creatorEvent('ProfileUpdated', [scvAddress(ACTOR)], 81),
+        creatorEvent('Verified', [scvAddress(ACTOR)], 82),
+      ],
+    });
+
+    await refreshIndexer(true);
+
+    const stats = indexerStats();
+    expect(stats.creator_registered).toBe(1);
+    expect(stats.creator_updated).toBe(1);
+    expect(stats.creator_verified).toBe(1);
+    expect(getIndexedEvents().every((e) => e.actor === ACTOR)).toBe(true);
+  });
+
+  it('skips events from other contracts and unknown variants', async () => {
+    const foreign = factoryEvent('NftMinted', [scvU64(1), scvAddress(ACTOR)], 50);
     foreign.contractId = { toString: () => 'OTHER' };
     mockedRpc.getEvents.mockResolvedValue({
       latestLedger: 50,
       cursor: 'c-50',
-      events: [foreign, { ...factoryEvent(51, 9, [scvU64(2)]) }],
+      events: [foreign, factoryEvent('SomethingElse', [scvU64(2)], 51)],
     });
 
     await refreshIndexer(true);
     expect(getIndexedEvents()).toHaveLength(0);
   });
 
-  it('caches results within the TTL window', async () => {
+  it('still decodes the legacy two-topic variant-index encoding', async () => {
     mockedRpc.getEvents.mockResolvedValue({
       latestLedger: 100,
       cursor: 'c-100',
       events: [
-        factoryEvent(90, 1, [
-          scvU64(5),
-          scvAddress('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF'),
-        ]),
+        {
+          id: 'legacy',
+          type: 'contract',
+          ledger: 95,
+          ledgerClosedAt: '2026-08-02T00:00:00Z',
+          pagingToken: 'p-95',
+          inSuccessfulContractCall: true,
+          txHash: 'tx-legacy',
+          contractId: { toString: () => FACTORY },
+          topic: [scvSymbol('factory'), xdr.ScVal.scvU32(1)],
+          value: xdr.ScVal.scvVec([scvU64(9), scvAddress(ACTOR)]),
+        },
       ],
+    });
+
+    await refreshIndexer(true);
+    const all = getIndexedEvents();
+    expect(all).toHaveLength(1);
+    expect(all[0]!.type).toBe('nft_minted');
+    expect(all[0]!.id).toBe(9);
+  });
+
+  it('starts from a ledger inside the RPC retention window, never zero', async () => {
+    mockedRpc.getEvents.mockResolvedValue({ latestLedger: 100_000, cursor: 'c-1', events: [] });
+
+    await refreshIndexer(true);
+
+    const params = mockedRpc.getEvents.mock.calls[0]![0];
+    expect(params.startLedger).toBeGreaterThan(0);
+    // latest 100_000 minus the 17_000-ledger lookback.
+    expect(params.startLedger).toBe(83_000);
+    // No cursor yet, so the request uses startLedger rather than cursor.
+    expect(params.cursor).toBeUndefined();
+  });
+
+  it('pages forward with the cursor once one is known', async () => {
+    mockedRpc.getEvents.mockResolvedValue({
+      latestLedger: 100_000,
+      cursor: 'cursor-1',
+      events: [],
+    });
+    await refreshIndexer(true);
+
+    mockedRpc.getEvents.mockResolvedValue({
+      latestLedger: 100_010,
+      cursor: 'cursor-2',
+      events: [],
+    });
+    await refreshIndexer(true);
+
+    const second = mockedRpc.getEvents.mock.calls[1]![0];
+    expect(second.cursor).toBe('cursor-1');
+    expect(second.startLedger).toBeUndefined();
+  });
+
+  it('caches results within the TTL window', async () => {
+    mockedRpc.getEvents.mockResolvedValue({
+      latestLedger: 100,
+      cursor: 'c-100',
+      events: [factoryEvent('NftMinted', [scvU64(5), scvAddress(ACTOR)])],
     });
 
     await refreshIndexer(true);
@@ -164,12 +239,7 @@ describe('indexer', () => {
       .mockResolvedValueOnce({
         latestLedger: 100,
         cursor: 'c-100',
-        events: [
-          factoryEvent(90, 1, [
-            scvU64(9),
-            scvAddress('GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF'),
-          ]),
-        ],
+        events: [factoryEvent('NftMinted', [scvU64(9), scvAddress(ACTOR)])],
       })
       .mockRejectedValueOnce(new Error('rpc down'));
 
