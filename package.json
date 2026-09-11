@@ -13,6 +13,7 @@
     "contract:wasm": "cargo build --workspace --release --target wasm32-unknown-unknown --manifest-path contracts/Cargo.toml",
     "contract:verify": "bash scripts/verify-deploy.sh",
     "contract:size": "bash scripts/check-wasm-size.sh",
+    "bundle:size": "bash scripts/check-bundle-size.sh",
     "contract:abi": "python3 scripts/check-contract-abi.py",
     "contract:abi:update": "python3 scripts/check-contract-abi.py --write",
     "typecheck": "turbo run typecheck",
