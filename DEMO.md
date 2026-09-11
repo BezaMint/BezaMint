@@ -2,7 +2,7 @@
 
 ## Recording Setup
 
-- **URL:** https://web-kappa-lac-27.vercel.app
+- **URL:** https://bezamint.vercel.app
 - **Tool:** Loom, OBS Studio, QuickTime, or Screenity Chrome Extension
 - **Resolution:** 1080p (1920×1080)
 - **Wallet:** Freighter Browser Extension (Stellar Testnet)
@@ -13,7 +13,7 @@
 
 ### 0:00-0:15 — Intro & Landing Page
 
-**[Screen shows the BezaMint landing page at web-kappa-lac-27.vercel.app]**
+**[Screen shows the BezaMint landing page at bezamint.vercel.app]**
 
 **Narration:** "Welcome to BezaMint — a comprehensive NFT creation and digital asset management platform built on the Stellar network using Soroban smart contracts. BezaMint empowers creators to mint NFTs, manage collections, configure royalties, and verify ownership — all on-chain."
 

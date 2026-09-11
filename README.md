@@ -14,6 +14,9 @@
   <a href="#-deployed-contracts--stellar-testnet">
     <img src="https://img.shields.io/badge/contracts-5_live_on_testnet-24a563?logo=stellar" alt="Contracts" />
   </a>
+  <a href="https://bezamint.vercel.app">
+    <img src="https://img.shields.io/badge/demo-live_on_testnet-24a563?logo=vercel&logoColor=white" alt="Live Demo" />
+  </a>
   <a href="demo-video.mp4">
     <img src="https://img.shields.io/badge/demo-video-FF0000?logo=youtube" alt="Demo Video" />
   </a>
@@ -21,7 +24,7 @@
   <img src="https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs" alt="Next.js" />
   <img src="https://img.shields.io/badge/Soroban_SDK-22.0.11-7b3fe4" alt="Soroban SDK" />
   <img src="https://img.shields.io/badge/Stellar-Testnet-24a563?logo=stellar" alt="Stellar" />
-  <img src="https://img.shields.io/badge/tests-538_passing-success" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-574_passing-success" alt="Tests" />
   <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="Version" />
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome" />
 </p>
@@ -32,6 +35,7 @@
 </p>
 
 <p align="center">
+  <strong>🌐 <a href="https://bezamint.vercel.app">Live Demo</a></strong> ·
   <strong>⛓ <a href="#-deployed-contracts--stellar-testnet">Contracts live on Stellar Testnet</a></strong> ·
   <strong>🎬 <a href="demo-video.mp4">Demo Video</a></strong> ·
   <strong>📄 <a href="DEMO.md">Video Script</a></strong> ·
@@ -476,11 +480,11 @@ BezaMint implements defense-in-depth across the entire stack:
 | Suite           | Framework      | Tests   | Status             |
 | --------------- | -------------- | ------- | ------------------ |
 | Smart Contracts | Rust `#[test]` | 187     | ✅ 187/187 passing |
-| Frontend        | Vitest         | 351     | ✅ 351/351 passing |
-| **Total**       |                | **538** | **All passing**    |
+| Frontend        | Vitest         | 387     | ✅ 387/387 passing |
+| **Total**       |                | **574** | **All passing**    |
 
 ```bash
-pnpm test                # Frontend: 351/351 passing (59 files)
+pnpm test                # Frontend: 387/387 passing (61 files)
 pnpm run contract:test   # Contracts: 187 tests across 5 crates
 ```
 
@@ -556,11 +560,15 @@ A 2-minute walkthrough covering all major features — landing, dashboard, colle
 
 ## 🌐 Deployment
 
-| Environment   | Status                                                           |
-| ------------- | ---------------------------------------------------------------- |
-| **Contracts** | 5/5 live on Stellar Testnet, wired, verified and seeded          |
-| **Frontend**  | Runs from `main`; `docs/deployment-runbook.md` covers hosting it |
-| **CI/CD**     | 3 GitHub Actions workflows (CI, Release, Security)               |
+| Environment   | Status                                                  |
+| ------------- | ------------------------------------------------------- |
+| **Contracts** | 5/5 live on Stellar Testnet, wired, verified and seeded |
+| **Frontend**  | https://bezamint.vercel.app — auto-deployed from `main` |
+| **CI/CD**     | 3 GitHub Actions workflows (CI, Release, Security)      |
+
+The hosted instance is a **testnet deployment of the seeded contract set**, so
+`/explore`, `/collections` and the NFT pages render real indexed data rather than
+placeholder content, and `/api/health` reports live RPC and indexer state.
 
 ```bash
 pnpm install
@@ -577,11 +585,11 @@ walks through a fresh deploy, verifying it, seeding it and hosting the frontend.
 
 ## ⚙️ CI/CD Pipeline
 
-| Workflow     | Trigger              | Jobs                                                     |
-| ------------ | -------------------- | -------------------------------------------------------- |
-| **CI**       | Push to `main`, PRs  | Lint & Format → Contract Tests → Frontend Build          |
-| **Release**  | Git tags (`v*.*.*`)  | Build contracts → Upload wasm artifacts → GitHub Release |
-| **Security** | Weekly + dep changes | `pnpm audit` for high-severity vulnerabilities           |
+| Workflow     | Trigger              | Jobs                                                                       |
+| ------------ | -------------------- | -------------------------------------------------------------------------- |
+| **CI**       | Push to `main`, PRs  | Contract Tests · Lint & Format · Frontend Tests · Frontend Build           |
+| **Release**  | Git tags (`v*.*.*`)  | Build contracts → Upload wasm artifacts → GitHub Release                   |
+| **Security** | Weekly + dep changes | `pnpm audit --audit-level=high` and `rustsec/audit-check` on the contracts |
 
 ---
 
