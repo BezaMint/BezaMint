@@ -1,0 +1,27 @@
+{
+  "name": "Testnet Terrain #03",
+  "description": "Six contour studies minted in a single invocation, demonstrating that a drop is one transaction rather than six. Seeded on Stellar testnet with a 7.5% royalty. Piece 3 of 6.",
+  "imageUri": "https://raw.githubusercontent.com/BezaMint/BezaMint/main/demo/art/03-testnet-terrain-03.svg",
+  "externalUrl": "https://github.com/BezaMint/BezaMint",
+  "collectionId": "03-testnet-terrain",
+  "royalties": 750,
+  "attributes": [
+    {
+      "traitType": "Collection",
+      "value": "Testnet Terrain"
+    },
+    {
+      "traitType": "Piece",
+      "value": "3",
+      "displayType": "number"
+    },
+    {
+      "traitType": "Motif",
+      "value": "terrain"
+    },
+    {
+      "traitType": "Network",
+      "value": "Stellar Testnet"
+    }
+  ]
+}

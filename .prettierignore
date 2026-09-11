@@ -8,3 +8,7 @@ pnpm-lock.yaml
 coverage/
 *.toml
 contracts/*/test_snapshots/
+
+# Runtime output of scripts/seed-testnet-activity.sh: a record of what was seeded
+# on chain, rewritten on every run, so it is not source and has no stable format.
+demo/seed-manifest.json

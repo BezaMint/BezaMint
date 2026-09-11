@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Stellar Drift #01">
+  <title>Stellar Drift #01</title>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#04121f"/><stop offset="1" stop-color="#0f3b63"/></linearGradient></defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <rect x="0" y="84.11" width="512" height="16.04" fill="#2a7fb8" opacity="0.29"/>
+  <rect x="0" y="109.98" width="512" height="16.67" fill="#2a7fb8" opacity="0.57"/>
+  <rect x="0" y="154.89" width="512" height="37.87" fill="#2a7fb8" opacity="0.16"/>
+  <rect x="0" y="210.79" width="512" height="23.96" fill="#7fd4f0" opacity="0.28"/>
+  <rect x="0" y="245.16" width="512" height="26.46" fill="#7fd4f0" opacity="0.56"/>
+  <rect x="0" y="305.03" width="512" height="31.75" fill="#2a7fb8" opacity="0.42"/>
+  <rect x="0" y="366.21" width="512" height="51.66" fill="#7fd4f0" opacity="0.44"/>
+  <rect x="0" y="440.67" width="512" height="36.95" fill="#2a7fb8" opacity="0.51"/>
+  <rect x="0" y="506.73" width="512" height="25.37" fill="#7fd4f0" opacity="0.37"/>
+  <circle cx="288.64" cy="461.05" r="4.92" fill="#e8fbff" opacity="0.5"/>
+  <circle cx="52.31" cy="75.03" r="2.85" fill="#e8fbff" opacity="0.35"/>
+  <circle cx="172.31" cy="464.43" r="9.39" fill="#e8fbff" opacity="0.2"/>
+  <circle cx="205.44" cy="306.15" r="13.84" fill="#e8fbff" opacity="0.3"/>
+  <circle cx="153.29" cy="157.66" r="14.25" fill="#e8fbff" opacity="0.38"/>
+  <circle cx="384.74" cy="273.89" r="12.83" fill="#e8fbff" opacity="0.45"/>
+  <circle cx="326.13" cy="443.18" r="2.73" fill="#e8fbff" opacity="0.46"/>
+  <circle cx="218.11" cy="72.69" r="15.35" fill="#e8fbff" opacity="0.24"/>
+  <circle cx="182.25" cy="374.97" r="10.86" fill="#e8fbff" opacity="0.39"/>
+  <rect x="0" y="509" width="512" height="3" fill="#e8fbff" opacity="0.7"/>
+</svg>

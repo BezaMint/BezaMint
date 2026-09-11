@@ -1,0 +1,26 @@
+{
+  "name": "Stellar Drift",
+  "description": "A six-piece generative set in cool blues, seeded on Stellar testnet so the deployed platform carries real, verifiable on-chain activity instead of an empty index.",
+  "imageUri": "https://raw.githubusercontent.com/BezaMint/BezaMint/main/demo/art/01-stellar-drift-01.svg",
+  "externalUrl": "https://github.com/BezaMint/BezaMint",
+  "royalties": 250,
+  "attributes": [
+    {
+      "traitType": "Collection",
+      "value": "Stellar Drift"
+    },
+    {
+      "traitType": "Network",
+      "value": "Stellar Testnet"
+    },
+    {
+      "traitType": "Royalty",
+      "value": "2.5%"
+    },
+    {
+      "traitType": "Pieces",
+      "value": "6",
+      "displayType": "number"
+    }
+  ]
+}

@@ -38,6 +38,12 @@ jobs:
       - name: Lint
         run: pnpm run lint
 
+      # demo/ is generated but committed, and the on-chain metadata URIs that
+      # point into it cannot be rewritten. A rename therefore has to fail here
+      # rather than silently leave seeded tokens pointing at a missing file.
+      - name: Check demo metadata is up to date
+        run: pnpm run demo:metadata:check
+
   frontend-tests:
     name: Frontend Tests
     runs-on: ubuntu-latest

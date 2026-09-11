@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Testnet Terrain #04">
+  <title>Testnet Terrain #04</title>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#06170f"/><stop offset="1" stop-color="#0d4530"/></linearGradient></defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <path d="M-498.62 0 L-180.32 512" stroke="#5fd6a0" stroke-width="1.56" fill="none" opacity="0.58"/>
+  <path d="M-466.73 0 L-283.75 512" stroke="#5fd6a0" stroke-width="2.14" fill="none" opacity="0.15"/>
+  <path d="M-417.43 0 L-66.74 512" stroke="#1a8a5c" stroke-width="5.83" fill="none" opacity="0.26"/>
+  <path d="M-391.89 0 L-91.34 512" stroke="#1a8a5c" stroke-width="3.14" fill="none" opacity="0.6"/>
+  <path d="M-339.49 0 L-145.86 512" stroke="#5fd6a0" stroke-width="5.92" fill="none" opacity="0.51"/>
+  <path d="M-290.44 0 L-24.51 512" stroke="#1a8a5c" stroke-width="3.07" fill="none" opacity="0.44"/>
+  <path d="M-269.73 0 L-163.23 512" stroke="#1a8a5c" stroke-width="5.64" fill="none" opacity="0.54"/>
+  <path d="M-235.09 0 L-97.73 512" stroke="#5fd6a0" stroke-width="4.93" fill="none" opacity="0.45"/>
+  <path d="M-207.8 0 L-27.4 512" stroke="#1a8a5c" stroke-width="1.04" fill="none" opacity="0.17"/>
+  <path d="M-173.29 0 L3.28 512" stroke="#5fd6a0" stroke-width="4.49" fill="none" opacity="0.15"/>
+  <path d="M-146.36 0 L27.19 512" stroke="#5fd6a0" stroke-width="5.72" fill="none" opacity="0.39"/>
+  <path d="M-94.66 0 L63.68 512" stroke="#5fd6a0" stroke-width="5.35" fill="none" opacity="0.39"/>
+  <path d="M-45.3 0 L94.52 512" stroke="#5fd6a0" stroke-width="4.98" fill="none" opacity="0.18"/>
+  <path d="M0.97 0 L241.35 512" stroke="#5fd6a0" stroke-width="6.5" fill="none" opacity="0.27"/>
+  <path d="M30.35 0 L152.42 512" stroke="#5fd6a0" stroke-width="1.59" fill="none" opacity="0.55"/>
+  <path d="M77.78 0 L237.51 512" stroke="#5fd6a0" stroke-width="1.95" fill="none" opacity="0.21"/>
+  <path d="M114.23 0 L312.56 512" stroke="#1a8a5c" stroke-width="4.65" fill="none" opacity="0.21"/>
+  <path d="M157.39 0 L373.86 512" stroke="#5fd6a0" stroke-width="5.39" fill="none" opacity="0.16"/>
+  <path d="M188.97 0 L514.76 512" stroke="#5fd6a0" stroke-width="6.15" fill="none" opacity="0.46"/>
+  <path d="M236.41 0 L390.65 512" stroke="#1a8a5c" stroke-width="2.71" fill="none" opacity="0.66"/>
+  <path d="M291.82 0 L595.43 512" stroke="#5fd6a0" stroke-width="5.04" fill="none" opacity="0.5"/>
+  <path d="M315.12 0 L657.53 512" stroke="#5fd6a0" stroke-width="5.02" fill="none" opacity="0.28"/>
+  <path d="M350.03 0 L697.98 512" stroke="#1a8a5c" stroke-width="4.44" fill="none" opacity="0.41"/>
+  <path d="M381.15 0 L637.22 512" stroke="#1a8a5c" stroke-width="3.47" fill="none" opacity="0.6"/>
+  <path d="M437.78 0 L702.42 512" stroke="#1a8a5c" stroke-width="3.67" fill="none" opacity="0.61"/>
+  <path d="M477.63 0 L611.45 512" stroke="#1a8a5c" stroke-width="1.22" fill="none" opacity="0.18"/>
+  <path d="M506.11 0 L826.36 512" stroke="#1a8a5c" stroke-width="5.8" fill="none" opacity="0.22"/>
+  <circle cx="261.88" cy="472.09" r="19.91" fill="none" stroke="#e8fff5" stroke-width="2.57" opacity="0.59"/>
+  <circle cx="327.21" cy="10.57" r="9.66" fill="none" stroke="#e8fff5" stroke-width="2.53" opacity="0.47"/>
+  <circle cx="71.99" cy="240.14" r="21.07" fill="none" stroke="#e8fff5" stroke-width="2.05" opacity="0.46"/>
+  <circle cx="116.93" cy="258.45" r="13.31" fill="none" stroke="#e8fff5" stroke-width="1.93" opacity="0.52"/>
+  <rect x="0" y="509" width="512" height="3" fill="#e8fff5" opacity="0.7"/>
+</svg>

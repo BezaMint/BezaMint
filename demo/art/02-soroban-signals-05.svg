@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Soroban Signals #05">
+  <title>Soroban Signals #05</title>
+  <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#150826"/><stop offset="1" stop-color="#3d1361"/></linearGradient></defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <circle cx="248.95" cy="214.41" r="181.9" fill="none" stroke="#c169f0" stroke-width="3.24" opacity="0.24"/>
+  <circle cx="248.95" cy="214.41" r="135.22" fill="none" stroke="#7a2bb5" stroke-width="3.46" opacity="0.41"/>
+  <circle cx="248.95" cy="214.41" r="207.86" fill="none" stroke="#c169f0" stroke-width="1.94" opacity="0.58"/>
+  <circle cx="248.95" cy="214.41" r="115.47" fill="none" stroke="#7a2bb5" stroke-width="3.62" opacity="0.27"/>
+  <circle cx="248.95" cy="214.41" r="135.38" fill="none" stroke="#c169f0" stroke-width="1.65" opacity="0.28"/>
+  <circle cx="248.95" cy="214.41" r="155.07" fill="none" stroke="#7a2bb5" stroke-width="3" opacity="0.6"/>
+  <circle cx="248.95" cy="214.41" r="134.95" fill="none" stroke="#c169f0" stroke-width="3.32" opacity="0.28"/>
+  <circle cx="248.95" cy="214.41" r="136.65" fill="none" stroke="#7a2bb5" stroke-width="4.28" opacity="0.31"/>
+  <circle cx="248.95" cy="214.41" r="51.85" fill="none" stroke="#c169f0" stroke-width="1.6" opacity="0.48"/>
+  <circle cx="248.95" cy="214.41" r="52.04" fill="none" stroke="#7a2bb5" stroke-width="2.25" opacity="0.26"/>
+  <circle cx="248.95" cy="214.41" r="52.54" fill="none" stroke="#c169f0" stroke-width="2.36" opacity="0.36"/>
+  <circle cx="248.95" cy="214.41" r="14.19" fill="none" stroke="#7a2bb5" stroke-width="4.42" opacity="0.43"/>
+  <rect x="28.18" y="366.42" width="36.9" height="1.4" fill="#f6e6ff" opacity="0.53"/>
+  <rect x="119.26" y="400.87" width="40.7" height="2.55" fill="#f6e6ff" opacity="0.26"/>
+  <rect x="189.01" y="178.33" width="23.72" height="1.6" fill="#f6e6ff" opacity="0.42"/>
+  <rect x="408" y="440.31" width="74.26" height="3.74" fill="#f6e6ff" opacity="0.53"/>
+  <rect x="427.05" y="306.09" width="39.47" height="2.8" fill="#f6e6ff" opacity="0.57"/>
+  <rect x="0" y="509" width="512" height="3" fill="#f6e6ff" opacity="0.7"/>
+</svg>

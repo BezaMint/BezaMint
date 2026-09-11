@@ -1,0 +1,27 @@
+{
+  "name": "Soroban Signals #04",
+  "description": "Six signals broadcast by the BezaMint factory, one per token, minted through the atomic batch path to exercise it end to end on Stellar testnet. Piece 4 of 6.",
+  "imageUri": "https://raw.githubusercontent.com/BezaMint/BezaMint/main/demo/art/02-soroban-signals-04.svg",
+  "externalUrl": "https://github.com/BezaMint/BezaMint",
+  "collectionId": "02-soroban-signals",
+  "royalties": 500,
+  "attributes": [
+    {
+      "traitType": "Collection",
+      "value": "Soroban Signals"
+    },
+    {
+      "traitType": "Piece",
+      "value": "4",
+      "displayType": "number"
+    },
+    {
+      "traitType": "Motif",
+      "value": "signal"
+    },
+    {
+      "traitType": "Network",
+      "value": "Stellar Testnet"
+    }
+  ]
+}
