@@ -53,16 +53,13 @@ async function readCounter(contractId: string | undefined, method: string): Prom
 async function loadStats(): Promise<StatsPayload> {
   await refreshIndexer();
 
-  const [nftSupply, collections, creators, collectionTotal] = await Promise.all([
+  const [nftSupply, collections, creators] = await Promise.all([
     readCounter(CONTRACT_IDS.nft, 'total_supply'),
     readCounter(CONTRACT_IDS.collection, 'total_collections'),
     readCounter(CONTRACT_IDS.creator, 'total_creators'),
-    readCounter(CONTRACT_IDS.factory, 'total_collections'),
   ]);
 
-  // Prefer the factory counter (authoritative across deploys); fall back
-  // to the collection contract counter when the factory is unconfigured.
-  const collectionCount = collections ?? collectionTotal;
+  const collectionCount = collections;
 
   const events = indexerStats();
   // The RPC scan window is bounded; report the window size alongside so
