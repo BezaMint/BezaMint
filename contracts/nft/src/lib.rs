@@ -200,11 +200,17 @@ impl BezaMintNft {
     /// One-time setup. Stores the admin and resets the token counter. Only the
     /// admin may call, and only once: re-initialization would reset the counter
     /// and let an attacker mint over existing token ids, so it is rejected.
-    pub fn initialize(env: Env, admin: Address) {
-        if Self::is_initialized(env.clone()) {
-            panic!("NFT: already initialized");
-        }
-        admin.require_auth();
+    /// Constructor: runs atomically as part of contract creation.
+    ///
+    /// Initialization previously required a second, publicly callable
+    /// transaction after deployment. Because deployment and initialization are
+    /// separate transactions, any observer could call `initialize` first,
+    /// satisfy `require_auth()` with their own signature and become the admin of
+    /// a contract the deployer had just paid to create. A constructor executes
+    /// inside contract creation, so there is no window to race; it deliberately
+    /// performs no `require_auth`, because the only party who can run it is the
+    /// deployer, inside the deployment invocation itself.
+    pub fn __constructor(env: Env, admin: Address) {
         env.storage().instance().set(&NftKey::Admin, &admin);
         env.storage().instance().set(&NftKey::Counter, &0u64);
         env.storage().instance().set(&NftKey::Version, &1u32);

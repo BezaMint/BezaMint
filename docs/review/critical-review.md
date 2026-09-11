@@ -28,22 +28,23 @@ What blocks release is a small number of **silent failures**: things that look
 correct, pass tests, and return wrong answers in production. Those are the most
 dangerous class of bug because they survive every green check.
 
-| #   | Severity     | Area      | Finding                                                                                                                                   | Status |
-| --- | ------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| 1   | **Critical** | API       | Event indexer decodes a topic layout the contracts never emit; every indexed endpoint is silently empty                                   | Fixed  |
-| 2   | **Critical** | API       | Indexer requests `startLedger: 0`, outside the RPC retention window; the request itself fails                                             | Fixed  |
-| 3   | **Critical** | Contracts | `initialize()` is front-runnable: deploy and init are separate transactions, so an attacker can seize the admin role                      | Fixed  |     | 4   | **High** | Tooling | Security overrides live in a `package.json` field pnpm 9 honours but has deprecated and pnpm 10 removes; nothing guards against a silent pin loss | Fixed |
-| 5   | **High**     | Contracts | Secondary-sale royalties are configured but never collected; the platform's core promise is unimplemented                                 | Fixed  |
-| 6   | **High**     | Contracts | `set_contracts` accepts zero and self addresses; a wiring mistake bricks the mint path with no recovery path                              | Fixed  |
-| 7   | **High**     | API       | The indexer test asserts the same wrong wire format as the code, so a green suite certifies a broken feature                              | Fixed  |
-| 8   | **High**     | Docs      | `ISSUES.md` advertises 100 open issues, most of which are already implemented; it misrepresents the project to contributors and reviewers | Fixed  |
-| 9   | **High**     | Contracts | Storage `Version` keys are written but never read, so a schema change corrupts reads silently                                             | Fixed  |
-| 10  | **High**     | Tooling   | CI has no coverage gate, no wasm ABI drift check, and no bundle budget; regressions are invisible                                         | Fixed  |
-| 11  | **Medium**   | Contracts | Factory getters panic with a bare `unwrap()` and are unusable before wiring                                                               | Fixed  |
-| 12  | **Medium**   | Contracts | No batch mint; a 10-piece drop costs 10 transactions                                                                                      | Fixed  |
-| 13  | **Medium**   | Contracts | No boundary tests at the 512-byte metadata-URI limit (511/512/513)                                                                        | Fixed  |
-| 14  | **Medium**   | API       | Health endpoint reports no build identity, so a stale deployment is indistinguishable from a fresh one                                    | Fixed  |
-| 15  | **Medium**   | Docs      | No architecture overview or contract interface reference for integrators                                                                  | Fixed  |
+| #   | Severity     | Area      | Finding                                                                                                                                           | Status |
+| --- | ------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| 1   | **Critical** | API       | Event indexer decodes a topic layout the contracts never emit; every indexed endpoint is silently empty                                           | Fixed  |
+| 2   | **Critical** | API       | Indexer requests `startLedger: 0`, outside the RPC retention window; the request itself fails                                                     | Fixed  |
+| 3   | **Critical** | Contracts | `initialize()` is front-runnable: deploy and init are separate transactions, so an attacker can seize the admin role                              | Fixed  |
+| 4   | **High**     | Tooling   | Security overrides live in a `package.json` field pnpm 9 honours but has deprecated and pnpm 10 removes; nothing guards against a silent pin loss | Fixed  |
+| 5   | **High**     | Contracts | Secondary-sale royalties are configured but never collected; the platform's core promise is unimplemented                                         | Open   |
+| 6   | **High**     | Contracts | `set_contracts` accepts zero and self addresses; a wiring mistake bricks the mint path with no recovery path                                      | Open   |
+| 7   | **High**     | API       | The indexer test asserts the same wrong wire format as the code, so a green suite certifies a broken feature                                      | Fixed  |
+| 8   | **High**     | Docs      | `ISSUES.md` advertises 100 open issues, most of which are already implemented; it misrepresents the project to contributors and reviewers         | Open   |
+| 9   | **High**     | Contracts | Storage `Version` keys are written but never read, so a schema change corrupts reads silently                                                     | Open   |
+| 10  | **High**     | Tooling   | CI has no coverage gate, no wasm ABI drift check, and no bundle budget; regressions are invisible                                                 | Open   |
+| 11  | **Medium**   | Contracts | Factory getters panic with a bare `unwrap()` and are unusable before wiring                                                                       | Open   |
+| 12  | **Medium**   | Contracts | No batch mint; a 10-piece drop costs 10 transactions                                                                                              | Open   |
+| 13  | **Medium**   | Contracts | No boundary tests at the 512-byte metadata-URI limit (511/512/513)                                                                                | Open   |
+| 14  | **Medium**   | API       | Health endpoint reports no build identity, so a stale deployment is indistinguishable from a fresh one                                            | Open   |
+| 15  | **Medium**   | Docs      | No architecture overview or contract interface reference for integrators                                                                          | Open   |
 
 ---
 

@@ -57,49 +57,40 @@ fn mint_one(client: &BezaMintNftClient, to: &Address, collection_id: u64) -> u64
     )
 }
 
+/// The constructor runs as part of contract creation, so the admin binding
+/// already exists by the time any client can call the contract. This replaces
+/// the previous "initialize then observe" test: there is no uninitialized state
+/// left to observe, and no second call that could overwrite the binding.
 #[test]
-fn test_is_initialized_reflects_state() {
+fn test_constructor_binds_admin() {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    assert!(!client.is_initialized());
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     assert!(client.is_initialized());
+    assert_eq!(client.get_admin(), admin);
 }
 
-/// Re-initialization previously reset the admin and the token counter to zero,
-/// which let anyone mint over existing token ids and steal ownership of already
-/// minted NFTs. The second call must now be rejected outright.
+/// Token ids come from a monotonic counter that the constructor starts at zero.
+/// The previous version of this test proved that a rejected re-initialization
+/// could not reset the counter; with a constructor there is no re-initialization
+/// to reject, so the stronger property is asserted directly: ids are never
+/// reused, even after a burn.
 #[test]
-#[should_panic(expected = "already initialized")]
-fn test_initialize_rejects_double_init() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let admin = Address::generate(&env);
-    let attacker = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
-    client.initialize(&attacker);
-}
-
-/// The counter must survive a rejected re-initialization attempt.
-#[test]
-fn test_initialize_attempt_does_not_reset_counter() {
+fn test_constructor_starts_counter_and_ids_are_not_reused() {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
-    mint_one(&client, &user, 0);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
+    assert_eq!(client.total_supply(), 0);
 
-    let reinit = client.try_initialize(&admin);
-    assert!(reinit.is_err());
+    assert_eq!(mint_one(&client, &user, 0), 1);
     assert_eq!(client.total_supply(), 1);
 
-    let second = mint_one(&client, &user, 0);
-    assert_eq!(second, 2);
+    client.burn(&1);
+    assert_eq!(client.total_supply(), 1, "burned ids must not be recycled");
+    assert_eq!(mint_one(&client, &user, 0), 2);
 }
 
 /// A transfer must invalidate the previous owner's approval, otherwise the old
@@ -112,8 +103,7 @@ fn test_transfer_clears_approval() {
     let owner = Address::generate(&env);
     let operator = Address::generate(&env);
     let buyer = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
 
     let token_id = mint_one(&client, &owner, 0);
     client.approve(&operator, &token_id);
@@ -133,8 +123,7 @@ fn test_burn_clears_approval() {
     let admin = Address::generate(&env);
     let owner = Address::generate(&env);
     let operator = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
 
     let token_id = mint_one(&client, &owner, 0);
     client.approve(&operator, &token_id);
@@ -154,8 +143,7 @@ fn test_transfer_rejects_zero_recipient() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let owner = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
 
     let token_id = mint_one(&client, &owner, 0);
     client.transfer(&owner, &Address::from_str(&env, ZERO), &token_id);
@@ -169,8 +157,7 @@ fn test_transfer_from_rejects_zero_recipient() {
     let admin = Address::generate(&env);
     let owner = Address::generate(&env);
     let operator = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
 
     let token_id = mint_one(&client, &owner, 0);
     client.approve(&operator, &token_id);
@@ -184,8 +171,7 @@ fn test_approve_rejects_zero_operator() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let owner = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
 
     let token_id = mint_one(&client, &owner, 0);
     client.approve(&Address::from_str(&env, ZERO), &token_id);
@@ -198,8 +184,7 @@ fn test_set_approval_for_all_rejects_zero_operator_when_granting() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let owner = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     client.set_approval_for_all(&owner, &Address::from_str(&env, ZERO), &true);
 }
 
@@ -211,8 +196,7 @@ fn test_set_approval_for_all_allows_zero_when_revoking() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let owner = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     let zero = Address::from_str(&env, ZERO);
     client.set_approval_for_all(&owner, &zero, &false);
     assert!(!client.is_approved_for_all(&owner, &zero));
@@ -224,8 +208,7 @@ fn test_tokens_of_owner_returns_all_holdings() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let owner = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
 
     mint_one(&client, &owner, 0);
     mint_one(&client, &owner, 0);
@@ -241,8 +224,7 @@ fn test_tokens_of_owner_paginates() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let owner = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
 
     for _ in 0..5 {
         mint_one(&client, &owner, 0);
@@ -270,8 +252,7 @@ fn test_tokens_of_owner_empty_and_out_of_range() {
     let admin = Address::generate(&env);
     let owner = Address::generate(&env);
     let stranger = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
 
     assert_eq!(client.tokens_of_owner(&stranger, &0, &10).len(), 0);
 
@@ -285,8 +266,7 @@ fn test_tokens_of_owner_clamps_limit_to_max_page_size() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let owner = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
 
     for _ in 0..3 {
         mint_one(&client, &owner, 0);
@@ -305,8 +285,7 @@ fn test_balance_and_enumeration_track_transfers() {
     let admin = Address::generate(&env);
     let alice = Address::generate(&env);
     let bob = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
 
     for _ in 0..4 {
         mint_one(&client, &alice, 0);
@@ -341,8 +320,7 @@ fn test_balance_reflects_burn() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let owner = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
 
     mint_one(&client, &owner, 0);
     mint_one(&client, &owner, 0);
@@ -365,8 +343,7 @@ fn test_transfer_from_with_per_token_approval() {
     let owner = Address::generate(&env);
     let operator = Address::generate(&env);
     let recipient = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
 
     let token_id = mint_one(&client, &owner, 0);
     client.approve(&operator, &token_id);
@@ -387,8 +364,7 @@ fn test_transfer_from_with_operator_approval() {
     let owner = Address::generate(&env);
     let operator = Address::generate(&env);
     let recipient = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
 
     let token_id = mint_one(&client, &owner, 0);
     client.set_approval_for_all(&owner, &operator, &true);
@@ -409,8 +385,7 @@ fn test_transfer_from_rejects_unapproved_spender() {
     let owner = Address::generate(&env);
     let attacker = Address::generate(&env);
     let recipient = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
 
     let token_id = mint_one(&client, &owner, 0);
     client.transfer_from(&attacker, &owner, &recipient, &token_id);
@@ -425,8 +400,7 @@ fn test_transfer_from_rejects_wrong_from() {
     let owner = Address::generate(&env);
     let operator = Address::generate(&env);
     let recipient = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
 
     let token_id = mint_one(&client, &owner, 0);
     client.set_approval_for_all(&operator, &operator, &true);
@@ -442,8 +416,7 @@ fn test_transfer_from_rejects_nonexistent_token() {
     let admin = Address::generate(&env);
     let spender = Address::generate(&env);
     let recipient = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     client.transfer_from(&spender, &spender, &recipient, &999);
 }
 
@@ -457,8 +430,7 @@ fn test_transfer_from_cannot_reuse_consumed_approval() {
     let operator = Address::generate(&env);
     let first_buyer = Address::generate(&env);
     let second_buyer = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
 
     let token_id = mint_one(&client, &owner, 0);
     client.approve(&operator, &token_id);
@@ -480,8 +452,7 @@ fn test_approve_replaces_previous_operator() {
     let owner = Address::generate(&env);
     let first = Address::generate(&env);
     let second = Address::generate(&env);
-    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    client.initialize(&admin);
+    let client = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
 
     let token_id = mint_one(&client, &owner, 0);
     client.approve(&first, &token_id);
@@ -496,9 +467,8 @@ fn test_initialize_sets_admin_and_counter() {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
-    let contract_id = env.register(BezaMintNft, ());
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let client = BezaMintNftClient::new(&env, &contract_id);
-    client.initialize(&admin);
     assert_eq!(client.total_supply(), 0);
 }
 
@@ -508,9 +478,8 @@ fn test_mint_increases_counter_and_sets_owner() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
-    let contract_id = env.register(BezaMintNft, ());
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let client = BezaMintNftClient::new(&env, &contract_id);
-    client.initialize(&admin);
 
     let token_id = mint_one(&client, &user, 0);
     assert_eq!(token_id, 1);
@@ -527,9 +496,8 @@ fn test_mint_multiple_tokens() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
-    let contract_id = env.register(BezaMintNft, ());
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let client = BezaMintNftClient::new(&env, &contract_id);
-    client.initialize(&admin);
 
     let t1 = mint_one(&client, &user, 0);
     let t2 = mint_one(&client, &user, 0);
@@ -548,9 +516,8 @@ fn test_transfer_changes_ownership() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     let new_owner = Address::generate(&env);
-    let contract_id = env.register(BezaMintNft, ());
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let client = BezaMintNftClient::new(&env, &contract_id);
-    client.initialize(&admin);
 
     let token_id = mint_one(&client, &user, 0);
     client.transfer(&user, &new_owner, &token_id);
@@ -568,9 +535,8 @@ fn test_transfer_fails_if_not_owner() {
     let user = Address::generate(&env);
     let attacker = Address::generate(&env);
     let target = Address::generate(&env);
-    let contract_id = env.register(BezaMintNft, ());
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let client = BezaMintNftClient::new(&env, &contract_id);
-    client.initialize(&admin);
 
     let token_id = mint_one(&client, &user, 0);
     client.transfer(&attacker, &target, &token_id);
@@ -583,9 +549,8 @@ fn test_approve_and_is_approved() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     let operator = Address::generate(&env);
-    let contract_id = env.register(BezaMintNft, ());
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let client = BezaMintNftClient::new(&env, &contract_id);
-    client.initialize(&admin);
 
     let token_id = mint_one(&client, &user, 0);
     assert!(!client.is_approved(&operator, &token_id));
@@ -600,9 +565,8 @@ fn test_approval_for_all() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     let operator = Address::generate(&env);
-    let contract_id = env.register(BezaMintNft, ());
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let client = BezaMintNftClient::new(&env, &contract_id);
-    client.initialize(&admin);
 
     mint_one(&client, &user, 0);
     assert!(!client.is_approved_for_all(&user, &operator));
@@ -618,9 +582,8 @@ fn test_burn_removes_ownership() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
-    let contract_id = env.register(BezaMintNft, ());
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let client = BezaMintNftClient::new(&env, &contract_id);
-    client.initialize(&admin);
 
     let token_id = mint_one(&client, &user, 0);
     client.burn(&token_id);
@@ -633,9 +596,8 @@ fn test_burn_fails_for_nonexistent_token() {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
-    let contract_id = env.register(BezaMintNft, ());
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let client = BezaMintNftClient::new(&env, &contract_id);
-    client.initialize(&admin);
     client.burn(&999);
 }
 
@@ -646,9 +608,8 @@ fn test_balance_of_multiple_owners() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     let user2 = Address::generate(&env);
-    let contract_id = env.register(BezaMintNft, ());
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let client = BezaMintNftClient::new(&env, &contract_id);
-    client.initialize(&admin);
 
     mint_one(&client, &user, 0);
     mint_one(&client, &user, 0);
@@ -663,9 +624,8 @@ fn test_owner_of_nonexistent_panics() {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
-    let contract_id = env.register(BezaMintNft, ());
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let client = BezaMintNftClient::new(&env, &contract_id);
-    client.initialize(&admin);
     client.owner_of(&42);
 }
 
@@ -675,9 +635,8 @@ fn test_token_data_stores_correct_info() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
-    let contract_id = env.register(BezaMintNft, ());
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let client = BezaMintNftClient::new(&env, &contract_id);
-    client.initialize(&admin);
 
     let token_id = client.mint(&user, &5, &String::from_str(&env, "ipfs://col-5/nft-1"));
     let data = client.token_data(&token_id);
@@ -692,8 +651,7 @@ fn test_mint_emits_event() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let to = Address::generate(&env);
-    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    contract.initialize(&admin);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     let token_id = contract.mint(&to, &0, &String::from_str(&env, "ipfs://test"));
     assert_eq!(token_id, 1);
 }
@@ -705,8 +663,7 @@ fn test_transfer_emits_event() {
     let admin = Address::generate(&env);
     let alice = Address::generate(&env);
     let bob = Address::generate(&env);
-    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    contract.initialize(&admin);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     contract.mint(&alice, &0, &String::from_str(&env, "ipfs://test"));
     contract.transfer(&alice, &bob, &1);
     let new_owner = contract.owner_of(&1);
@@ -719,8 +676,7 @@ fn test_balance_of_multiple_tokens() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let alice = Address::generate(&env);
-    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    contract.initialize(&admin);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     contract.mint(&alice, &0, &String::from_str(&env, "ipfs://1"));
     contract.mint(&alice, &0, &String::from_str(&env, "ipfs://2"));
     contract.mint(&alice, &0, &String::from_str(&env, "ipfs://3"));
@@ -734,8 +690,7 @@ fn test_mint_requires_recipient_auth() {
     // Do NOT mock auth: mint must fail because the recipient never authorized.
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
-    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    contract.initialize(&admin);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     // Only the admin's initialize is authorized; the mint must be rejected.
     contract.mint(&user, &0, &String::from_str(&env, "ipfs://meta"));
 }
@@ -747,8 +702,7 @@ fn test_mint_rejects_empty_metadata() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
-    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    contract.initialize(&admin);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     contract.mint(&user, &0, &String::from_str(&env, ""));
 }
 
@@ -759,8 +713,7 @@ fn test_mint_rejects_oversized_metadata() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
-    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    contract.initialize(&admin);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     let long_uri = "x".repeat(513);
     contract.mint(&user, &0, &String::from_str(&env, &long_uri));
 }
@@ -774,8 +727,7 @@ fn test_mint_rejects_javascript_uri() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
-    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    contract.initialize(&admin);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     contract.mint(&user, &0, &String::from_str(&env, "javascript:alert(1)"));
 }
 
@@ -786,8 +738,7 @@ fn test_mint_rejects_data_uri() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
-    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    contract.initialize(&admin);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     contract.mint(
         &user,
         &0,
@@ -801,8 +752,7 @@ fn test_mint_accepts_http_uri() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
-    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    contract.initialize(&admin);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     contract.mint(
         &user,
         &0,
@@ -817,8 +767,7 @@ fn test_mint_rejects_zero_address() {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
-    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    contract.initialize(&admin);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     let zero = Address::from_str(
         &env,
         "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
@@ -832,8 +781,7 @@ fn test_burn_event_emission() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
-    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    contract.initialize(&admin);
+    let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     contract.mint(&user, &0, &String::from_str(&env, "ipfs://burn"));
     contract.burn(&1);
     assert_eq!(contract.total_supply(), 1);
@@ -848,9 +796,8 @@ fn test_events_cover_mint_transfer_approve_burn() {
     let admin = Address::generate(&env);
     let alice = Address::generate(&env);
     let bob = Address::generate(&env);
-    let contract_id = env.register(BezaMintNft, ());
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let contract = BezaMintNftClient::new(&env, &contract_id);
-    contract.initialize(&admin);
 
     contract.mint(&alice, &0, &String::from_str(&env, "ipfs://events"));
     assert_single_nft_event(&env, &contract_id, NftEvent::Minted(1, alice.clone()));
@@ -887,9 +834,8 @@ fn test_mint_extends_persistent_ttl() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
-    let contract_id = env.register(BezaMintNft, ());
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let contract = BezaMintNftClient::new(&env, &contract_id);
-    contract.initialize(&admin);
     contract.mint(&user, &0, &String::from_str(&env, "ipfs://ttl"));
     let contract_addr: xdr::ScAddress = contract_id.clone().into();
     let storage = env.as_contract(&contract_id, || {
@@ -932,9 +878,8 @@ fn test_transfer_refreshes_owner_ttl() {
     let admin = Address::generate(&env);
     let alice = Address::generate(&env);
     let bob = Address::generate(&env);
-    let contract_id = env.register(BezaMintNft, ());
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let contract = BezaMintNftClient::new(&env, &contract_id);
-    contract.initialize(&admin);
     contract.mint(&alice, &0, &String::from_str(&env, "ipfs://ttl"));
 
     let owner_val: soroban_sdk::Val = crate::NftKey::Owner(1).into_val(&env);
@@ -962,25 +907,13 @@ fn test_upgrade_requires_admin_auth() {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
-    let contract_id = env.register(BezaMintNft, ());
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let client = BezaMintNftClient::new(&env, &contract_id);
-    client.initialize(&admin);
 
     // Replace the mocked auths with none: require_auth must reject.
     env.mock_auths(&[]);
     let hash = soroban_sdk::BytesN::from_array(&env, &[0u8; 32]);
     assert!(client.try_upgrade(&hash).is_err());
-}
-
-/// An uninitialized contract has no admin to authorize the upgrade.
-#[test]
-#[should_panic(expected = "not initialized")]
-fn test_upgrade_requires_initialization() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let contract_id = env.register(BezaMintNft, ());
-    let client = BezaMintNftClient::new(&env, &contract_id);
-    client.upgrade(&soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
 }
 
 /// The admin query must report who was stored at initialization, and fail
@@ -990,18 +923,7 @@ fn test_get_admin_reports_initialized_admin() {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
-    let contract_id = env.register(BezaMintNft, ());
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let client = BezaMintNftClient::new(&env, &contract_id);
-    client.initialize(&admin);
     assert_eq!(client.get_admin(), admin);
-}
-
-#[test]
-#[should_panic(expected = "not initialized")]
-fn test_get_admin_requires_initialization() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let contract_id = env.register(BezaMintNft, ());
-    let client = BezaMintNftClient::new(&env, &contract_id);
-    client.get_admin();
 }

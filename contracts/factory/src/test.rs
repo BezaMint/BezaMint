@@ -39,27 +39,18 @@ use bezamint_creator::{BezaMintCreator, BezaMintCreatorClient};
 use bezamint_nft::{BezaMintNft, BezaMintNftClient};
 use bezamint_royalty::{BezaMintRoyalty, BezaMintRoyaltyClient};
 
+/// The constructor runs as part of contract creation, so the admin binding
+/// already exists by the time any client can call the contract. This replaces
+/// the previous "initialize then observe" test: there is no uninitialized state
+/// left to observe, and no second call that could overwrite the binding.
 #[test]
-fn test_is_initialized_reflects_state() {
+fn test_constructor_binds_admin() {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
-    let client = BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, ()));
-    assert!(!client.is_initialized());
-    client.initialize(&admin);
+    let client = BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, (admin.clone(),)));
     assert!(client.is_initialized());
-}
-
-#[test]
-#[should_panic(expected = "already initialized")]
-fn test_initialize_rejects_double_init() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let admin = Address::generate(&env);
-    let attacker = Address::generate(&env);
-    let client = BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, ()));
-    client.initialize(&admin);
-    client.initialize(&attacker);
+    assert_eq!(client.get_admin(), admin);
 }
 
 #[test]
@@ -67,24 +58,24 @@ fn test_initialize_and_set_contracts() {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
-    let contract_id = env.register(BezaMintFactory, ());
+    let contract_id = env.register(BezaMintFactory, (admin.clone(),));
     let client = BezaMintFactoryClient::new(&env, &contract_id);
-
-    client.initialize(&admin);
 
     let nft = Address::generate(&env);
     let collection = Address::generate(&env);
     // set_contracts seizes the Royalty admin role, so it must receive a real,
     // initialized Royalty contract rather than a bare address.
-    let royalty_id = env.register(BezaMintRoyalty, ());
+    let royalty_id = env.register(BezaMintRoyalty, (admin.clone(),));
     let royalty = BezaMintRoyaltyClient::new(&env, &royalty_id);
-    royalty.initialize(&admin);
     let creator = Address::generate(&env);
 
     client.set_contracts(&nft, &collection, &royalty_id, &creator);
 
     assert_eq!(client.get_nft_contract(), nft);
     assert_eq!(client.get_collection_contract(), collection);
+    // `set_contracts` hands the Royalty admin role to the Factory, which is what
+    // lets its cross-contract `configure_royalty` call authenticate later.
+    assert_eq!(royalty.get_admin(), contract_id);
     assert_eq!(client.get_royalty_contract(), royalty_id);
     assert_eq!(client.get_creator_contract(), creator);
 }
@@ -94,23 +85,11 @@ fn test_initialize_and_set_contracts() {
 fn test_unauthorized_set_contracts() {
     let env = Env::default();
     let admin = Address::generate(&env);
-    let contract_id = env.register(BezaMintFactory, ());
+    let contract_id = env.register(BezaMintFactory, (admin.clone(),));
     let client = BezaMintFactoryClient::new(&env, &contract_id);
 
-    // Authorize only the admin's `initialize` call; the attacker's
-    // `set_contracts` must still be rejected by require_auth().
-    let auth = MockAuth {
-        address: &admin,
-        invoke: &MockAuthInvoke {
-            contract: &contract_id,
-            fn_name: "initialize",
-            args: (&admin,).into_val(&env),
-            sub_invokes: &[],
-        },
-    };
-    env.mock_auths(&[auth]);
-
-    client.initialize(&admin);
+    // No auth is mocked at all: `set_contracts` must be rejected by
+    // require_auth() before it can touch any of the supplied addresses.
 
     let nft = Address::generate(&env);
     let collection = Address::generate(&env);
@@ -127,15 +106,17 @@ fn test_factory_set_contracts() {
     let admin = Address::generate(&env);
     let nft = Address::generate(&env);
     let col = Address::generate(&env);
-    let roy_id = env.register(BezaMintRoyalty, ());
+    let roy_id = env.register(BezaMintRoyalty, (admin.clone(),));
     let roy = BezaMintRoyaltyClient::new(&env, &roy_id);
-    roy.initialize(&admin);
     let cre = Address::generate(&env);
-    let contract = BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, ()));
-    contract.initialize(&admin);
+    let contract =
+        BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, (admin.clone(),)));
     contract.set_contracts(&nft, &col, &roy_id, &cre);
     assert_eq!(contract.get_nft_contract(), nft);
     assert_eq!(contract.get_collection_contract(), col);
+    // The Royalty admin role must move to the Factory so its cross-contract
+    // royalty configuration can authenticate.
+    assert_eq!(roy.get_admin(), contract.address);
 }
 
 #[test]
@@ -144,13 +125,13 @@ fn test_mint_with_royalty_returns_token() {
     env.mock_all_auths();
     let admin = Address::generate(&env);
     let nft_addr = Address::generate(&env);
-    let royalty_id = env.register(BezaMintRoyalty, ());
+    let royalty_id = env.register(BezaMintRoyalty, (admin.clone(),));
     let royalty = BezaMintRoyaltyClient::new(&env, &royalty_id);
-    royalty.initialize(&admin);
-    let factory = BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, ()));
-    factory.initialize(&admin);
+    let factory =
+        BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, (admin.clone(),)));
     // set_contracts requires a live Royalty contract (it seizes the admin role).
     factory.set_contracts(&nft_addr, &nft_addr, &royalty_id, &nft_addr);
+    assert_eq!(royalty.get_admin(), factory.address);
 }
 
 /// Full-stack integration: register the real NFT, Royalty, Collection and Creator
@@ -168,22 +149,20 @@ fn test_integration_mint_with_royalty() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
 
-    let factory_id = env.register(BezaMintFactory, ());
+    let factory_id = env.register(BezaMintFactory, (admin.clone(),));
     let factory = BezaMintFactoryClient::new(&env, &factory_id);
 
     env.mock_all_auths();
-    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    nft.initialize(&admin);
-    let collection = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
-    collection.initialize(&admin);
+    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
+    let collection =
+        BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, (admin.clone(),)));
     // The deployer initializes Royalty; set_contracts transfers admin to the
     // Factory so it can manage royalties on behalf of users.
-    let royalty = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
-    royalty.initialize(&admin);
-    let creator = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
-    creator.initialize(&admin);
+    let royalty =
+        BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, (admin.clone(),)));
+    let creator =
+        BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, (admin.clone(),)));
 
-    factory.initialize(&admin);
     factory.set_contracts(
         &nft.address,
         &collection.address,
@@ -258,18 +237,16 @@ fn test_full_platform_lifecycle() {
     let collector = Address::generate(&env);
 
     env.mock_all_auths();
-    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    nft.initialize(&admin);
-    let collection = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
-    collection.initialize(&admin);
-    let royalty = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
-    royalty.initialize(&admin);
-    let creator_contract = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
-    creator_contract.initialize(&admin);
+    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
+    let collection =
+        BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, (admin.clone(),)));
+    let royalty =
+        BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, (admin.clone(),)));
+    let creator_contract =
+        BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, (admin.clone(),)));
 
-    let factory_id = env.register(BezaMintFactory, ());
+    let factory_id = env.register(BezaMintFactory, (admin.clone(),));
     let factory = BezaMintFactoryClient::new(&env, &factory_id);
-    factory.initialize(&admin);
     factory.set_contracts(
         &nft.address,
         &collection.address,
@@ -352,18 +329,16 @@ fn test_collector_cannot_burn_into_creators_collection() {
     let collector = Address::generate(&env);
 
     env.mock_all_auths();
-    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    nft.initialize(&admin);
-    let collection = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
-    collection.initialize(&admin);
-    let royalty = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
-    royalty.initialize(&admin);
-    let creator_contract = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
-    creator_contract.initialize(&admin);
+    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
+    let collection =
+        BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, (admin.clone(),)));
+    let royalty =
+        BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, (admin.clone(),)));
+    let creator_contract =
+        BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, (admin.clone(),)));
 
-    let factory_id = env.register(BezaMintFactory, ());
+    let factory_id = env.register(BezaMintFactory, (admin.clone(),));
     let factory = BezaMintFactoryClient::new(&env, &factory_id);
-    factory.initialize(&admin);
     factory.set_contracts(
         &nft.address,
         &collection.address,
@@ -396,18 +371,16 @@ fn test_events_cover_factory_mutations() {
     let user = Address::generate(&env);
 
     env.mock_all_auths();
-    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    nft.initialize(&admin);
-    let collection = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
-    collection.initialize(&admin);
-    let royalty = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
-    royalty.initialize(&admin);
-    let creator = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
-    creator.initialize(&admin);
+    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
+    let collection =
+        BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, (admin.clone(),)));
+    let royalty =
+        BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, (admin.clone(),)));
+    let creator =
+        BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, (admin.clone(),)));
 
-    let factory_id = env.register(BezaMintFactory, ());
+    let factory_id = env.register(BezaMintFactory, (admin.clone(),));
     let factory = BezaMintFactoryClient::new(&env, &factory_id);
-    factory.initialize(&admin);
 
     factory.set_contracts(
         &nft.address,
@@ -454,18 +427,16 @@ fn test_integration_burn_unlinks_from_collection() {
     let user = Address::generate(&env);
 
     env.mock_all_auths();
-    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    nft.initialize(&admin);
-    let collection = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
-    collection.initialize(&admin);
-    let royalty = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
-    royalty.initialize(&admin);
-    let creator = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
-    creator.initialize(&admin);
+    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
+    let collection =
+        BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, (admin.clone(),)));
+    let royalty =
+        BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, (admin.clone(),)));
+    let creator =
+        BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, (admin.clone(),)));
 
-    let factory_id = env.register(BezaMintFactory, ());
+    let factory_id = env.register(BezaMintFactory, (admin.clone(),));
     let factory = BezaMintFactoryClient::new(&env, &factory_id);
-    factory.initialize(&admin);
     factory.set_contracts(
         &nft.address,
         &collection.address,
@@ -501,18 +472,16 @@ fn test_mint_into_missing_collection_fails() {
     let user = Address::generate(&env);
 
     env.mock_all_auths();
-    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    nft.initialize(&admin);
-    let collection = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
-    collection.initialize(&admin);
-    let royalty = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
-    royalty.initialize(&admin);
-    let creator = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
-    creator.initialize(&admin);
+    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
+    let collection =
+        BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, (admin.clone(),)));
+    let royalty =
+        BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, (admin.clone(),)));
+    let creator =
+        BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, (admin.clone(),)));
 
-    let factory_id = env.register(BezaMintFactory, ());
+    let factory_id = env.register(BezaMintFactory, (admin.clone(),));
     let factory = BezaMintFactoryClient::new(&env, &factory_id);
-    factory.initialize(&admin);
     factory.set_contracts(
         &nft.address,
         &collection.address,
@@ -538,18 +507,16 @@ fn test_mint_into_foreign_collection_fails() {
     let mallory = Address::generate(&env);
 
     env.mock_all_auths();
-    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    nft.initialize(&admin);
-    let collection = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
-    collection.initialize(&admin);
-    let royalty = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
-    royalty.initialize(&admin);
-    let creator = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
-    creator.initialize(&admin);
+    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
+    let collection =
+        BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, (admin.clone(),)));
+    let royalty =
+        BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, (admin.clone(),)));
+    let creator =
+        BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, (admin.clone(),)));
 
-    let factory_id = env.register(BezaMintFactory, ());
+    let factory_id = env.register(BezaMintFactory, (admin.clone(),));
     let factory = BezaMintFactoryClient::new(&env, &factory_id);
-    factory.initialize(&admin);
     factory.set_contracts(
         &nft.address,
         &collection.address,
@@ -599,18 +566,16 @@ fn test_integration_create_collection_for_creator() {
     let user = Address::generate(&env);
 
     env.mock_all_auths();
-    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, ()));
-    nft.initialize(&admin);
-    let collection = BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, ()));
-    collection.initialize(&admin);
-    let royalty = BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, ()));
-    royalty.initialize(&admin);
-    let creator = BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, ()));
-    creator.initialize(&admin);
+    let nft = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
+    let collection =
+        BezaMintCollectionClient::new(&env, &env.register(BezaMintCollection, (admin.clone(),)));
+    let royalty =
+        BezaMintRoyaltyClient::new(&env, &env.register(BezaMintRoyalty, (admin.clone(),)));
+    let creator =
+        BezaMintCreatorClient::new(&env, &env.register(BezaMintCreator, (admin.clone(),)));
 
-    let factory_id = env.register(BezaMintFactory, ());
+    let factory_id = env.register(BezaMintFactory, (admin.clone(),));
     let factory = BezaMintFactoryClient::new(&env, &factory_id);
-    factory.initialize(&admin);
     factory.set_contracts(
         &nft.address,
         &collection.address,
@@ -672,25 +637,13 @@ fn test_upgrade_requires_admin_auth() {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
-    let contract_id = env.register(BezaMintFactory, ());
+    let contract_id = env.register(BezaMintFactory, (admin.clone(),));
     let client = BezaMintFactoryClient::new(&env, &contract_id);
-    client.initialize(&admin);
 
     // Replace the mocked auths with none: require_auth must reject.
     env.mock_auths(&[]);
     let hash = soroban_sdk::BytesN::from_array(&env, &[0u8; 32]);
     assert!(client.try_upgrade(&hash).is_err());
-}
-
-/// An uninitialized contract has no admin to authorize the upgrade.
-#[test]
-#[should_panic(expected = "not initialized")]
-fn test_upgrade_requires_initialization() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let contract_id = env.register(BezaMintFactory, ());
-    let client = BezaMintFactoryClient::new(&env, &contract_id);
-    client.upgrade(&soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
 }
 
 /// The admin query must report who was stored at initialization, and fail
@@ -700,18 +653,7 @@ fn test_get_admin_reports_initialized_admin() {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
-    let contract_id = env.register(BezaMintFactory, ());
+    let contract_id = env.register(BezaMintFactory, (admin.clone(),));
     let client = BezaMintFactoryClient::new(&env, &contract_id);
-    client.initialize(&admin);
     assert_eq!(client.get_admin(), admin);
-}
-
-#[test]
-#[should_panic(expected = "not initialized")]
-fn test_get_admin_requires_initialization() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let contract_id = env.register(BezaMintFactory, ());
-    let client = BezaMintFactoryClient::new(&env, &contract_id);
-    client.get_admin();
 }

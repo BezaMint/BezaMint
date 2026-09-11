@@ -15,15 +15,20 @@
 # What it does, in order:
 #   1. Builds and optimizes all five contracts to wasm
 #   2. Registers the deployer key in the CLI keyring
-#   3. Deploys nft, collection, royalty, creator, factory
-#   4. Initializes every contract with the deployer as admin
-#      (skipped for contracts that are already initialized, so the
-#      script is safe to re-run against an existing deployment)
+#   3. Deploys nft, collection, royalty, creator, factory, passing the deployer
+#      as each contract's constructor argument. Initialization happens inside
+#      the deployment transaction, so there is no window in which an observer
+#      could initialize a contract as themselves (which is exactly what the
+#      previous deploy-then-initialize sequence allowed).
+#   4. Verifies that the constructors actually ran
 #   5. Wires the Factory: set_contracts(...) also transfers the Royalty
 #      admin role to the Factory in the same transaction, which is what
 #      makes the Factory's cross-contract configure_royalty calls
 #      authenticate in production
 #   6. Writes apps/web/.env.local and prints a summary
+#
+# Each run deploys fresh contract instances and rewrites apps/web/.env.local.
+# It does not detect or reuse a previous deployment.
 # ─────────────────────────────────────────────────────────────
 
 set -euo pipefail
@@ -70,8 +75,6 @@ echo "🚀 Deploying to Stellar Testnet ($RPC_URL)..."
 
 declare -A CONTRACT_IDS
 
-# Deploy each contract (re-uses an existing ID when already deployed so
-# re-runs do not create orphaned contracts)
 for contract in nft collection royalty creator factory; do
   echo ""
   echo "━━━ Deploying bezamint_${contract} ━━━"
@@ -85,10 +88,14 @@ for contract in nft collection royalty creator factory; do
   # Use the optimized artifact when optimize produced one
   [ -f "$OPT_WASM" ] && WASM="$OPT_WASM"
 
+  # Everything after `--` is passed to the contract's `__constructor`, so the
+  # admin binding is created atomically with the contract instance itself.
   CONTRACT_ID=$(soroban contract deploy \
     --wasm "$WASM" \
     --source "$KEY_NAME" \
     "${CLI_ARGS[@]}" \
+    -- \
+    --admin "$ADMIN_ADDR" \
     2>&1 | tail -1)
 
   CONTRACT_IDS[$contract]="$CONTRACT_ID"
@@ -96,7 +103,7 @@ for contract in nft collection royalty creator factory; do
 done
 
 echo ""
-echo "━━━ Initializing and wiring contracts ━━━"
+echo "━━━ Verifying constructor initialization ━━━"
 
 # Helper: run `fn` with optional `--arg` pairs against contract `$1`.
 invoke() {
@@ -116,23 +123,32 @@ is_initialized() {
   invoke "$id" "$fn" | grep -q 'true'
 }
 
-init_if_needed() {
-  local name="$1"; shift
-  local id="$1"; shift
-  local fn="$1"; shift
-  if is_initialized "$id" "$fn"; then
-    echo "⏭️  ${name}: already initialized — skipping"
-  else
-    invoke "$id" "$fn" "$@" >/dev/null
-    echo "✅ ${name}: initialized"
+# There is no separate initialization step any more: the constructor ran inside
+# the deployment transaction above. Assert that it did, and that it recorded the
+# deployer as admin, rather than assuming it.
+verify_initialized() {
+  local name="$1"
+  local id="$2"
+  if ! is_initialized "$id" is_initialized; then
+    echo "❌ ${name}: constructor did not initialize the contract"
+    exit 1
   fi
+  local recorded
+  recorded=$(invoke "$id" get_admin | tr -d '"' | tr -d '[:space:]')
+  if [ "$recorded" != "$ADMIN_ADDR" ]; then
+    echo "❌ ${name}: admin is '$recorded', expected the deployer '$ADMIN_ADDR'"
+    exit 1
+  fi
+  echo "✅ ${name}: initialized by constructor, admin is the deployer"
 }
 
-init_if_needed "NFT"        "${CONTRACT_IDS[nft]}"        initialize --admin "$ADMIN_ADDR"
-init_if_needed "Collection" "${CONTRACT_IDS[collection]}" initialize --admin "$ADMIN_ADDR"
-init_if_needed "Creator"    "${CONTRACT_IDS[creator]}"    initialize --admin "$ADMIN_ADDR"
-init_if_needed "Royalty"    "${CONTRACT_IDS[royalty]}"    initialize --admin "$ADMIN_ADDR"
-init_if_needed "Factory"    "${CONTRACT_IDS[factory]}"    initialize --admin "$ADMIN_ADDR"
+verify_initialized "NFT"        "${CONTRACT_IDS[nft]}"
+verify_initialized "Collection" "${CONTRACT_IDS[collection]}"
+verify_initialized "Creator"    "${CONTRACT_IDS[creator]}"
+verify_initialized "Factory"    "${CONTRACT_IDS[factory]}"
+# Royalty is verified here too, before `set_contracts` deliberately hands its
+# admin role to the Factory. verify-deploy.sh re-checks that hand-off afterwards.
+verify_initialized "Royalty"    "${CONTRACT_IDS[royalty]}"
 
 echo ""
 echo "━━━ Wiring Factory (set_contracts) ━━━"

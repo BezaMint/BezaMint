@@ -52,24 +52,20 @@ fn setup() -> (Env, Address, BezaMintCreatorClient<'static>) {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
-    let contract_id = env.register(BezaMintCreator, ());
+    let contract_id = env.register(BezaMintCreator, (admin.clone(),));
     let client = BezaMintCreatorClient::new(&env, &contract_id);
-    client.initialize(&admin);
     (env, admin, client)
 }
 
+/// The constructor runs as part of contract creation, so the admin binding
+/// already exists by the time any client can call the contract. This replaces
+/// the previous "initialize then observe" test: there is no uninitialized state
+/// left to observe, and no second call that could overwrite the binding.
 #[test]
-fn test_is_initialized_reflects_state() {
-    let (_, _, client) = setup();
+fn test_constructor_binds_admin() {
+    let (_, admin, client) = setup();
     assert!(client.is_initialized());
-}
-
-#[test]
-#[should_panic(expected = "already initialized")]
-fn test_initialize_rejects_double_init() {
-    let (env, _, client) = setup();
-    let attacker = Address::generate(&env);
-    client.initialize(&attacker);
+    assert_eq!(client.get_admin(), admin);
 }
 
 fn register(env: &Env, client: &BezaMintCreatorClient, creator: &Address, name: &str) {
@@ -454,25 +450,13 @@ fn test_upgrade_requires_admin_auth() {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
-    let contract_id = env.register(BezaMintCreator, ());
+    let contract_id = env.register(BezaMintCreator, (admin.clone(),));
     let client = BezaMintCreatorClient::new(&env, &contract_id);
-    client.initialize(&admin);
 
     // Replace the mocked auths with none: require_auth must reject.
     env.mock_auths(&[]);
     let hash = soroban_sdk::BytesN::from_array(&env, &[0u8; 32]);
     assert!(client.try_upgrade(&hash).is_err());
-}
-
-/// An uninitialized contract has no admin to authorize the upgrade.
-#[test]
-#[should_panic(expected = "not initialized")]
-fn test_upgrade_requires_initialization() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let contract_id = env.register(BezaMintCreator, ());
-    let client = BezaMintCreatorClient::new(&env, &contract_id);
-    client.upgrade(&soroban_sdk::BytesN::from_array(&env, &[0u8; 32]));
 }
 
 /// The admin query must report who was stored at initialization, and fail
@@ -482,18 +466,7 @@ fn test_get_admin_reports_initialized_admin() {
     let env = Env::default();
     env.mock_all_auths();
     let admin = Address::generate(&env);
-    let contract_id = env.register(BezaMintCreator, ());
+    let contract_id = env.register(BezaMintCreator, (admin.clone(),));
     let client = BezaMintCreatorClient::new(&env, &contract_id);
-    client.initialize(&admin);
     assert_eq!(client.get_admin(), admin);
-}
-
-#[test]
-#[should_panic(expected = "not initialized")]
-fn test_get_admin_requires_initialization() {
-    let env = Env::default();
-    env.mock_all_auths();
-    let contract_id = env.register(BezaMintCreator, ());
-    let client = BezaMintCreatorClient::new(&env, &contract_id);
-    client.get_admin();
 }

@@ -67,11 +67,19 @@ pub struct BezaMintFactory;
 
 #[contractimpl]
 impl BezaMintFactory {
-    pub fn initialize(env: Env, admin: Address) {
-        if Self::is_initialized(env.clone()) {
-            panic!("Factory: already initialized");
-        }
-        admin.require_auth();
+    /// Constructor: runs atomically as part of contract creation.
+    ///
+    /// Initialization previously required a second, publicly callable
+    /// transaction after deployment. Because deployment and initialization are
+    /// separate transactions, any observer could call `initialize` first,
+    /// satisfy `require_auth()` with their own signature and become the admin of
+    /// a contract the deployer had just paid to create. On this contract that is
+    /// total compromise: the admin can `set_contracts` to hostile addresses and
+    /// route every mint, burn and collection creation through them. A
+    /// constructor executes inside contract creation, so there is no window to
+    /// race; it deliberately performs no `require_auth`, because the only party
+    /// who can run it is the deployer, inside the deployment invocation itself.
+    pub fn __constructor(env: Env, admin: Address) {
         env.storage().instance().set(&FactoryKey::Admin, &admin);
         env.storage().instance().set(&FactoryKey::Version, &1u32);
         // Instance data and contract code share one TTL; refresh both up front

@@ -209,68 +209,68 @@ Five `#![no_std]` Soroban contracts. Every public function is guarded with `requ
 
 ### NFT — `BezaMintNft`
 
-| Function                                          | Description                                         |
-| ------------------------------------------------- | --------------------------------------------------- |
-| `initialize(admin)`                               | Set contract admin and reset token counter          |
-| `mint(to, collection_id, metadata_uri) -> u64`    | Mint a new NFT, returns `token_id`                  |
-| `transfer(from, to, token_id)`                    | Transfer NFT ownership                              |
-| `approve(operator, token_id)`                     | Approve a single operator                           |
-| `set_approval_for_all(owner, operator, approved)` | Grant/revoke blanket approval                       |
-| `burn(token_id)`                                  | Burn an NFT                                         |
-| `total_supply() -> u64`                           | Total NFTs minted                                   |
-| `owner_of(token_id) -> Address`                   | Current owner                                       |
-| `token_data(token_id) -> NftData`                 | On-chain metadata (creator, collection, timestamps) |
-| `balance_of(owner) -> u64`                        | NFTs owned by an address                            |
-| `is_approved(operator, token_id) -> bool`         | Single-operator approval check                      |
-| `is_approved_for_all(owner, operator) -> bool`    | Blanket approval check                              |
+| Function                                          | Description                                                            |
+| ------------------------------------------------- | ---------------------------------------------------------------------- |
+| `__constructor(admin)`                            | Set contract admin and reset token counter (runs atomically at deploy) |
+| `mint(to, collection_id, metadata_uri) -> u64`    | Mint a new NFT, returns `token_id`                                     |
+| `transfer(from, to, token_id)`                    | Transfer NFT ownership                                                 |
+| `approve(operator, token_id)`                     | Approve a single operator                                              |
+| `set_approval_for_all(owner, operator, approved)` | Grant/revoke blanket approval                                          |
+| `burn(token_id)`                                  | Burn an NFT                                                            |
+| `total_supply() -> u64`                           | Total NFTs minted                                                      |
+| `owner_of(token_id) -> Address`                   | Current owner                                                          |
+| `token_data(token_id) -> NftData`                 | On-chain metadata (creator, collection, timestamps)                    |
+| `balance_of(owner) -> u64`                        | NFTs owned by an address                                               |
+| `is_approved(operator, token_id) -> bool`         | Single-operator approval check                                         |
+| `is_approved_for_all(owner, operator) -> bool`    | Blanket approval check                                                 |
 
 ### Collection — `BezaMintCollection`
 
-| Function                                            | Description                               |
-| --------------------------------------------------- | ----------------------------------------- |
-| `initialize(admin)`                                 | Set contract admin and collection counter |
-| `create_collection(creator, metadata_uri) -> u64`   | Create a collection, returns `id`         |
-| `update_collection(creator, id, new_metadata_uri)`  | Update collection metadata                |
-| `archive_collection(creator, id)`                   | Archive a collection (soft-delete)        |
-| `add_nft(admin, collection_id, token_id)`           | Attach an NFT to a collection             |
-| `remove_nft(admin, collection_id, token_id)`        | Detach an NFT from a collection           |
-| `total_collections() -> u64`                        | Total collections created                 |
-| `get_collection(id) -> CollectionData`              | Collection details                        |
-| `get_nfts_in_collection(collection_id) -> Vec<u64>` | NFT ids in a collection                   |
-| `get_collection_for_nft(token_id) -> u64`           | Reverse lookup: collection of an NFT      |
-| `get_collections_by_creator(creator) -> Vec<u64>`   | All collections by a creator              |
+| Function                                            | Description                                                           |
+| --------------------------------------------------- | --------------------------------------------------------------------- |
+| `__constructor(admin)`                              | Set contract admin and collection counter (runs atomically at deploy) |
+| `create_collection(creator, metadata_uri) -> u64`   | Create a collection, returns `id`                                     |
+| `update_collection(creator, id, new_metadata_uri)`  | Update collection metadata                                            |
+| `archive_collection(creator, id)`                   | Archive a collection (soft-delete)                                    |
+| `add_nft(admin, collection_id, token_id)`           | Attach an NFT to a collection                                         |
+| `remove_nft(admin, collection_id, token_id)`        | Detach an NFT from a collection                                       |
+| `total_collections() -> u64`                        | Total collections created                                             |
+| `get_collection(id) -> CollectionData`              | Collection details                                                    |
+| `get_nfts_in_collection(collection_id) -> Vec<u64>` | NFT ids in a collection                                               |
+| `get_collection_for_nft(token_id) -> u64`           | Reverse lookup: collection of an NFT                                  |
+| `get_collections_by_creator(creator) -> Vec<u64>`   | All collections by a creator                                          |
 
 ### Royalty — `BezaMintRoyalty`
 
-| Function                                                                | Description                                |
-| ----------------------------------------------------------------------- | ------------------------------------------ |
-| `initialize(admin)`                                                     | Set contract admin                         |
-| `configure_royalty(target_id, basis_points, recipients, is_collection)` | Set royalty terms for an NFT or collection |
-| `update_royalty(target_id, basis_points, recipients, is_collection)`    | Update royalty terms (blocked if frozen)   |
-| `freeze_royalty(target_id, is_collection)`                              | Lock royalty terms permanently             |
-| `validate_basis_points(basis_points) -> bool`                           | Ensure bp ≤ 10,000                         |
-| `get_royalty(target_id, is_collection) -> RoyaltyConfig`                | Read royalty configuration                 |
-| `is_frozen(target_id, is_collection) -> bool`                           | Frozen status check                        |
+| Function                                                                | Description                                    |
+| ----------------------------------------------------------------------- | ---------------------------------------------- |
+| `__constructor(admin)`                                                  | Set contract admin (runs atomically at deploy) |
+| `configure_royalty(target_id, basis_points, recipients, is_collection)` | Set royalty terms for an NFT or collection     |
+| `update_royalty(target_id, basis_points, recipients, is_collection)`    | Update royalty terms (blocked if frozen)       |
+| `freeze_royalty(target_id, is_collection)`                              | Lock royalty terms permanently                 |
+| `validate_basis_points(basis_points) -> bool`                           | Ensure bp ≤ 10,000                             |
+| `get_royalty(target_id, is_collection) -> RoyaltyConfig`                | Read royalty configuration                     |
+| `is_frozen(target_id, is_collection) -> bool`                           | Frozen status check                            |
 
 ### Creator — `BezaMintCreator`
 
-| Function                                                             | Description                            |
-| -------------------------------------------------------------------- | -------------------------------------- |
-| `initialize(admin)`                                                  | Set contract admin and creator counter |
-| `register(creator, display_name, bio, avatar_uri, banner_uri)`       | Register a creator profile             |
-| `update_profile(creator, display_name, bio, avatar_uri, banner_uri)` | Update profile fields                  |
-| `set_social_links(creator, links)`                                   | Set social links (up to 8 platforms)   |
-| `verify_creator(admin, creator)`                                     | Admin-gated verification badge         |
-| `total_creators() -> u64`                                            | Total registered creators              |
-| `get_profile(creator) -> CreatorProfile`                             | Full profile read                      |
-| `is_registered(creator) -> bool`                                     | Registration check                     |
-| `is_verified(creator) -> bool`                                       | Verification check                     |
+| Function                                                             | Description                                                        |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `__constructor(admin)`                                               | Set contract admin and creator counter (runs atomically at deploy) |
+| `register(creator, display_name, bio, avatar_uri, banner_uri)`       | Register a creator profile                                         |
+| `update_profile(creator, display_name, bio, avatar_uri, banner_uri)` | Update profile fields                                              |
+| `set_social_links(creator, links)`                                   | Set social links (up to 8 platforms)                               |
+| `verify_creator(admin, creator)`                                     | Admin-gated verification badge                                     |
+| `total_creators() -> u64`                                            | Total registered creators                                          |
+| `get_profile(creator) -> CreatorProfile`                             | Full profile read                                                  |
+| `is_registered(creator) -> bool`                                     | Registration check                                                 |
+| `is_verified(creator) -> bool`                                       | Verification check                                                 |
 
 ### Factory — `BezaMintFactory`
 
 | Function                                                                                                      | Description                                                   |
 | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| `initialize(admin)`                                                                                           | Set contract admin                                            |
+| `__constructor(admin)`                                                                                        | Set contract admin (runs atomically at deploy)                |
 | `set_contracts(admin, nft, collection, royalty, creator)`                                                     | Link all four contracts (emits `ContractsSet`)                |
 | `mint_with_royalty(caller, to, collection_id, metadata_uri, basis_points) -> u64`                             | Atomic: mint NFT **and** configure royalty in one transaction |
 | `create_collection_for_creator(caller, metadata_uri) -> u64`                                                  | Atomic: create collection **and** auto-register creator       |
