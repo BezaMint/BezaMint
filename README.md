@@ -11,8 +11,8 @@
   <a href="https://github.com/BezaMint/BezaMint/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-green" alt="License" />
   </a>
-  <a href="https://web-kappa-lac-27.vercel.app">
-    <img src="https://img.shields.io/badge/deployed-Vercel-black?logo=vercel" alt="Vercel" />
+  <a href="#-deployed-contracts--stellar-testnet">
+    <img src="https://img.shields.io/badge/contracts-5_live_on_testnet-24a563?logo=stellar" alt="Contracts" />
   </a>
   <a href="demo-video.mp4">
     <img src="https://img.shields.io/badge/demo-video-FF0000?logo=youtube" alt="Demo Video" />
@@ -21,20 +21,21 @@
   <img src="https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs" alt="Next.js" />
   <img src="https://img.shields.io/badge/Soroban_SDK-22.0.11-7b3fe4" alt="Soroban SDK" />
   <img src="https://img.shields.io/badge/Stellar-Testnet-24a563?logo=stellar" alt="Stellar" />
-  <img src="https://img.shields.io/badge/tests-162_passing-success" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-538_passing-success" alt="Tests" />
   <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="Version" />
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome" />
 </p>
 
 <p align="center">
-  <strong>A production-grade NFT creation and digital asset management platform</strong><br/>
+  <strong>An NFT creation and digital asset management platform</strong><br/>
   powered by <strong>Soroban smart contracts</strong> on the <strong>Stellar network</strong>.
 </p>
 
 <p align="center">
-  <strong>▶️ <a href="https://web-kappa-lac-27.vercel.app">Live Demo</a></strong> ·
+  <strong>⛓ <a href="#-deployed-contracts--stellar-testnet">Contracts live on Stellar Testnet</a></strong> ·
   <strong>🎬 <a href="demo-video.mp4">Demo Video</a></strong> ·
-  <strong>📄 <a href="DEMO.md">Video Script</a></strong>
+  <strong>📄 <a href="DEMO.md">Video Script</a></strong> ·
+  <strong>🚀 <a href="docs/deployment-runbook.md">Deploy it</a></strong>
 </p>
 
 ---
@@ -83,7 +84,7 @@
 
 ## Why BezaMint?
 
-BezaMint is a complete, end-to-end dApp that brings enterprise-grade NFT infrastructure to the Stellar ecosystem. Artists, brands, gaming studios, and digital creators can mint NFTs, manage collections, configure royalties, register creator profiles, and verify on-chain ownership — all through a polished, responsive interface backed by five custom Soroban smart contracts with inter-contract communication, real-time event streaming, and comprehensive error handling.
+BezaMint is a complete, end-to-end dApp that brings NFT infrastructure to the Stellar ecosystem. Artists, brands, gaming studios, and digital creators can mint NFTs, manage collections, configure royalties, register creator profiles, and verify on-chain ownership — all through a polished, responsive interface backed by five custom Soroban smart contracts with inter-contract communication, on-chain event indexing, and layered error handling.
 
 **Engineered for production. Built for the Stellar ecosystem.**
 
@@ -103,7 +104,9 @@ Create, edit, archive, and browse NFT collections with rich metadata, category t
 
 ### 💰 Royalty Configuration
 
-Per-NFT or per-collection royalty settings with basis point precision (up to 10,000 bp = 100%), multi-recipient splits, and a freeze capability to lock terms permanently — enforced by the Royalty smart contract.
+Per-NFT or per-collection royalty settings with basis point precision (up to 10,000 bp = 100%), multi-recipient splits, and a freeze capability to lock terms permanently — recorded and quoted by the Royalty smart contract.
+
+A bare NFT transfer carries no payment, so a contract cannot collect a royalty by itself. What the contract does provide is `quote_royalty`, which returns the exact per-recipient payout for a given sale price, with the rounding remainder assigned so the amounts sum precisely. Settlement is the caller's responsibility, and the marketplace integration that consumes it is on the roadmap rather than half-built here.
 
 ### 👤 Creator Profiles
 
@@ -117,9 +120,9 @@ Real-time on-chain verification of NFT ownership against the Stellar blockchain.
 
 The Factory contract orchestrates cross-contract calls — minting NFTs, configuring royalties, registering creators, and creating collections — all in single atomic transactions. Verified via on-chain `ContractsSet` event emission.
 
-### ⚡ Event Streaming & Real-Time Sync
+### ⚡ Event Polling and Indexing
 
-Four contracts emit typed Soroban events. The `useContractEvents` React hook polls the Soroban RPC every 5 seconds, merges, deduplicates, and sorts events by ledger — providing live UI synchronization from contract state.
+Four contracts emit typed Soroban events. `useContractEvents` polls the Soroban RPC every 5 seconds in the browser, merging, deduplicating and sorting events by ledger; a server-side indexer keeps the same feed for the list APIs, so `/api/nfts`, `/api/collections` and `/api/creators` share one source of truth. Both match on the event's variant name rather than a positional index, so inserting a variant cannot silently break the feed.
 
 ### 🔐 Production Error Handling
 
@@ -377,14 +380,27 @@ bash scripts/deploy.sh    # Builds, optimizes, deploys, generates .env.local
 
 | Contract       | Address                                                    |
 | -------------- | ---------------------------------------------------------- |
-| **NFT**        | `CA2FOWI7HVNFLGTFN4XR44D76JVFZUYP6MTV5EIDJTYLZTVJA6XKZNJW` |
-| **Collection** | `CBCXW2M7O7QYCUELGQTS2JLKG5CCK3G7QDHP7352ALPGGKLCYWZVUQIH` |
-| **Royalty**    | `CDNMUNFZR6GZ6W5D62BAYD3FTSCCX3TBFXZLQTZMACYI6IJBQAKMKCEL` |
-| **Creator**    | `CBJFHJ4ZUQZMVTDNUUC4UWJL2REJDACK4DJ5L4TD5CBIEEWQ7BTCUWQK` |
-| **Factory**    | `CBAUWKF6TXVZIICS5WA5MI5ICD4D2OPZAWGDTUZD2BMVJUK6YM7IERHZ` |
+| **NFT**        | `CCW5JLGZQM25TDC2RKUB7OBYDNXDZSWIUP3AAXPT4F36S3D66RLUL33S` |
+| **Collection** | `CAPHMXQ2ODBKGN5YVMRFDXVAOQIFDMM36KAIE5GFWKJXPYD7ZPYH5W2Y` |
+| **Royalty**    | `CAHIKNO5ZLU6GOABKQLMPV3GEIBFG7PB2MSYR54FN7VTUGNY6H32Y3QT` |
+| **Creator**    | `CCTUT4POZK27BM3KNXKXKFNX6OFF5AJEYHEDNG4ZUC6CKHNGQOBJLRFB` |
+| **Factory**    | `CAC7WIC7OWQIKYQA7DRYRBGMHTRZW2TL7L52BYX6Q7OTX7OUMGXWBQVW` |
 
-> **Deployer:** [`GBMQK57...`](https://stellar.expert/explorer/testnet/account/GBMQK57VHOA7TIA3PCEFFFVOFYEV2VVPLPGEMU5QLXYJA5WVCRAICRHU)
-> **Deployed:** August 1, 2026
+> **Deployer:** [`GAYVKGVG...`](https://stellar.expert/explorer/testnet/account/GAYVKGVGVI7G5L4WPIVRPBJQAQ2GNDDOXA64IGHGJZP65RA2U4XFTEMM)
+> **Deployed:** September 11, 2026
+>
+> Each contract takes its admin through a **constructor**, so deployment and
+> initialization are a single transaction and there is no window in which an
+> observer could claim the admin role in between. Check the wiring yourself:
+>
+> ```bash
+> BEZAMINT_SOURCE_KEY=deployer bash scripts/verify-deploy.sh
+> ```
+
+This deployment is **seeded with real activity** — three collections and eighteen
+tokens, minted through the Factory's atomic batch path — so the read APIs answer
+with data rather than empty arrays. Reproduce it on any deployment with
+`bash scripts/seed-testnet-activity.sh`.
 
 ### Interact from the Frontend
 
@@ -412,16 +428,28 @@ const { txHash } = await signAndSubmit(tx);
 
 Every transaction is verifiable on Stellar Explorer.
 
-| Transaction         | Hash                  | Explorer                                                                                                            |
-| ------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| **NFT Initialize**  | `9c1d871b...bc25e518` | [View](https://stellar.expert/explorer/testnet/tx/9c1d871b931e3455a5c2bfadcccca2bd8694105338fa2a88161e23a6bc25e518) |
-| **Collection Init** | `157062e3...f7a6ec06` | [View](https://stellar.expert/explorer/testnet/tx/157062e311fedbcbc3507c41d91ceb0b37e9cfd6e21992e67df31333f7a6ec06) |
-| **Royalty Init**    | `8473eb92...bf03b639` | [View](https://stellar.expert/explorer/testnet/tx/8473eb92b1157de549bcd398ca3aceaec5bc2cdb3830731bd270d1c0bf03b639) |
-| **Creator Init**    | `987134c5...ca670c74` | [View](https://stellar.expert/explorer/testnet/tx/987134c527d75480025611cfaddaa399c51d81ddd48b521467201d1bca670c74) |
-| **Factory Init**    | `bdbe9101...e89c72bf` | [View](https://stellar.expert/explorer/testnet/tx/bdbe9101b00718b3d0d0c0b2cdfed7c810443c3ce99894dd4a440180e89c72bf) |
-| **Factory Links**   | `7e03914a...e45cc8d9` | [View](https://stellar.expert/explorer/testnet/tx/7e03914abe8f06d81bc79a284c86c0c7ff2db300ff84f8f15c38e8d4e45cc8d9) |
+Six transactions produced the seeded activity below, and every one of them is
+visible on the contracts named above.
 
-> The **Factory `ContractsSet` event** confirms cross-contract communication — the Factory atomically links and orchestrates all four other contracts on-chain.
+| Activity                                  | Transaction                                                        | Explorer                                                                                                            |
+| ----------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| Create collection — **Stellar Drift**     | `9cd031f6585d50104c1d592f9997a8dd1660fe5a597e6bf6790ed315009360d4` | [View](https://stellar.expert/explorer/testnet/tx/9cd031f6585d50104c1d592f9997a8dd1660fe5a597e6bf6790ed315009360d4) |
+| **Batch mint 6 tokens** — Stellar Drift   | `dfe45c10f7b56ca843ba5f6c2ddc2b5e1784dadfd269844be8588502efc26153` | [View](https://stellar.expert/explorer/testnet/tx/dfe45c10f7b56ca843ba5f6c2ddc2b5e1784dadfd269844be8588502efc26153) |
+| Create collection — **Soroban Signals**   | `90ebb51c1c1340c91b04492aa79a9052c6d84513892aa38fed54612f99e38703` | [View](https://stellar.expert/explorer/testnet/tx/90ebb51c1c1340c91b04492aa79a9052c6d84513892aa38fed54612f99e38703) |
+| **Batch mint 6 tokens** — Soroban Signals | `6deafa86321f930f2d4553aa1a79fe22e0241c3c4734c6c05510239ce7473a83` | [View](https://stellar.expert/explorer/testnet/tx/6deafa86321f930f2d4553aa1a79fe22e0241c3c4734c6c05510239ce7473a83) |
+| Create collection — **Testnet Terrain**   | `7978bde84e96b9be0fd5e104afce7904024a70a7e6835b92a82b66538f9529ea` | [View](https://stellar.expert/explorer/testnet/tx/7978bde84e96b9be0fd5e104afce7904024a70a7e6835b92a82b66538f9529ea) |
+| **Batch mint 6 tokens** — Testnet Terrain | `289631a6d206440b0dfe31393421c3f0b6d95437dd3cc45bfb54f9fcb08607e6` | [View](https://stellar.expert/explorer/testnet/tx/289631a6d206440b0dfe31393421c3f0b6d95437dd3cc45bfb54f9fcb08607e6) |
+
+Two details worth checking on those links. Each **batch mint is one transaction
+for six tokens**, not six — that is the Factory's atomic `mint_batch_with_royalty`
+path, and a failure on any token in the batch reverts all of them. And each mint
+transaction carries a `factory` event alongside the `nft`, `col` and `royalty`
+events it triggers, which is the cross-contract call the Factory is there to make.
+
+> The record of what was seeded — collection ids, token ids and these hashes — is
+> written to [`demo/seed-manifest.json`](demo/seed-manifest.json) by the seed
+> script, so a claim about on-chain activity can be checked against a specific
+> transaction rather than taken on faith.
 
 ---
 
@@ -447,28 +475,39 @@ BezaMint implements defense-in-depth across the entire stack:
 
 | Suite           | Framework      | Tests   | Status             |
 | --------------- | -------------- | ------- | ------------------ |
-| Smart Contracts | Rust `#[test]` | 62      | ✅ 62/62 passing   |
-| Frontend        | Vitest         | 100     | ✅ 100/100 passing |
-| **Total**       |                | **162** | **All passing**    |
+| Smart Contracts | Rust `#[test]` | 187     | ✅ 187/187 passing |
+| Frontend        | Vitest         | 351     | ✅ 351/351 passing |
+| **Total**       |                | **538** | **All passing**    |
 
 ```bash
-pnpm test                # Frontend: 100/100 passing (32 files)
-pnpm run contract:test   # Contracts: 62 tests across 5 crates
+pnpm test                # Frontend: 351/351 passing (59 files)
+pnpm run contract:test   # Contracts: 187 tests across 5 crates
 ```
 
 | Contract crate        | Tests |
 | --------------------- | ----- |
-| `bezamint-nft`        | 20    |
-| `bezamint-collection` | 15    |
-| `bezamint-royalty`    | 13    |
-| `bezamint-creator`    | 10    |
-| `bezamint-factory`    | 4     |
+| `bezamint-nft`        | 55    |
+| `bezamint-collection` | 36    |
+| `bezamint-royalty`    | 45    |
+| `bezamint-creator`    | 26    |
+| `bezamint-factory`    | 25    |
+
+Beyond the unit suites, CI enforces the things tests cannot state on their own:
+`cargo fmt` and `clippy -D warnings`, a rustdoc warning gate, per-contract wasm
+size budgets, a coverage floor, a client bundle budget, and a **contract ABI
+drift check** that fails when a rebuilt interface differs from the committed
+snapshot.
+
+There is also an end-to-end smoke test that runs against a live deployment —
+`SMOKE_BASE_URL=... bash scripts/smoke-test.sh` — because the unit tests mock the
+RPC, and everything that can only go wrong against a real chain is therefore
+invisible to them. The runbook explains what it covers and why.
 
 ---
 
 ## 📸 Screenshots
 
-All captured from the live deployment at [web-kappa-lac-27.vercel.app](https://web-kappa-lac-27.vercel.app).
+Captured from the app running against the testnet deployment listed above.
 
 | Feature                        | Desktop                                                         | Mobile                                                         |
 | ------------------------------ | --------------------------------------------------------------- | -------------------------------------------------------------- |
@@ -499,9 +538,10 @@ A 2-minute walkthrough covering all major features — landing, dashboard, colle
 
 ## ✅ Production Readiness Checklist
 
-- [x] Smart contract tests (62/62 passing)
-- [x] Frontend tests (100/100 passing)
-- [x] Security headers (CSP, HSTS, X-Frame, XSS)
+- [x] Smart contract tests (187/187 passing)
+- [x] Frontend tests (351/351 passing)
+- [x] End-to-end smoke test against a live deployment
+- [x] Security headers (HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
 - [x] CI/CD pipeline (3 workflows)
 - [x] Error boundaries and graceful fallbacks
 - [x] Accessibility (skip links, ARIA labels, keyboard nav)
@@ -516,13 +556,22 @@ A 2-minute walkthrough covering all major features — landing, dashboard, colle
 
 ## 🌐 Deployment
 
-**Live:** [web-kappa-lac-27.vercel.app](https://web-kappa-lac-27.vercel.app)
+| Environment   | Status                                                           |
+| ------------- | ---------------------------------------------------------------- |
+| **Contracts** | 5/5 live on Stellar Testnet, wired, verified and seeded          |
+| **Frontend**  | Runs from `main`; `docs/deployment-runbook.md` covers hosting it |
+| **CI/CD**     | 3 GitHub Actions workflows (CI, Release, Security)               |
 
-| Environment   | Status                                             |
-| ------------- | -------------------------------------------------- |
-| **Frontend**  | Deployed on Vercel — 12 routes, zero errors        |
-| **Contracts** | 5/5 deployed on Stellar Testnet                    |
-| **CI/CD**     | 3 GitHub Actions workflows (CI, Release, Security) |
+```bash
+pnpm install
+cp .env.example apps/web/.env.local   # contract ids, RPC URL, network
+pnpm dev                              # http://localhost:3000
+```
+
+The frontend is not tied to a hosted instance: it reads whatever contracts its
+environment names, so pointing `apps/web/.env.local` at the testnet deployment
+above is enough to see the seeded collections and tokens. `docs/deployment-runbook.md`
+walks through a fresh deploy, verifying it, seeding it and hosting the frontend.
 
 ---
 
@@ -538,20 +587,20 @@ A 2-minute walkthrough covering all major features — landing, dashboard, colle
 
 ## 📦 Tech Stack
 
-| Layer               | Technology                                                |
-| ------------------- | --------------------------------------------------------- |
-| **Frontend**        | Next.js 15, React 19, TypeScript 5.7, Tailwind CSS 4      |
-| **Smart Contracts** | Soroban SDK 22.0.11 (Rust), `#![no_std]`                  |
-| **Blockchain**      | Stellar Testnet (Mainnet-ready configuration)             |
-| **Wallet**          | Freighter Browser Extension, `@stellar/freighter-api` v4  |
-| **SDK**             | `@stellar/stellar-sdk` v13 (Soroban RPC + Horizon)        |
-| **Events**          | Soroban contract events, `useContractEvents` polling hook |
-| **Storage**         | IPFS via Pinata SDK                                       |
-| **State**           | React Context + Zustand                                   |
-| **Build**           | Turborepo, pnpm 9                                         |
-| **Testing**         | Rust `#[test]`, Vitest                                    |
-| **CI/CD**           | GitHub Actions, Vercel                                    |
-| **Notifications**   | react-hot-toast                                           |
+| Layer               | Technology                                                 |
+| ------------------- | ---------------------------------------------------------- |
+| **Frontend**        | Next.js 15, React 19, TypeScript 5.7, Tailwind CSS 4       |
+| **Smart Contracts** | Soroban SDK 22.0.11 (Rust), `#![no_std]`                   |
+| **Blockchain**      | Stellar Testnet (Mainnet-ready configuration)              |
+| **Wallet**          | Freighter Browser Extension, `@stellar/freighter-api` v4   |
+| **SDK**             | `@stellar/stellar-sdk` v13 (Soroban RPC + Horizon)         |
+| **Events**          | Soroban contract events, `useContractEvents` polling hook  |
+| **Storage**         | IPFS via Pinata SDK                                        |
+| **State**           | React Context + Zustand                                    |
+| **Build**           | Turborepo, pnpm 9                                          |
+| **Testing**         | Rust `#[test]`, Vitest                                     |
+| **CI/CD**           | GitHub Actions; any Node host (see the deployment runbook) |
+| **Notifications**   | react-hot-toast                                            |
 
 ---
 
@@ -562,11 +611,11 @@ A 2-minute walkthrough covering all major features — landing, dashboard, colle
 NEXT_PUBLIC_STELLAR_NETWORK=testnet
 NEXT_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
 NEXT_PUBLIC_STELLAR_PASSPHRASE=Test SDF Network ; September 2015
-NEXT_PUBLIC_NFT_CONTRACT_ID=CA2FOWI7HVNFLGTFN4XR44D76JVFZUYP6MTV5EIDJTYLZTVJA6XKZNJW
-NEXT_PUBLIC_COLLECTION_CONTRACT_ID=CBCXW2M7O7QYCUELGQTS2JLKG5CCK3G7QDHP7352ALPGGKLCYWZVUQIH
-NEXT_PUBLIC_ROYALTY_CONTRACT_ID=CDNMUNFZR6GZ6W5D62BAYD3FTSCCX3TBFXZLQTZMACYI6IJBQAKMKCEL
-NEXT_PUBLIC_CREATOR_CONTRACT_ID=CBJFHJ4ZUQZMVTDNUUC4UWJL2REJDACK4DJ5L4TD5CBIEEWQ7BTCUWQK
-NEXT_PUBLIC_FACTORY_CONTRACT_ID=CBAUWKF6TXVZIICS5WA5MI5ICD4D2OPZAWGDTUZD2BMVJUK6YM7IERHZ
+NEXT_PUBLIC_NFT_CONTRACT_ID=CCW5JLGZQM25TDC2RKUB7OBYDNXDZSWIUP3AAXPT4F36S3D66RLUL33S
+NEXT_PUBLIC_COLLECTION_CONTRACT_ID=CAPHMXQ2ODBKGN5YVMRFDXVAOQIFDMM36KAIE5GFWKJXPYD7ZPYH5W2Y
+NEXT_PUBLIC_ROYALTY_CONTRACT_ID=CAHIKNO5ZLU6GOABKQLMPV3GEIBFG7PB2MSYR54FN7VTUGNY6H32Y3QT
+NEXT_PUBLIC_CREATOR_CONTRACT_ID=CCTUT4POZK27BM3KNXKXKFNX6OFF5AJEYHEDNG4ZUC6CKHNGQOBJLRFB
+NEXT_PUBLIC_FACTORY_CONTRACT_ID=CAC7WIC7OWQIKYQA7DRYRBGMHTRZW2TL7L52BYX6Q7OTX7OUMGXWBQVW
 NEXT_PUBLIC_EXPLORER_URL=https://stellar.expert/explorer/testnet
 ```
 
