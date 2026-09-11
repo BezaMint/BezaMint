@@ -33,15 +33,13 @@ dangerous class of bug because they survive every green check.
 | 1   | **Critical** | API       | Event indexer decodes a topic layout the contracts never emit; every indexed endpoint is silently empty                                           | Fixed  |
 | 2   | **Critical** | API       | Indexer requests `startLedger: 0`, outside the RPC retention window; the request itself fails                                                     | Fixed  |
 | 3   | **Critical** | Contracts | `initialize()` is front-runnable: deploy and init are separate transactions, so an attacker can seize the admin role                              | Fixed  |
-| 4   | **High**     | Tooling   | Security overrides live in a `package.json` field pnpm 9 honours but has deprecated and pnpm 10 removes; nothing guards against a silent pin loss | Fixed  |     | 5   | **High**   | Contracts | Secondary-sale royalties are configured but never collected; the platform's core promise is unimplemented                  | Fixed |
+| 4   | **High**     | Tooling   | Security overrides live in a `package.json` field pnpm 9 honours but has deprecated and pnpm 10 removes; nothing guards against a silent pin loss | Fixed  |     | 5   | **High**   | Contracts | Secondary-sale royalties are configured but never collected; the platform's core promise is unimplemented                                 | Fixed |
 | 6   | **High**     | Contracts | `set_contracts` accepts zero and self addresses; a wiring mistake bricks the mint path with no recovery path                                      | Open   |
-| 7   | **High**     | API       | The indexer test asserts the same wrong wire format as the code, so a green suite certifies a broken feature                                      | Fixed  |
-| 8   | **High**     | Docs      | `ISSUES.md` advertises 100 open issues, most of which are already implemented; it misrepresents the project to contributors and reviewers         | Open   |
+| 7   | **High**     | API       | The indexer test asserts the same wrong wire format as the code, so a green suite certifies a broken feature                                      | Fixed  |     | 8   | **High**   | Docs      | `ISSUES.md` advertises 100 open issues, most of which are already implemented; it misrepresents the project to contributors and reviewers | Fixed |
 | 9   | **High**     | Contracts | Storage `Version` keys are written but never read, so a schema change corrupts reads silently                                                     | Open   |
 | 10  | **High**     | Tooling   | CI has no coverage gate, no wasm ABI drift check, and no bundle budget; regressions are invisible                                                 | Open   |
 | 11  | **Medium**   | Contracts | Factory getters panic with a bare `unwrap()` and are unusable before wiring                                                                       | Open   |
-| 12  | **Medium**   | Contracts | No batch mint; a 10-piece drop costs 10 transactions                                                                                              | Open   |     | 13  | **Medium** | Contracts | Boundary coverage at the 512-byte URI limit was inconsistent; NFT and Creator could regress to an exclusive limit silently | Fixed |     | 14  | **Medium** | API | Readiness ignores the contract configuration: a deploy with every contract ID unset answers 200 healthy | Fixed |
-| 15  | **Medium**   | Docs      | No architecture overview or contract interface reference for integrators                                                                          | Open   |
+| 12  | **Medium**   | Contracts | No batch mint; a 10-piece drop costs 10 transactions                                                                                              | Open   |     | 13  | **Medium** | Contracts | Boundary coverage at the 512-byte URI limit was inconsistent; NFT and Creator could regress to an exclusive limit silently                | Fixed |     | 14  | **Medium** | API | Readiness ignores the contract configuration: a deploy with every contract ID unset answers 200 healthy | Fixed |     | 15  | **Medium** | Docs | No architecture overview or contract interface reference for integrators | Fixed |
 
 ---
 
@@ -366,9 +364,22 @@ Reviewing honestly cuts both ways, and these are not accidents:
 
 ## Remediation log
 
-Findings above are fixed in the order listed under "Execution" in the improvement
-plan, one commit per item, each with tests. Anything not yet marked _Fixed_ in the
-table at the top is open and should not be assumed correct.
+Findings are fixed one commit at a time, each with tests that fail against the old
+behaviour. [`../improvements/plan.md`](../improvements/plan.md) tracks what is fixed,
+with a pointer to the file or test that demonstrates it, and what is still open.
+
+Three findings remain open and are tracked in [`../../ISSUES.md`](../../ISSUES.md):
+
+- **9** — the storage `Version` key is written but never checked, so a post-upgrade
+  layout change would decode old entries as garbage. Requires a versioning
+  convention and enforcement on the mutating paths.
+- **10** — CI has no coverage threshold, no contract-ABI drift check and no bundle
+  budget. Each needs tooling the repository does not currently install.
+- **12** — `mint_with_royalty` mints one token per transaction, so a multi-item drop
+  costs a signature and a fee per item.
+
+Anything not marked _Fixed_ above should be treated as unverified. Neither this
+review nor the status document asserts correctness for it.
 
 ## Out of scope for this pass
 
