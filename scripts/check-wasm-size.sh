@@ -78,6 +78,12 @@ done
 
 # Any contract that produced a Wasm blob but is missing a budget would otherwise
 # silently escape the check.
+#
+# `*.optimized.wasm` is excluded: it is a byproduct of `stellar contract optimize`
+# (run by scripts/deploy.sh), not a contract this repository builds or deploys
+# directly. Treating it as an unbudgeted artifact made the gate fail on any tree
+# where the deploy script had been run, which trains people to ignore the gate
+# rather than trust it.
 while IFS= read -r file; do
   name="$(basename "$file" .wasm)"
   known=0
@@ -88,7 +94,7 @@ while IFS= read -r file; do
     echo -e "${yellow}WARN${reset} $name: no size budget declared in $0"
     failed=1
   fi
-done < <(find "$WASM_DIR" -maxdepth 1 -name '*.wasm' | sort)
+done < <(find "$WASM_DIR" -maxdepth 1 -name '*.wasm' ! -name '*.optimized.wasm' | sort)
 
 if [ "$failed" -ne 0 ]; then
   echo -e "\n${red}Wasm size check failed.${reset} Optimize the contract or, if the growth is intentional, update BUDGETS in $0."

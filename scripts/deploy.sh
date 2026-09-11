@@ -82,6 +82,17 @@ cargo build --workspace --release --target wasm32-unknown-unknown
 echo ""
 echo "📦 Optimizing wasm binaries..."
 for wasm in target/wasm32-unknown-unknown/release/*.wasm; do
+  # `contract optimize` writes "<name>.optimized.wasm" beside its input, and this
+  # glob matches whatever is already in the directory -- so without this guard a
+  # second run optimizes the previous run's output, producing
+  # "<name>.optimized.optimized.wasm" and another level per run. Nothing consumes
+  # those files (the deploy step below looks for exactly one `.optimized`
+  # suffix), but they accumulate, and `check-wasm-size.sh` refuses to pass when it
+  # finds a wasm artifact it has no budget for -- so the second run of this script
+  # left the size gate failing on a tree that was fine.
+  case "$wasm" in
+    *.optimized*) continue ;;
+  esac
   echo "   $wasm"
   # `contract optimize` is deprecated in newer releases (the build already
   # optimizes) and its absence is not fatal: the loop below falls back to the
