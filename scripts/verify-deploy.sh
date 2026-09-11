@@ -24,6 +24,18 @@ SOURCE_KEY="${BEZAMINT_SOURCE_KEY:-deployer}"
 
 CLI_ARGS=(--rpc-url "$RPC_URL" --network-passphrase "$PASSPHRASE" --network "$NETWORK")
 
+# The CLI was renamed: `soroban` up to v21, `stellar` from v22 onwards, same
+# tool. Resolve it once so the rest of the script is name-agnostic.
+if command -v soroban >/dev/null 2>&1; then
+  CLI="soroban"
+elif command -v stellar >/dev/null 2>&1; then
+  CLI="stellar"
+else
+  echo "❌ No Stellar/Soroban CLI found on PATH." >&2
+  echo "   Install one: cargo install stellar-cli --locked" >&2
+  exit 1
+fi
+
 if [ ! -f "$ENV_FILE" ]; then
   echo "❌ $ENV_FILE not found. Run scripts/deploy.sh first." >&2
   exit 1
@@ -54,7 +66,7 @@ for contract in "${CONTRACTS[@]}"; do
     factory)    METHOD="get_nft_contract";;
   esac
 
-  if soroban contract invoke \
+  if "$CLI" contract invoke \
     --id "$CONTRACT_ID" \
     --source "$SOURCE_KEY" \
     "${CLI_ARGS[@]}" \
@@ -73,11 +85,14 @@ echo "────────────────────────�
 FACTORY_ID=$(grep -E "^NEXT_PUBLIC_FACTORY_CONTRACT_ID=" "$ENV_FILE" | cut -d= -f2 | tr -d '[:space:]')
 ROYALTY_ID=$(grep -E "^NEXT_PUBLIC_ROYALTY_CONTRACT_ID=" "$ENV_FILE" | cut -d= -f2 | tr -d '[:space:]')
 if [ -n "$FACTORY_ID" ] && [ -n "$ROYALTY_ID" ]; then
-  ROYALTY_ADMIN=$(soroban contract invoke \
+  # Extract by shape: newer CLIs print an informational banner on the same
+  # stream as the value, so whitespace-stripping concatenated the banner into
+  # the address and produced a false mismatch.
+  ROYALTY_ADMIN=$("$CLI" contract invoke \
     --id "$ROYALTY_ID" \
     --source "$SOURCE_KEY" \
     "${CLI_ARGS[@]}" \
-    -- get_admin 2>/dev/null | tr -d '"' | tr -d '[:space:]')
+    -- get_admin 2>/dev/null | grep -oE '[GC][A-Z0-9]{55}' | head -1)
   if [ "$ROYALTY_ADMIN" = "$FACTORY_ID" ]; then
     echo "✅ wiring: Royalty admin is the Factory"
   else
