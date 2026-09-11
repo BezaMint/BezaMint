@@ -1,4 +1,5 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -22,7 +23,8 @@ import { NFT_METADATA_SCHEMA, formatIssues, validateAgainstSchema } from '../ser
  * `pnpm demo:metadata:check` in CI, which needs no test.
  */
 
-const REPO_ROOT = resolve(__dirname, '../../../../..');
+const APP_DIR = resolve(__dirname, '../../..');
+const REPO_ROOT = resolve(APP_DIR, '../..');
 const METADATA_DIR = join(REPO_ROOT, 'demo', 'metadata');
 const COLLECTIONS_DIR = join(METADATA_DIR, 'collections');
 const TOKENS_DIR = join(METADATA_DIR, 'tokens');
@@ -136,6 +138,34 @@ describe('demo metadata', () => {
       expect(bps!).toBeGreaterThanOrEqual(0);
       // `configure_royalty` rejects anything above 10000 (100%).
       expect(bps!).toBeLessThanOrEqual(10000);
+    }
+  });
+
+  // `next/image` refuses to load a remote host that is not in
+  // `images.remotePatterns`, and it does so at render time rather than at build
+  // time -- so a seeded token with an unlisted host shows a broken image on a
+  // live page. Coupling the demo documents to the allowlist here means adding a
+  // new image host to the demo fails in CI instead of in a browser.
+  it('allows every demo image host in the Next image allowlist', () => {
+    const require_ = createRequire(__filename);
+    const nextConfig = require_(join(APP_DIR, 'next.config.js')) as {
+      images?: { remotePatterns?: Array<{ protocol?: string; hostname?: string }> };
+    };
+    const allowed = new Set(
+      (nextConfig.images?.remotePatterns ?? [])
+        .filter((pattern) => !pattern.protocol || pattern.protocol === 'https')
+        .map((pattern) => pattern.hostname)
+        .filter((hostname): hostname is string => Boolean(hostname)),
+    );
+
+    expect(allowed.size, 'no remote patterns configured').toBeGreaterThan(0);
+
+    for (const entry of [...collectionDocs, ...tokenDocs]) {
+      const hostname = new URL(entry.doc.imageUri!).hostname;
+      expect(
+        allowed.has(hostname),
+        `${entry.file} points at ${hostname}, which next.config.js does not allow`,
+      ).toBe(true);
     }
   });
 

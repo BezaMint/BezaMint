@@ -37,6 +37,12 @@ const nextConfig = {
       { protocol: 'https', hostname: 'gateway.pinata.cloud' },
       { protocol: 'https', hostname: 'nftstorage.link' },
       { protocol: 'https', hostname: 'images.unsplash.com' },
+      // Demo tokens seeded by scripts/seed-testnet-activity.sh point at metadata
+      // and artwork committed to this repository, which is what lets a testnet
+      // deployment render without a Pinata credential. Without this entry every
+      // seeded token fails to load its image, and the failure surfaces as a
+      // runtime error on the page rather than at build time.
+      { protocol: 'https', hostname: 'raw.githubusercontent.com' },
     ],
   },
 };
