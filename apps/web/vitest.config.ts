@@ -24,11 +24,14 @@ export default defineConfig({
       // baseline so a pull request that lowers coverage fails CI instead of
       // passing silently. Raise them as coverage improves; never lower one to
       // get a green build.
+      // Floors, not targets. They track what the suite actually covers, a point
+      // or so below, so a change that drops coverage fails CI while ordinary
+      // edits do not.
       thresholds: {
-        lines: 30,
-        statements: 29,
-        functions: 28,
-        branches: 25,
+        lines: 33,
+        statements: 32,
+        functions: 30,
+        branches: 27,
       },
     },
   },
