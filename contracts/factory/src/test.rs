@@ -129,9 +129,70 @@ fn test_mint_with_royalty_returns_token() {
     let royalty = BezaMintRoyaltyClient::new(&env, &royalty_id);
     let factory =
         BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, (admin.clone(),)));
-    // set_contracts requires a live Royalty contract (it seizes the admin role).
-    factory.set_contracts(&nft_addr, &nft_addr, &royalty_id, &nft_addr);
+    let collection = Address::generate(&env);
+    let creator = Address::generate(&env);
+    // set_contracts requires a live Royalty contract (it seizes the admin role),
+    // and its validation requires four distinct, non-zero addresses.
+    factory.set_contracts(&nft_addr, &collection, &royalty_id, &creator);
     assert_eq!(royalty.get_admin(), factory.address);
+}
+
+/// A wiring call that stores the zero account would produce a Factory whose
+/// every cross-contract call fails, and the failure would surface to users
+/// rather than at the moment of the mistake.
+#[test]
+#[should_panic(expected = "must not be the zero account")]
+fn test_set_contracts_rejects_zero_address() {
+    let (env, admin, factory) = wiring_fixture();
+    // The Stellar all-zero ed25519 account: a valid Address value for which no
+    // contract exists.
+    let zero = Address::from_str(
+        &env,
+        "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+    );
+    let royalty_id = env.register(BezaMintRoyalty, (admin.clone(),));
+    factory.set_contracts(
+        &zero,
+        &Address::generate(&env),
+        &royalty_id,
+        &Address::generate(&env),
+    );
+}
+
+/// Pointing a slot at the Factory itself would make every cross-contract call
+/// recurse back into the Factory instead of reaching a real platform contract.
+#[test]
+#[should_panic(expected = "must not point at the Factory itself")]
+fn test_set_contracts_rejects_self_reference() {
+    let (env, admin, factory) = wiring_fixture();
+    let royalty_id = env.register(BezaMintRoyalty, (admin.clone(),));
+    factory.set_contracts(
+        &factory.address,
+        &Address::generate(&env),
+        &royalty_id,
+        &Address::generate(&env),
+    );
+}
+
+/// Two roles resolving to the same contract means one of them is called through
+/// the wrong interface; reject the ambiguity at write time.
+#[test]
+#[should_panic(expected = "must be distinct")]
+fn test_set_contracts_rejects_duplicate_addresses() {
+    let (env, admin, factory) = wiring_fixture();
+    let royalty_id = env.register(BezaMintRoyalty, (admin.clone(),));
+    let shared = Address::generate(&env);
+    factory.set_contracts(&shared, &shared, &royalty_id, &Address::generate(&env));
+}
+
+/// Admin + deployed Factory, shared by the wiring-validation tests.
+fn wiring_fixture() -> (Env, Address, BezaMintFactoryClient<'static>) {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let factory =
+        BezaMintFactoryClient::new(&env, &env.register(BezaMintFactory, (admin.clone(),)));
+    (env, admin, factory)
 }
 
 /// Full-stack integration: register the real NFT, Royalty, Collection and Creator

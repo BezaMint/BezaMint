@@ -58,6 +58,11 @@ pub enum FactoryEvent {
 const TTL_LEDGERS: u32 = 6_312_000;
 const TTL_THRESHOLD: u32 = TTL_LEDGERS / 2;
 
+/// The Stellar "zero" account (all-zero ed25519 public key). Soroban has no
+/// native null address, so this sentinel is used to reject a wiring call that
+/// would otherwise store an unusable pointer.
+const ZERO_ADDRESS: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF";
+
 fn emit(env: &Env, event: FactoryEvent) {
     env.events().publish((symbol_short!("factory"),), event);
 }
@@ -142,6 +147,13 @@ impl BezaMintFactory {
             .unwrap_or_else(|| panic!("Factory: not initialized"));
         stored_admin.require_auth();
 
+        // Reject a wiring call that stores a pointer the Factory can never use.
+        // Without this a single typo does not fail here; it produces a Factory
+        // that panics on every mint, and the mistake only surfaces when a user
+        // tries one. The value "is set" either way, so only the write-time check
+        // can catch it.
+        Self::validate_wiring(&env, &nft, &collection, &royalty, &creator);
+
         env.storage().instance().set(&FactoryKey::NftContract, &nft);
         env.storage()
             .instance()
@@ -168,6 +180,41 @@ impl BezaMintFactory {
         emit(
             &env,
             FactoryEvent::ContractsSet(nft, collection, royalty, creator),
+        );
+    }
+
+    /// Reject addresses that cannot be used as platform contracts: the zero
+    /// account (no such contract exists), the Factory itself (a pointer that
+    /// would make every cross-contract call recurse into the Factory), and
+    /// duplicates across the four slots (two roles would resolve to the same
+    /// contract and every call would hit the wrong interface).
+    fn validate_wiring(
+        env: &Env,
+        nft: &Address,
+        collection: &Address,
+        royalty: &Address,
+        creator: &Address,
+    ) {
+        let zero = Address::from_str(env, ZERO_ADDRESS);
+        assert!(
+            nft != &zero && collection != &zero && royalty != &zero && creator != &zero,
+            "Factory: a contract address must not be the zero account"
+        );
+
+        let this = env.current_contract_address();
+        assert!(
+            nft != &this && collection != &this && royalty != &this && creator != &this,
+            "Factory: a contract slot must not point at the Factory itself"
+        );
+
+        assert!(
+            nft != collection
+                && nft != royalty
+                && nft != creator
+                && collection != royalty
+                && collection != creator
+                && royalty != creator,
+            "Factory: the four contract addresses must be distinct"
         );
     }
 
