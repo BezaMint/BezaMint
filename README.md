@@ -60,6 +60,7 @@
 - [📁 Environment Variables](#-environment-variables)
 - [🗺 Roadmap](#-roadmap)
 - [❓ FAQ](#-faq)
+- [🧭 Glossary](#-glossary)
 - [🤝 Contributing](#-contributing)
 - [📄 License & Credits](#-license-credits)
 
@@ -72,9 +73,10 @@
 | [`docs/architecture.md`](docs/architecture.md)                     | How the five contracts compose, the trust boundaries and the off-chain layer.       |
 | [`docs/api-reference.md`](docs/api-reference.md)                   | Every `/api/*` route, its parameters, response shapes, error codes and rate limits. |
 | [`contracts/README.md`](contracts/README.md)                       | The authoritative contract interface reference and the deploy procedure.            |
-| [`docs/indexer-schema.md`](docs/indexer-schema.md)                 | How emitted events map onto indexed records.                                        |     | [`docs/deployment-runbook.md`](docs/deployment-runbook.md) | Deploying, verifying, upgrading and rolling back the contracts. |
+| [`docs/indexer-schema.md`](docs/indexer-schema.md)                 | How emitted events map onto indexed records.                                        |     | [`docs/deployment-runbook.md`](docs/deployment-runbook.md) | Deploying, verifying, upgrading and rolling back the contracts.            |
 | [`docs/mainnet-readiness.md`](docs/mainnet-readiness.md)           | What must be true before mainnet, beyond what tests can prove.                      |
-| [`docs/review/critical-review.md`](docs/review/critical-review.md) | An adversarial review of the repository and the findings it produced.               |
+| [`docs/review/critical-review.md`](docs/review/critical-review.md) | An adversarial review of the repository and the findings it produced.               |     | [`docs/faq.md`](docs/faq.md)                               | Answers and troubleshooting: wallets, funding, upload limits, error codes. |
+| [`docs/glossary.md`](docs/glossary.md)                             | Stellar and Soroban vocabulary used across the code and docs.                       |
 | [`ISSUES.md`](ISSUES.md)                                           | The current contributor backlog, verified against the tree.                         |
 
 ---
@@ -356,7 +358,7 @@ pnpm dev                  # Starts at http://localhost:3000
 # Build all five contracts
 pnpm run contract:build
 
-# Run the full contract test suite (42 tests across 5 crates)
+# Run the full contract test suite (187 tests across 5 crates)
 pnpm run contract:test
 
 # Deploy to Stellar Testnet
@@ -578,30 +580,28 @@ NEXT_PUBLIC_EXPLORER_URL=https://stellar.expert/explorer/testnet
 - **NFT Marketplace** — on-chain listing, offers, and secondary-sale royalty enforcement
 - **Multi-chain wallets** — Albedo, WalletConnect, and Lobstr support
 - **Collection analytics** — minting volume, holder distribution, and floor-price tracking
-- **Batch minting** — mint multiple NFTs in a single atomic transaction
 - **Verified collection badges** — brand-level verification beyond creator-level
 
 ---
 
 ## ❓ FAQ
 
-**Which network does BezaMint run on?**
-Stellar Testnet (`soroban-testnet.stellar.org`). The configuration is mainnet-ready — swap the RPC URL and contract IDs to go live.
+BezaMint runs on **Stellar Testnet** (`soroban-testnet.stellar.org`) and uses the
+[Freighter](https://freighter.app) wallet. Royalties are configured in basis
+points with multi-recipient splits and can be frozen on-chain, and metadata is
+pinned to IPFS via Pinata while ownership lives on chain.
 
-**Which wallet do I need?**
-The [Freighter](https://freighter.app) browser extension. The app detects it automatically and provides clear install guidance if missing.
+The full FAQ — wallet and network problems, funding a testnet account, upload
+limits, decoded contract error messages and API troubleshooting — is in
+[`docs/faq.md`](docs/faq.md).
 
-**How do royalties work?**
-Royalties are configured in basis points (up to 10,000 = 100%) with multi-recipient splits, and can be frozen on-chain to guarantee creator earnings permanently.
+---
 
-**Where is NFT metadata stored?**
-Metadata URIs are pinned to IPFS via Pinata; ownership, mint timestamps, and collection membership are stored directly on-chain.
+## 🧭 Glossary
 
-**How do I fund a Testnet account?**
-Use the [Friendbot](https://friendbot.stellar.org) faucet to receive free Testnet XLM.
-
-**Can I verify a transaction myself?**
-Yes — every transaction hash links to Stellar Expert explorer, and the Verify page checks ownership directly against the Soroban RPC.
+New to Stellar, Soroban, stroops, TTLs, archiving or basis points? The
+[glossary](docs/glossary.md) defines the vocabulary used across the contracts, the
+server code and these docs.
 
 ---
 
@@ -613,9 +613,11 @@ Contributions are welcome! BezaMint uses conventional commits (`.commitlintrc.js
 
 - `pnpm format:check` — Prettier formatting
 - `pnpm lint` — ESLint
-- `pnpm test` — Vitest (26 tests)
-- `cd contracts && cargo test` — Rust (42 tests)
-- `pnpm build` — production build
+- `pnpm test` — Vitest (263 tests)
+- `pnpm --filter @bezamint/web run test:coverage` — coverage, with a ratcheted floor
+- `cd contracts && cargo test` — Rust (187 tests), plus clippy, rustfmt and the rustdoc gate
+- `cd contracts && cargo build --release --target wasm32-unknown-unknown` — wasm size budgets and the contract ABI snapshot
+- `pnpm build` — production build, plus the client bundle budget
 
 **Workflow**
 
