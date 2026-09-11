@@ -23,8 +23,17 @@ existed.
 
 Those issues have been closed, each with a comment naming the file or function
 that satisfies it, and the two pull requests were closed with an explanation and
-a pointer to work that is actually open. What remains is this list. Nothing is
-marked done here — completed work is removed, and git history keeps it.
+a pointer to work that is actually open.
+
+Three of the closed issues named a claim that was false while pointing at a real
+gap: there is a server-side indexer, a rate limiter and a batch mint, so the
+titles were wrong, but the durability, sharing and per-item terms they were
+groping toward are genuinely missing. Closing the false claim and dropping the
+real work with it would have been its own kind of dishonesty, so that work is
+tracked in narrower form as entries 130, 131 and 132.
+
+What remains is this list. Nothing is marked done here — completed work is
+removed, and git history keeps it.
 
 A backlog that describes solved problems is worse than no backlog: it wastes
 contributor time and it misrepresents the project. If you find an entry here that
@@ -134,6 +143,22 @@ contract gains an admin-only collection-contract pointer and a cross-contract
 read, or the cap is enforced in the Factory where a direct `mint` bypasses it. The
 first is correct; the second is cheaper and should be rejected.
 
+### 132. [factory] Batch mint accepts only uniform terms
+
+**Problem.** `mint_batch_with_royalty` mints a bounded batch atomically, but every
+token in the batch shares one recipient and one royalty rate. A drop with
+distinct recipients, or per-item royalty terms, still costs one transaction per
+item — which is the cost the batch path exists to remove.
+
+**Acceptance criteria.** Either a documented statement that uniform batches are
+the intended scope, recorded in `contracts/README.md` with the reasoning, or a
+batch entry point that takes per-item terms, bounded and proven atomic by the same
+mid-batch-failure test the existing batch has.
+
+**Notes.** The per-item variant needs a bounded argument shape: a `Vec` of
+recipient/rate pairs is unbounded by construction unless the same `MAX_BATCH_MINT`
+guard is applied to it, which is the first thing to get right.
+
 ### 44. [nft] No `token_uri` helper for ecosystem interop
 
 **Problem.** `token_data` returns the full contract `NftData` struct, which mixes
@@ -197,11 +222,42 @@ variable; unit tests for the parser including a truncated id and a valid one.
 **Notes.** This is a fail-fast check, not a runtime guard: the aim is that a
 misconfiguration is visible at startup rather than as an empty result later.
 
-The in-memory rate limiter and the in-memory indexer store are documented
-limitations rather than open entries here — see
-[`docs/api-reference.md`](docs/api-reference.md) and
-[`docs/caching-strategy.md`](docs/caching-strategy.md). The indexer's progress is
-reported through `/api/health` so a lagging feed is alertable.
+### 130. [api] Indexer state is in-memory — no durable store or cursor checkpoint
+
+**Problem.** The event indexer keeps recent events and its cursor in process
+memory (`apps/web/src/lib/server/indexer.ts`). On a multi-instance deployment each
+instance has its own view, the state is lost on restart, and a cold start can only
+reach back as far as the RPC's event retention window — observed to be roughly
+10,500 ledgers and materially less than the 17,000 the client initially assumed —
+so historical queries cannot be answered at all. `/api/health` reports
+`checks.indexer.stalled` so the condition is alertable, but alerting is not a fix.
+
+**Acceptance criteria.** A persistent store fed by a poller that checkpoints its
+cursor, so a restart resumes instead of truncating history; a documented schema;
+backfill from a known ledger; the in-memory path retained as a read-through cache.
+Tests covering resume-after-restart and a cold start with no stored cursor.
+
+**Notes.** The retention window is why this is not merely a scaling concern:
+without a durable cursor, a restart that lands outside the window loses history
+permanently, and the failure is silent rather than an error.
+
+### 131. [api] Rate limiter state is per instance
+
+**Problem.** The per-IP limiter in `apps/web/src/middleware.ts` keeps its counters
+in memory. On a horizontally scaled deployment the effective limit is the
+configured limit multiplied by the instance count, and every deploy resets it.
+[`docs/api-reference.md`](docs/api-reference.md) states this limitation rather
+than hiding it, but the limit is still not enforced as documented.
+
+**Acceptance criteria.** A shared store behind the existing limiter interface,
+with the in-memory implementation retained for local development and tests; a
+documented and deliberate failure mode for when the store is unreachable — fail
+open or fail closed, chosen explicitly rather than by default. Tests for the
+shared-store path and for the chosen failure mode.
+
+**Notes.** The failure-mode decision is the part worth thinking about: failing
+open removes the protection exactly when the system is degraded, and failing
+closed turns a cache outage into an outage of the API.
 
 ---
 

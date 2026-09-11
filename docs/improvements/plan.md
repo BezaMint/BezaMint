@@ -79,22 +79,28 @@ Everything below is described, with acceptance criteria, in
 
 Contract work:
 
-- Per-collection supply caps and on-chain metadata commitment (`ISSUES.md` §1–2).
-- Batch minting is implemented for uniform drops; per-item terms are not (`ISSUES.md` §3).
-- Marketplace settlement is **not implemented and not in scope**: `quote_royalty`
-  makes the obligation exact and `docs/mainnet-readiness.md` states the boundary.
+- Per-collection supply caps and on-chain metadata commitment (`ISSUES.md` #41 and
+  #33).
+- Batch minting is implemented for uniform drops; per-item terms are not
+  (`ISSUES.md` #132).
+- Marketplace settlement is **not implemented**. `quote_royalty` makes the
+  obligation exact and `docs/mainnet-readiness.md` states the boundary; whether to
+  enforce it on-chain is the scope decision tracked as `ISSUES.md` #25.
 
 Backend:
 
-- The indexer is in-memory, per-instance, and recent-only. `/api/health` now
-  reports a stall, but durable storage with cursor checkpoints is the real fix
-  (`ISSUES.md` §4).
+- Contract addresses are read from the environment without validation
+  (`ISSUES.md` #86).
+- The indexer is in-memory, per-instance, and recent-only. `/api/health` reports a
+  stall, but durable storage with cursor checkpoints is the real fix
+  (`ISSUES.md` #130).
 - The rate limiter is per instance, so its configured limit is not a real limit
-  under horizontal scaling (`ISSUES.md` §5).
+  under horizontal scaling (`ISSUES.md` #131).
 
 Tests:
 
-- End-to-end smoke tests against a deployed environment (`ISSUES.md` §6).
+- Browser-driven end-to-end coverage of the write path, split into a wallet-less
+  CI smoke and a funded pre-release run (`ISSUES.md` #93).
 
 ---
 
