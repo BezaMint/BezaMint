@@ -48,7 +48,8 @@ function readReferencedVars(): Set<string> {
     for (const file of sourceFiles(root)) {
       const contents = readFileSync(file, 'utf8');
       for (const match of contents.matchAll(/process\.env\.([A-Z0-9_]+)/g)) {
-        found.add(match[1]);
+        const key = match[1];
+        if (key) found.add(key);
       }
     }
   }
@@ -60,7 +61,7 @@ function readDocumentedVars(): Set<string> {
   const found = new Set<string>();
   for (const line of contents.split('\n')) {
     const match = /^([A-Z0-9_]+)=/.exec(line.trim());
-    if (match) found.add(match[1]);
+    if (match?.[1]) found.add(match[1]);
   }
   return found;
 }
