@@ -18,14 +18,14 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # The pnpm version is pinned by `packageManager` in package.json. Passing a
       # `version` input as well is an error in pnpm/action-setup v4 ("Multiple
       # versions of pnpm specified"), which failed every job before it could run.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: 'pnpm'
@@ -51,14 +51,14 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # The pnpm version is pinned by `packageManager` in package.json. Passing a
       # `version` input as well is an error in pnpm/action-setup v4 ("Multiple
       # versions of pnpm specified"), which failed every job before it could run.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: 'pnpm'
@@ -77,7 +77,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: web-coverage
           path: apps/web/coverage
@@ -90,7 +90,7 @@ jobs:
     timeout-minutes: 20
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Read the pinned Rust toolchain
         id: rust
@@ -110,7 +110,7 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache Cargo
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -147,14 +147,14 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # The pnpm version is pinned by `packageManager` in package.json. Passing a
       # `version` input as well is an error in pnpm/action-setup v4 ("Multiple
       # versions of pnpm specified"), which failed every job before it could run.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
           cache: 'pnpm'

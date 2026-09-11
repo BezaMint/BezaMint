@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Read the pinned Rust toolchain
         id: rust
@@ -46,7 +46,7 @@ jobs:
         run: bash scripts/check-wasm-size.sh
 
       - name: Upload contract artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: soroban-contracts
           path: contracts/target/wasm32-unknown-unknown/release/*.wasm
@@ -59,10 +59,10 @@ jobs:
     timeout-minutes: 5
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Download contract artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: soroban-contracts
           path: release/
@@ -75,7 +75,7 @@ jobs:
         continue-on-error: true
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: release/*.wasm
           generate_release_notes: true

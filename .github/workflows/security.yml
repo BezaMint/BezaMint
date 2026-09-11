@@ -19,12 +19,12 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       # The pnpm version is pinned by `packageManager` in package.json. Passing a
       # `version` input as well is an error in pnpm/action-setup v4 ("Multiple
       # versions of pnpm specified"), which failed this job before it could run.
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
       - name: Audit npm dependencies
         # Deliberately not `continue-on-error`: a high or critical advisory in
