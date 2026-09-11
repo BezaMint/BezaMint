@@ -32,8 +32,7 @@ dangerous class of bug because they survive every green check.
 | --- | ------------ | --------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | 1   | **Critical** | API       | Event indexer decodes a topic layout the contracts never emit; every indexed endpoint is silently empty                                   | Fixed  |
 | 2   | **Critical** | API       | Indexer requests `startLedger: 0`, outside the RPC retention window; the request itself fails                                             | Fixed  |
-| 3   | **Critical** | Contracts | `initialize()` is front-runnable: deploy and init are separate transactions, so an attacker can seize the admin role                      | Fixed  |
-| 4   | **Critical** | Tooling   | Security overrides live in a `package.json` field that pnpm 9.15.4 ignores; the advisory pins are not applied                             | Fixed  |
+| 3   | **Critical** | Contracts | `initialize()` is front-runnable: deploy and init are separate transactions, so an attacker can seize the admin role                      | Fixed  |     | 4   | **High** | Tooling | Security overrides live in a `package.json` field pnpm 9 honours but has deprecated and pnpm 10 removes; nothing guards against a silent pin loss | Fixed |
 | 5   | **High**     | Contracts | Secondary-sale royalties are configured but never collected; the platform's core promise is unimplemented                                 | Fixed  |
 | 6   | **High**     | Contracts | `set_contracts` accepts zero and self addresses; a wiring mistake bricks the mint path with no recovery path                              | Fixed  |
 | 7   | **High**     | API       | The indexer test asserts the same wrong wire format as the code, so a green suite certifies a broken feature                              | Fixed  |
@@ -141,7 +140,7 @@ supported by `soroban-sdk 22.0.11`. `deploy.sh` passes constructor args at deplo
 time. This is a breaking deployment change, which is acceptable pre-mainnet and
 would in any case have required a redeploy.
 
-### 4. The dependency security pins are not applied
+### 4. The dependency security pins are one upgrade away from disappearing
 
 **Evidence.** `package.json` declares:
 
@@ -149,21 +148,32 @@ would in any case have required a redeploy.
 "pnpm": { "overrides": { "nanoid@<3.3.18": "^3.3.18", ... } }
 ```
 
-pnpm 9.15.4 emits, on every command:
+and pnpm 9.15.4 warns on every command:
 
 ```
 [WARN] The "pnpm" field in package.json is no longer read by pnpm.
        The following keys were ignored: "pnpm.overrides".
 ```
 
-The pins that remediate the critical and high advisories in the dependency tree
-(`nanoid`, `js-yaml`, `postcss`, `sharp`, `toml`) are therefore inert. The security
-workflow's audit gate may still pass because the vulnerable versions may not
-resolve in the installed graph — but the intended guarantee is not in force, and
-any future resolution change is unpinned.
+That warning is misleading in the current version, and it matters that this was
+checked rather than assumed. Running `pnpm install --lockfile-only` with the field
+in place reproduces `pnpm-lock.yaml` **byte-identically**, keeping `toml@4.3.0` and
+`postcss@8.5.25`; the advertised replacement (moving `overrides` into
+`pnpm-workspace.yaml`) under pnpm 9.15.4 _drops_ the pins and downgrades `toml` to
+`3.0.0` and `postcss` to `8.4.31`, reintroducing the vulnerabilities.
 
-**Remediation.** Move `overrides` to `pnpm-workspace.yaml`, the location pnpm 9
-reads, and add a CI assertion that no `pnpm` field remains in `package.json`.
+So the pins are in force today, but the field they live in is deprecated and is
+removed in pnpm 10. The failure mode is therefore a silent one on upgrade: pnpm or
+Node is bumped, the lockfile is regenerated in good faith, the overrides vanish,
+vulnerable versions resolve, and the audit gate passes because nothing declares
+the pins any more.
+
+**Remediation.** Keep the field (it is the only location pnpm 9 honours) and add a
+guard that fails loudly if either half of the guarantee is lost:
+`apps/web/src/lib/__tests__/supply-chain.test.ts` asserts the overrides are
+declared, that the lockfile records a top-level `overrides:` block, and that every
+resolved occurrence of the five packages is at or above its patched floor. The
+same test is the migration checklist for a future pnpm 10 upgrade.
 
 ---
 
