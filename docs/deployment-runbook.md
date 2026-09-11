@@ -106,6 +106,36 @@ soroban contract invoke --id "$NFT_ID" "${CLI_ARGS[@]}" --source deployer -- ver
 `version()` returns the stored schema version of the deployed contract. It is the
 value the migration checks below compare against.
 
+### 2.1 Smoke test the running app
+
+`verify-deploy.sh` checks the contracts. `scripts/smoke-test.sh` checks the
+**application**, over HTTP, against whatever the contracts actually contain:
+
+```bash
+SMOKE_BASE_URL=https://your-deployment bash scripts/smoke-test.sh
+```
+
+It asserts that readiness reports all five contracts wired, that the RPC answers,
+that the indexer has ingested events, and that `/api/nfts`, `/api/collections`,
+`/api/creators`, `/api/stats` and `/api/search` each return data carrying the
+fields the UI renders -- plus that a bad `creator` is rejected with `400` rather
+than crashing. It exits non-zero and lists the failed checks.
+
+Run it against a **seeded** deployment. Seeding is a separate step:
+
+```bash
+bash scripts/seed-testnet-activity.sh   # creates demo collections and tokens
+```
+
+The two scripts are not redundant with the unit suite, and the reason is worth
+recording. The unit tests mock both the RPC and the contract reader, which is the
+right way to test decoding and error mapping but leaves every failure that needs
+real data invisible. Three such failures shipped in the read path at once -- an
+event filter the RPC rejected, a ledger window outside the event retention
+period, and `bigint` contract values that `JSON.stringify` refuses -- and the
+suite was green through all of them. The smoke test is the check that would have
+caught all three in one run.
+
 ---
 
 ## 3. Frontend configuration

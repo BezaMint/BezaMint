@@ -19,6 +19,7 @@
     "demo:metadata": "node scripts/generate-demo-metadata.mjs",
     "demo:metadata:check": "node scripts/generate-demo-metadata.mjs --check",
     "demo:seed": "bash scripts/seed-testnet-activity.sh",
+    "smoke": "bash scripts/smoke-test.sh",
     "typecheck": "turbo run typecheck",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,toml,yaml}\"",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,toml,yaml}\"",
