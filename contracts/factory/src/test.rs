@@ -324,6 +324,135 @@ fn test_integration_mint_with_royalty() {
     assert_eq!(config.basis_points, 500);
 }
 
+/// Register the real NFT, Collection, Royalty and Creator contracts and wire the
+/// Factory to them, which is the production bootstrap the batch tests exercise
+/// end-to-end. Requires the caller to have enabled mock auths.
+#[allow(clippy::type_complexity)]
+fn batch_fixture<'a>(
+    env: &'a Env,
+    admin: &Address,
+) -> (
+    BezaMintFactoryClient<'a>,
+    BezaMintNftClient<'a>,
+    BezaMintCollectionClient<'a>,
+    BezaMintRoyaltyClient<'a>,
+) {
+    let factory_id = env.register(BezaMintFactory, (admin.clone(),));
+    let factory = BezaMintFactoryClient::new(env, &factory_id);
+    let nft = BezaMintNftClient::new(env, &env.register(BezaMintNft, (admin.clone(),)));
+    let collection =
+        BezaMintCollectionClient::new(env, &env.register(BezaMintCollection, (admin.clone(),)));
+    let royalty = BezaMintRoyaltyClient::new(env, &env.register(BezaMintRoyalty, (admin.clone(),)));
+    let creator = env.register(BezaMintCreator, (admin.clone(),));
+    factory.set_contracts(
+        &nft.address,
+        &collection.address,
+        &royalty.address,
+        &creator,
+    );
+    (factory, nft, collection, royalty)
+}
+
+/// A batch mints every URI in one invocation, linking each token to the
+/// collection and configuring its royalty, and returns the ids in order. Before
+/// this a ten-piece drop cost ten transactions.
+#[test]
+fn test_mint_batch_mints_every_uri() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    let (factory, nft, collection, royalty) = batch_fixture(&env, &admin);
+
+    collection.create_collection(&user, &String::from_str(&env, "ipfs://collection"));
+
+    let uris = soroban_sdk::vec![
+        &env,
+        String::from_str(&env, "ipfs://drop/1"),
+        String::from_str(&env, "ipfs://drop/2"),
+        String::from_str(&env, "ipfs://drop/3"),
+    ];
+    let ids = factory.mint_batch_with_royalty(&user, &user, &1, &uris, &500);
+
+    assert_eq!(ids.len(), 3);
+    assert_eq!(ids.get(0).unwrap(), 1);
+    assert_eq!(ids.get(1).unwrap(), 2);
+    assert_eq!(ids.get(2).unwrap(), 3);
+
+    assert_eq!(nft.total_supply(), 3);
+    assert_eq!(collection.get_collection(&1).nft_count, 3);
+    for id in 1..=3u64 {
+        assert_eq!(nft.owner_of(&id), user);
+        assert_eq!(collection.get_collection_for_nft(&id), 1);
+        assert_eq!(royalty.get_royalty(&id, &false).basis_points, 500);
+    }
+}
+
+/// A failure part-way through a batch must roll the entire invocation back: no
+/// tokens, no collection membership, no royalty configs. This is the property
+/// that makes offering a batch safe at all, and it comes from Soroban's
+/// invocation-level atomicity rather than from any explicit undo logic.
+#[test]
+fn test_mint_batch_failure_reverts_every_token() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    let (factory, nft, collection, royalty) = batch_fixture(&env, &admin);
+
+    collection.create_collection(&user, &String::from_str(&env, "ipfs://collection"));
+
+    // The second URI uses a scheme the NFT contract rejects, so `mint` panics
+    // after the first token has already been minted in this invocation.
+    let uris = soroban_sdk::vec![
+        &env,
+        String::from_str(&env, "ipfs://drop/1"),
+        String::from_str(&env, "javascript:alert(1)"),
+    ];
+    assert!(factory
+        .try_mint_batch_with_royalty(&user, &user, &1, &uris, &500)
+        .is_err());
+
+    // Nothing survived the revert.
+    assert_eq!(nft.total_supply(), 0);
+    assert_eq!(collection.get_collection(&1).nft_count, 0);
+    assert_eq!(collection.get_collection_for_nft(&1), 0);
+    assert!(royalty.try_get_royalty(&1, &false).is_err());
+}
+
+/// The batch is bounded in both directions, so a caller cannot build an
+/// unbounded invocation or spend a signature on nothing, and the documented
+/// maximum is genuinely accepted.
+#[test]
+fn test_mint_batch_rejects_empty_and_oversized_batches() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    let (factory, _nft, collection, _royalty) = batch_fixture(&env, &admin);
+    collection.create_collection(&user, &String::from_str(&env, "ipfs://collection"));
+
+    let empty: soroban_sdk::Vec<String> = soroban_sdk::Vec::new(&env);
+    assert!(factory
+        .try_mint_batch_with_royalty(&user, &user, &1, &empty, &500)
+        .is_err());
+
+    let mut too_many: soroban_sdk::Vec<String> = soroban_sdk::Vec::new(&env);
+    for _ in 0..(crate::MAX_BATCH_MINT + 1) {
+        too_many.push_back(String::from_str(&env, "ipfs://drop"));
+    }
+    assert!(factory
+        .try_mint_batch_with_royalty(&user, &user, &1, &too_many, &500)
+        .is_err());
+
+    let mut at_limit: soroban_sdk::Vec<String> = soroban_sdk::Vec::new(&env);
+    for _ in 0..crate::MAX_BATCH_MINT {
+        at_limit.push_back(String::from_str(&env, "ipfs://drop"));
+    }
+    let ids = factory.mint_batch_with_royalty(&user, &user, &1, &at_limit, &0);
+    assert_eq!(ids.len(), crate::MAX_BATCH_MINT);
+}
+
 /// The complete platform lifecycle in one test: a creator registers, creates
 /// a collection through the Factory, mints an NFT into it with a royalty,
 /// updates their profile, transfers the NFT, and finally burns it. This is

@@ -25,7 +25,7 @@
 
 use soroban_sdk::{
     contract, contractimpl, contracttype, symbol_short, Address, BytesN, Env, IntoVal, Map, String,
-    Symbol, Val,
+    Symbol, Val, Vec,
 };
 
 #[contracttype]
@@ -61,6 +61,11 @@ const TTL_THRESHOLD: u32 = TTL_LEDGERS / 2;
 /// Storage schema version written by this build. Bump it whenever the persisted
 /// layout changes and add the matching step to [`BezaMintFactory::migrate`].
 pub const STORAGE_VERSION: u32 = 1;
+
+/// Upper bound on how many tokens one `mint_batch_with_royalty` call may create.
+/// Every token costs three cross-contract calls, so the bound keeps a single
+/// invocation's resource footprint - and therefore its fee - predictable.
+pub const MAX_BATCH_MINT: u32 = 25;
 
 /// The Stellar "zero" account (all-zero ed25519 public key). Soroban has no
 /// native null address, so this sentinel is used to reject a wiring call that
@@ -286,8 +291,10 @@ impl BezaMintFactory {
         );
     }
 
-    /// Cross-contract: mint NFT then configure royalty atomically
-    /// Uses Symbol::new() for function names > 9 chars (symbol_short! limit)
+    /// Cross-contract: mint NFT then configure royalty atomically.
+    ///
+    /// `Symbol::new` is required because Soroban's `symbol_short!` only accepts
+    /// names of at most 9 characters.
     pub fn mint_with_royalty(
         env: Env,
         caller: Address,
@@ -299,6 +306,85 @@ impl BezaMintFactory {
         assert_version(&env);
         caller.require_auth();
 
+        let contracts = Self::mint_contracts(&env);
+        let token_id = Self::mint_one(
+            &env,
+            &contracts,
+            &caller,
+            &to,
+            collection_id,
+            metadata_uri,
+            basis_points,
+        );
+
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
+        emit(&env, FactoryEvent::NftMinted(token_id, caller));
+
+        token_id
+    }
+
+    /// Mint a bounded batch of NFTs into one collection, atomically.
+    ///
+    /// A ten-piece drop previously cost ten transactions: ten signatures, ten
+    /// sets of network fees, and ten chances to leave a partial drop if the
+    /// caller stopped halfway. This runs the same mint -> link -> configure
+    /// sequence for every URI inside a single invocation, so the batch either
+    /// fully succeeds or the whole invocation rolls back and nothing is minted.
+    /// Each token still emits its own `NftMinted` event, so the activity feed and
+    /// any indexer see exactly the records the single-mint path produces.
+    ///
+    /// The batch size is bounded by [`MAX_BATCH_MINT`] to keep one invocation's
+    /// resource footprint, and therefore its fee, predictable. `caller` and `to`
+    /// are shared across the batch: the recipient authorizes the mint and the
+    /// caller must own the collection, exactly as in `mint_with_royalty`.
+    pub fn mint_batch_with_royalty(
+        env: Env,
+        caller: Address,
+        to: Address,
+        collection_id: u64,
+        metadata_uris: Vec<String>,
+        basis_points: u32,
+    ) -> Vec<u64> {
+        assert_version(&env);
+        caller.require_auth();
+
+        assert!(
+            !metadata_uris.is_empty(),
+            "Factory: batch must contain at least one token"
+        );
+        assert!(
+            metadata_uris.len() <= MAX_BATCH_MINT,
+            "Factory: batch exceeds the {MAX_BATCH_MINT}-token limit"
+        );
+
+        let contracts = Self::mint_contracts(&env);
+        let mut token_ids = Vec::new(&env);
+        for metadata_uri in metadata_uris.iter() {
+            let token_id = Self::mint_one(
+                &env,
+                &contracts,
+                &caller,
+                &to,
+                collection_id,
+                metadata_uri,
+                basis_points,
+            );
+            emit(&env, FactoryEvent::NftMinted(token_id, caller.clone()));
+            token_ids.push_back(token_id);
+        }
+
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
+
+        token_ids
+    }
+
+    /// Resolve the three contract pointers the mint path needs, failing with the
+    /// name of the slot that is still unset.
+    fn mint_contracts(env: &Env) -> (Address, Address, Address) {
         let nft_addr: Address = env
             .storage()
             .instance()
@@ -314,50 +400,63 @@ impl BezaMintFactory {
             .instance()
             .get(&FactoryKey::RoyaltyContract)
             .unwrap_or_else(|| panic!("Factory: Royalty contract not set"));
+        (nft_addr, collection_addr, royalty_addr)
+    }
 
-        // Cross-contract call 1: mint the NFT
+    /// Mint one token, link it to its collection and configure its royalty.
+    ///
+    /// Shared by the single and batch entry points so the two cannot drift apart.
+    /// Every sub-call enforces its own authorization: the NFT contract checks the
+    /// recipient, the Collection contract checks that the caller owns the
+    /// collection (plus its archived/full/duplicate guards), and the Royalty
+    /// contract checks the admin role the Factory holds. A failure in any of the
+    /// three rolls back the entire invocation, including any tokens already minted
+    /// earlier in the same batch.
+    fn mint_one(
+        env: &Env,
+        contracts: &(Address, Address, Address),
+        caller: &Address,
+        to: &Address,
+        collection_id: u64,
+        metadata_uri: String,
+        basis_points: u32,
+    ) -> u64 {
+        let (nft_addr, collection_addr, royalty_addr) = contracts;
+
+        // Cross-contract call 1: mint the NFT.
         let mint_args = soroban_sdk::vec![
-            &env,
-            to.into_val(&env),
-            collection_id.into_val(&env),
-            metadata_uri.into_val(&env),
+            env,
+            to.clone().into_val(env),
+            collection_id.into_val(env),
+            metadata_uri.into_val(env),
         ];
-        let raw_token_id: Val =
-            env.invoke_contract(&nft_addr, &Symbol::new(&env, "mint"), mint_args);
-        let token_id: u64 = raw_token_id.into_val(&env);
+        let raw_token_id: Val = env.invoke_contract(nft_addr, &Symbol::new(env, "mint"), mint_args);
+        let token_id: u64 = raw_token_id.into_val(env);
 
         // Cross-contract call 2: link the new NFT to its collection. The
         // Collection contract enforces creator auth (the caller must own the
         // collection) plus its archived/full/duplicate guards, so a mint into a
         // collection the caller does not control fails atomically together with
-        // the mint. Before this the Factory never registered membership, so
-        // `get_nfts_in_collection` stayed empty and `get_collection_for_nft`
-        // always returned 0 for every minted NFT.
-        let add_args =
-            soroban_sdk::vec![&env, collection_id.into_val(&env), token_id.into_val(&env),];
-        env.invoke_contract::<()>(&collection_addr, &Symbol::new(&env, "add_nft"), add_args);
+        // the mint.
+        let add_args = soroban_sdk::vec![env, collection_id.into_val(env), token_id.into_val(env)];
+        env.invoke_contract::<()>(collection_addr, &Symbol::new(env, "add_nft"), add_args);
 
         // Cross-contract call 3: configure royalty on the new NFT, recording
         // `caller` as the creator so they can amend their own terms later.
-        let empty_recipients: Map<Address, u32> = Map::new(&env);
+        let empty_recipients: Map<Address, u32> = Map::new(env);
         let royalty_args = soroban_sdk::vec![
-            &env,
-            caller.clone().into_val(&env),
-            token_id.into_val(&env),
-            basis_points.into_val(&env),
-            empty_recipients.into_val(&env),
-            false.into_val(&env),
+            env,
+            caller.clone().into_val(env),
+            token_id.into_val(env),
+            basis_points.into_val(env),
+            empty_recipients.into_val(env),
+            false.into_val(env),
         ];
         env.invoke_contract::<()>(
-            &royalty_addr,
-            &Symbol::new(&env, "configure_royalty"),
+            royalty_addr,
+            &Symbol::new(env, "configure_royalty"),
             royalty_args,
         );
-        env.storage()
-            .instance()
-            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
-
-        emit(&env, FactoryEvent::NftMinted(token_id, caller));
 
         token_id
     }
