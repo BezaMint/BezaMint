@@ -78,13 +78,39 @@ publication half does not exist yet.
 
 ### 6. Monitoring and alerting
 
-`/api/health` and `/api/health/live` exist and are wired for probes. A mainnet
-deployment additionally needs:
+`/api/health` and `/api/health/live` exist and are wired for probes, and
+`/api/health` reports an indexer progress check at `checks.indexer`:
+
+```json
+"indexer": {
+  "eventCount": 42,
+  "lastRefreshAt": 1767225600000,
+  "ageSeconds": 3,
+  "stalled": false,
+  "lastErrorMessage": null,
+  "lastErrorAt": null,
+  "ok": true
+}
+```
+
+The indexer fails quietly by nature: while its poll is broken, the list endpoints
+keep answering `200` with stale data. Readiness deliberately stays `200` in that
+case, because the application can still mint, so the alert must target
+`checks.indexer.ok` (and `checks.indexer.lastErrorMessage` for the cause) rather
+than the readiness status. A mainnet deployment additionally needs:
 
 - alerting on the readiness endpoint, not just a dashboard;
-- an alert when the indexer stops advancing its cursor;
-- an alert on contract-admin activity, since any use of `upgrade` or `set_contracts`
-  should be a deliberate, noticed event.
+- an alert on `checks.indexer.stalled`, since that is the only signal that browsing
+  has stopped reflecting the chain;
+- an alert on contract-admin activity, since any use of `upgrade`, `set_contracts`
+  or `set_royalty_admin` should be a deliberate, noticed event.
+
+Route error rates are not exposed by the process. Each request already logs one
+structured line with `status` and `durationMs`, so error rates and latency
+percentiles must be derived in the platform's log/metric pipeline. In-process
+counters were deliberately not added: the app is deployed as ephemeral,
+horizontally scaled instances, where a per-process counter cannot be aggregated
+and would be a misleading number to alert on.
 
 ### 7. Incident response
 

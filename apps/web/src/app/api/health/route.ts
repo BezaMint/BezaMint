@@ -4,6 +4,7 @@ import { CONTRACT_IDS } from '@/services';
 import { isIpfsAvailable } from '@/lib/pinata';
 import { collectStartupIssues } from '@/lib/startup';
 import { withTimeout, fetchWithTimeout } from '@/lib/server/http';
+import { refreshIndexer, getIndexerHealth } from '@/lib/server/indexer';
 
 // Module-level constant so uptime is measured from first request handling.
 const SERVER_START_TIME = Date.now();
@@ -83,6 +84,23 @@ export async function GET() {
     factory: !!CONTRACT_IDS.factory,
   };
   const allContracts = Object.values(contracts).every(Boolean);
+
+  // Best-effort indexer poll, then report its progress. The indexer is the only
+  // path from the RPC event log to the list endpoints, and it fails quietly:
+  // when polling stops, /api/nfts and /api/search keep answering 200 with stale
+  // data. That is reported here as `checks.indexer` so a monitor can alert on
+  // `stalled` without the readiness probe taking a working instance out of
+  // rotation over a degraded feed. Only meaningful when contracts are wired.
+  let indexer: (ReturnType<typeof getIndexerHealth> & { ok: boolean }) | null = null;
+  if (allContracts) {
+    try {
+      await refreshIndexer();
+    } catch {
+      // Recorded as lastError inside the indexer and surfaced below.
+    }
+    const health = getIndexerHealth();
+    indexer = { ...health, ok: !health.stalled };
+  }
   // Readiness means "this deployment can do its job". A build with every
   // contract ID unset cannot mint, browse or verify anything, so reporting it as
   // healthy (200) would let a misconfigured deploy pass a readiness gate and
@@ -106,6 +124,7 @@ export async function GET() {
         ipfs: { configured: isIpfsAvailable(), ...ipfs },
         contractsConfigured: allContracts,
         contracts,
+        indexer,
         startup: startupIssues,
       },
     },

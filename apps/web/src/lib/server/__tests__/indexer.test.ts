@@ -35,8 +35,14 @@ const mockedRpc = {
 };
 
 // Import after mocks are registered.
-const { refreshIndexer, getIndexedEvents, indexerStats, getIndexerState, __resetIndexer } =
-  await import('@/lib/server/indexer');
+const {
+  refreshIndexer,
+  getIndexedEvents,
+  indexerStats,
+  getIndexerState,
+  getIndexerHealth,
+  __resetIndexer,
+} = await import('@/lib/server/indexer');
 
 const ACTOR = Keypair.random().publicKey();
 
@@ -246,5 +252,48 @@ describe('indexer', () => {
     await refreshIndexer(true);
     await expect(refreshIndexer(true)).rejects.toThrow();
     expect(getIndexedEvents()).toHaveLength(1);
+  });
+});
+
+/**
+ * The indexer is the only path from the RPC event log to the list endpoints and
+ * it fails quietly: when polling stops, `/api/nfts` and `/api/search` keep
+ * answering `200` with stale data. `getIndexerHealth` is the signal that makes
+ * that observable to something outside the process.
+ */
+describe('getIndexerHealth', () => {
+  it('reports a store that has never refreshed as stalled', () => {
+    __resetIndexer();
+    const health = getIndexerHealth();
+    expect(health.stalled).toBe(true);
+    expect(health.ageSeconds).toBe(-1);
+    expect(health.eventCount).toBe(0);
+    expect(health.lastErrorMessage).toBeNull();
+  });
+
+  it('reports progress after a successful refresh', async () => {
+    __resetIndexer();
+    mockedRpc.getEvents.mockResolvedValue({
+      latestLedger: 100,
+      cursor: 'c-1',
+      events: [factoryEvent('NftMinted', [scvU64(1), scvAddress(ACTOR)])],
+    });
+    await refreshIndexer(true);
+
+    const health = getIndexerHealth();
+    expect(health.stalled).toBe(false);
+    expect(health.ageSeconds).toBe(0);
+    expect(health.eventCount).toBe(1);
+  });
+
+  it('records the failure so a stalled feed is observable, not only logged', async () => {
+    __resetIndexer();
+    mockedRpc.getEvents.mockRejectedValue(new Error('rpc down'));
+    await expect(refreshIndexer(true)).rejects.toThrow();
+
+    const health = getIndexerHealth();
+    expect(health.stalled).toBe(true);
+    expect(health.lastErrorMessage).toContain('rpc down');
+    expect(health.lastErrorAt).toBeGreaterThan(0);
   });
 });

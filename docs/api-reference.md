@@ -164,14 +164,30 @@ deliberately strict: a build with any contract ID unset is reported as
       "creator": true,
       "factory": true
     },
+    "indexer": {
+      "eventCount": 42,
+      "lastRefreshAt": 1767225600000,
+      "ageSeconds": 3,
+      "stalled": false,
+      "lastErrorMessage": null,
+      "lastErrorAt": null,
+      "ok": true
+    },
     "startup": []
   }
 }
 ```
 
-`commitSha` is read from `VERCEL_GIT_COMMIT_SHA`, `RENDER_GIT_COMMIT` or
+`commitSha` is read from `VERCEL_GIT_COMMIT_SHA`, `RENDER_GIT_COMMIT`, or
 `COMMIT_SHA`, and is `null` when none is set. `startup` lists configuration
 warnings collected at boot.
+
+`checks.indexer` is the progress signal for the event indexer, and is `null` when
+contracts are unconfigured. The indexer fails quietly by nature: while its poll is
+broken the list endpoints keep answering `200` with stale data, so `stalled`
+(no successful poll within 60 seconds) is the field to alert on. Readiness
+deliberately stays `200` in that case, because the application can still mint; a
+monitor should watch `checks.indexer.ok`, not the status code.
 
 ### `GET /api/health/live`
 

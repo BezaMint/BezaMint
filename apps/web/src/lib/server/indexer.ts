@@ -149,7 +149,15 @@ function sources(): SourceConfig[] {
 let events: IndexedEvent[] = [];
 let cursor: string | undefined;
 let lastRefreshAt = 0;
+let lastError: { message: string; at: number } | null = null;
 let refreshPromise: Promise<IndexedEvent[]> | null = null;
+
+/**
+ * How long the store may go without a successful refresh before it is reported
+ * as stalled. The refresh interval is 15s, so this tolerates several missed
+ * polls before an alert fires.
+ */
+export const INDEXER_STALE_AFTER_MS = 60_000;
 
 /**
  * Split a decoded event payload into its variant name and field list.
@@ -280,11 +288,20 @@ export async function refreshIndexer(force = false): Promise<IndexedEvent[]> {
       events = fresh.events.slice(0, MAX_STORED_EVENTS);
       if (fresh.cursor) cursor = fresh.cursor;
       lastRefreshAt = Date.now();
+      lastError = null;
       logger.debug('indexer refreshed', { eventCount: events.length, cursor });
       return events;
     } catch (err) {
-      logger.warn('indexer refresh failed; serving stale events', {
-        error: err instanceof Error ? err.message : String(err),
+      // Record the failure before rethrowing. Callers surface the error to their
+      // own client, and `getIndexerHealth` reports it so a monitor can alert on
+      // a feed that has stopped advancing rather than only learning about it
+      // from a user noticing an empty list.
+      lastError = {
+        message: err instanceof Error ? err.message : String(err),
+        at: Date.now(),
+      };
+      logger.warn('indexer refresh failed', {
+        error: lastError.message,
         eventCount: events.length,
       });
       throw normalizeError(err);
@@ -305,11 +322,46 @@ export function getIndexerState() {
   return { eventCount: events.length, cursor, lastRefreshAt };
 }
 
+export interface IndexerHealth {
+  eventCount: number;
+  /** Epoch milliseconds of the last successful refresh (0 when never). */
+  lastRefreshAt: number;
+  /** Seconds since the last successful refresh, or -1 when there has never been one. */
+  ageSeconds: number;
+  /** True when the store has never refreshed, or has not refreshed recently. */
+  stalled: boolean;
+  lastErrorMessage: string | null;
+  lastErrorAt: number | null;
+}
+
+/**
+ * Machine-readable progress report for the indexer.
+ *
+ * The store is the only thing standing between the RPC's event log and the list
+ * endpoints, and it fails quietly: when polling stops, `/api/nfts` and
+ * `/api/search` keep answering `200` with stale or empty data. A readiness probe
+ * is not the right place to fail for that (the app can still mint), so this is
+ * reported as its own signal that a monitor can alert on without taking the
+ * instance out of rotation.
+ */
+export function getIndexerHealth(now = Date.now()): IndexerHealth {
+  const age = lastRefreshAt === 0 ? Number.POSITIVE_INFINITY : now - lastRefreshAt;
+  return {
+    eventCount: events.length,
+    lastRefreshAt,
+    ageSeconds: Number.isFinite(age) ? Math.round(age / 1000) : -1,
+    stalled: lastRefreshAt === 0 || age > INDEXER_STALE_AFTER_MS,
+    lastErrorMessage: lastError?.message ?? null,
+    lastErrorAt: lastError?.at ?? null,
+  };
+}
+
 /** Reset module state. Test-only. */
 export function __resetIndexer(): void {
   events = [];
   cursor = undefined;
   lastRefreshAt = 0;
+  lastError = null;
   refreshPromise = null;
 }
 

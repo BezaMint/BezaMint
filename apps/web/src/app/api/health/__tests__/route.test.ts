@@ -17,6 +17,15 @@ const CONTRACTS = {
 
 const mockGetLatestLedger = vi.fn().mockResolvedValue({ sequence: 1234 });
 const mockIsIpfsAvailable = vi.fn().mockReturnValue(true);
+const mockRefreshIndexer = vi.fn().mockResolvedValue([]);
+const mockGetIndexerHealth = vi.fn().mockReturnValue({
+  eventCount: 3,
+  lastRefreshAt: 1_700_000_000_000,
+  ageSeconds: 0,
+  stalled: false,
+  lastErrorMessage: null,
+  lastErrorAt: null,
+});
 
 vi.mock('@/services/stellar', () => ({
   getRpcClient: () => ({ getLatestLedger: mockGetLatestLedger }),
@@ -32,6 +41,11 @@ vi.mock('@/lib/startup', () => ({
   collectStartupIssues: () => [],
 }));
 
+vi.mock('@/lib/server/indexer', () => ({
+  refreshIndexer: () => mockRefreshIndexer(),
+  getIndexerHealth: () => mockGetIndexerHealth(),
+}));
+
 vi.mock('@/lib/server/http', () => ({
   withTimeout: <T>(promise: Promise<T>) => promise,
   fetchWithTimeout: vi.fn().mockResolvedValue({ ok: true, status: 200 }),
@@ -45,6 +59,15 @@ describe('GET /api/health', () => {
   beforeEach(() => {
     mockGetLatestLedger.mockResolvedValue({ sequence: 1234 });
     mockIsIpfsAvailable.mockReturnValue(true);
+    mockRefreshIndexer.mockResolvedValue([]);
+    mockGetIndexerHealth.mockReturnValue({
+      eventCount: 3,
+      lastRefreshAt: 1_700_000_000_000,
+      ageSeconds: 0,
+      stalled: false,
+      lastErrorMessage: null,
+      lastErrorAt: null,
+    });
     for (const [key, value] of Object.entries(CONTRACTS)) {
       (CONTRACT_IDS as Record<string, string>)[key] = value;
     }
@@ -93,6 +116,44 @@ describe('GET /api/health', () => {
     const body = await response.json();
     expect(body.checks.rpc.ok).toBe(false);
     expect(body.checks.rpc.error).toBe('rpc down');
+  });
+
+  it('reports indexer progress so a stalled feed is alertable', async () => {
+    const response = await GET();
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.checks.indexer.ok).toBe(true);
+    expect(body.checks.indexer.eventCount).toBe(3);
+    expect(body.checks.indexer.stalled).toBe(false);
+  });
+
+  it('flags a stalled indexer without taking a working instance out of rotation', async () => {
+    mockGetIndexerHealth.mockReturnValue({
+      eventCount: 0,
+      lastRefreshAt: 0,
+      ageSeconds: -1,
+      stalled: true,
+      lastErrorMessage: 'rpc down',
+      lastErrorAt: 1_700_000_000_000,
+    });
+
+    const response = await GET();
+    // The app can still mint, so readiness stays 200; the stalled feed is a
+    // separate signal a monitor alerts on.
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.checks.indexer.ok).toBe(false);
+    expect(body.checks.indexer.lastErrorMessage).toBe('rpc down');
+  });
+
+  it('omits the indexer check when contracts are not configured', async () => {
+    (CONTRACT_IDS as Record<string, string>).factory = '';
+
+    const response = await GET();
+    const body = await response.json();
+    expect(body.checks.indexer).toBeNull();
   });
 
   it('ignores IPFS reachability when Pinata is not configured', async () => {
