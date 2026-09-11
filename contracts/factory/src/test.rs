@@ -420,6 +420,45 @@ fn test_mint_batch_failure_reverts_every_token() {
     assert!(royalty.try_get_royalty(&1, &false).is_err());
 }
 
+/// `set_contracts` hands the Royalty admin role to the Factory so its
+/// cross-contract royalty calls authenticate. That hand-off must be reversible,
+/// otherwise the Royalty contract could never be upgraded again, because the
+/// Factory holds the role and forwards no `upgrade`.
+#[test]
+fn test_set_royalty_admin_reclaims_the_role_for_upgrades() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let (factory, _nft, _collection, royalty) = batch_fixture(&env, &admin);
+
+    // Wiring moved the role to the Factory.
+    assert_eq!(royalty.get_admin(), factory.address);
+
+    // The Factory admin can hand it back so the deployer can upgrade directly,
+    // then hand it over again with set_contracts.
+    factory.set_royalty_admin(&admin);
+    assert_eq!(royalty.get_admin(), admin);
+}
+
+/// Taking the Royalty admin role back is privileged and cannot point the role at
+/// an account no one controls.
+#[test]
+fn test_set_royalty_admin_rejects_zero_and_requires_admin() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let (factory, _nft, _collection, _royalty) = batch_fixture(&env, &admin);
+
+    let zero = Address::from_str(
+        &env,
+        "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+    );
+    assert!(factory.try_set_royalty_admin(&zero).is_err());
+
+    env.mock_auths(&[]);
+    assert!(factory.try_set_royalty_admin(&admin).is_err());
+}
+
 /// The batch is bounded in both directions, so a caller cannot build an
 /// unbounded invocation or spend a signature on nothing, and the documented
 /// maximum is genuinely accepted.

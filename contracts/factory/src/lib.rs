@@ -256,6 +256,46 @@ impl BezaMintFactory {
         );
     }
 
+    /// Transfer the Royalty admin role to `new_admin` on behalf of the Factory.
+    /// Admin-only: authorization comes from the stored Factory admin, not from
+    /// any caller-supplied address.
+    ///
+    /// `set_contracts` hands the Royalty admin role to the Factory so the
+    /// Factory's `configure_royalty` sub-calls authenticate. Without this
+    /// function that hand-off is one-way and operationally fatal: the Factory
+    /// holds the role, no Factory entry point forwards `upgrade`, and the
+    /// Royalty contract - the one contract with a stored layout most likely to
+    /// need a fix - can never be upgraded again. The recovery sequence is
+    /// `set_royalty_admin(deployer)` -> `royalty.upgrade(hash)` ->
+    /// `set_royalty_admin(factory)`, or simply `set_contracts` again, which
+    /// re-hands the role over.
+    pub fn set_royalty_admin(env: Env, new_admin: Address) {
+        assert_version(&env);
+        let stored_admin: Address = env
+            .storage()
+            .instance()
+            .get(&FactoryKey::Admin)
+            .unwrap_or_else(|| panic!("Factory: not initialized"));
+        stored_admin.require_auth();
+
+        assert!(
+            new_admin != Address::from_str(&env, ZERO_ADDRESS),
+            "Factory: the Royalty admin must not be the zero account"
+        );
+
+        let royalty_addr: Address = env
+            .storage()
+            .instance()
+            .get(&FactoryKey::RoyaltyContract)
+            .unwrap_or_else(|| panic!("Factory: Royalty contract not set"));
+
+        let args = soroban_sdk::vec![&env, new_admin.into_val(&env)];
+        env.invoke_contract::<()>(&royalty_addr, &Symbol::new(&env, "set_admin"), args);
+        env.storage()
+            .instance()
+            .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
+    }
+
     /// Reject addresses that cannot be used as platform contracts: the zero
     /// account (no such contract exists), the Factory itself (a pointer that
     /// would make every cross-contract call recurse into the Factory), and
