@@ -1,6 +1,45 @@
 import { describe, it, expect } from 'vitest';
-import { ApiError, normalizeError, badRequest, rateLimited } from '@/lib/server/errors';
+import {
+  ApiError,
+  errorMessage,
+  normalizeError,
+  badRequest,
+  rateLimited,
+} from '@/lib/server/errors';
 import { FetchTimeoutError } from '@/lib/server/http';
+
+describe('errorMessage', () => {
+  it('reads a plain Error', () => {
+    expect(errorMessage(new Error('boom'))).toBe('boom');
+  });
+
+  // The case that motivated this helper. A duplicated dependency (common in a
+  // pnpm store tree) does not share prototypes with this realm, so its error
+  // classes fail `instanceof Error` here even though they carry a message. The
+  // indexer logged a live RPC rejection as "[object Object]" for exactly this
+  // reason, discarding the detail needed to diagnose it.
+  it('reads an error-like object that is not instanceof Error', () => {
+    const foreign = Object.create(null);
+    foreign.message = 'filter 1 invalid: topic must have at least 1 segment';
+    expect(errorMessage(foreign)).toBe('filter 1 invalid: topic must have at least 1 segment');
+  });
+
+  it('unwraps a JSON-RPC style error envelope', () => {
+    expect(errorMessage({ error: { code: -32602, message: 'invalid parameters' } })).toBe(
+      'invalid parameters',
+    );
+  });
+
+  it('falls back to a JSON rendering rather than an opaque tag', () => {
+    expect(errorMessage({ code: -32602, data: 'x' })).toContain('-32602');
+  });
+
+  it('handles strings and objects with no message at all', () => {
+    expect(errorMessage('plain string')).toBe('plain string');
+    expect(errorMessage({})).toBe('[object Object]');
+    expect(errorMessage(undefined)).toBe('undefined');
+  });
+});
 
 describe('normalizeError', () => {
   it('passes ApiError instances through unchanged', () => {

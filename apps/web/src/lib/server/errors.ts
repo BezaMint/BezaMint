@@ -49,9 +49,42 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Best-effort human-readable message from an unknown thrown value.
+ *
+ * `err instanceof Error` is not sufficient, and relying on it cost a real
+ * diagnosis: the Stellar SDK is a singleton in this workspace, but a second copy
+ * of a dependency in a pnpm store tree does not share prototypes with this
+ * realm, so its error classes fail `instanceof Error` here. That is how the
+ * indexer came to log an RPC rejection as `"[object Object]"` — the message was
+ * present the whole time, and the check discarded it.
+ *
+ * Anything carrying a non-empty string `message` is treated as an error,
+ * whatever its prototype chain, and a JSON-RPC wrapper is unwrapped one level
+ * because that is where those libraries put the useful text.
+ */
+export function errorMessage(err: unknown): string {
+  if (typeof err === 'string') return err;
+  if (err && typeof err === 'object') {
+    const direct = (err as { message?: unknown }).message;
+    if (typeof direct === 'string' && direct.length > 0) return direct;
+
+    const nested = (err as { error?: { message?: unknown } }).error?.message;
+    if (typeof nested === 'string' && nested.length > 0) return nested;
+
+    try {
+      const json = JSON.stringify(err);
+      return json && json !== '{}' ? json : String(err);
+    } catch {
+      return String(err);
+    }
+  }
+  return String(err);
+}
+
 /** Heuristic: does this look like a contract-level (panic/auth) failure? */
 function isContractError(err: unknown): boolean {
-  const message = err instanceof Error ? err.message : String(err);
+  const message = errorMessage(err);
   return (
     message.includes('host error') ||
     message.includes('contract error') ||
@@ -81,7 +114,7 @@ function isTimeoutError(err: unknown): boolean {
 
 /** Heuristic: does this look like a network / RPC failure? */
 function isNetworkError(err: unknown): boolean {
-  const message = err instanceof Error ? err.message : String(err);
+  const message = errorMessage(err);
   const anyErr = err as { code?: string; name?: string };
   return (
     anyErr.code === 'ECONNREFUSED' ||
@@ -98,7 +131,7 @@ function isNetworkError(err: unknown): boolean {
  */ export function normalizeError(err: unknown): ApiError {
   if (err instanceof ApiError) return err;
 
-  const message = err instanceof Error ? err.message : String(err);
+  const message = errorMessage(err);
 
   if (err instanceof TypeError && err.message === 'fetch failed') {
     return new ApiError('NETWORK_ERROR', 'Upstream service unreachable', 502, message);
