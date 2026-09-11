@@ -130,6 +130,9 @@ jobs:
       - name: Check wasm size budgets
         run: bash scripts/check-wasm-size.sh
 
+      - name: Check contract ABI against the committed snapshot
+        run: python3 scripts/check-contract-abi.py
+
   frontend-build:
     name: Frontend Build
     runs-on: ubuntu-latest

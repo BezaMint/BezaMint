@@ -1,0 +1,226 @@
+#!/usr/bin/env python3
+"""Snapshot and verify the on-chain ABI of the compiled Soroban contracts.
+
+Why this exists
+---------------
+``apps/web/src/services/contracts.ts`` builds every contract invocation by hand.
+Argument order and types are positional, and there is no shared IDL between the
+Rust contracts and the TypeScript client, so a change to a contract function
+signature does not fail any TypeScript check. It fails later, in simulation, for
+a user. This script manufactures the missing link: it extracts the
+``contractspecv0`` custom section that ``soroban-sdk`` embeds in every release
+wasm and records its SHA-256. CI rebuilds the wasm from source and re-runs the
+check, so an interface change cannot land without the frontend being considered.
+
+What is compared
+----------------
+The digest covers the whole spec section. That section also carries the function
+and type documentation the SDK embeds, because documentation is part of what the
+Stellar CLI serves to integrators (``stellar contract info interface``). A
+documentation change is therefore treated as an interface change and must be
+acknowledged in the snapshot. The generated ``.spec.txt`` files stored beside
+the digests keep that review readable: the diff shows the interface text that
+changed, rather than an opaque hash.
+
+Usage
+-----
+    scripts/check-contract-abi.py            # verify against the committed snapshot
+    scripts/check-contract-abi.py --write    # regenerate the snapshot after a review
+
+The wasm directory defaults to ``contracts/target/wasm32-unknown-unknown/release``
+and can be overridden with ``--wasm-dir``. Build the contracts first:
+
+    pnpm run contract:build
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import re
+import sys
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_WASM_DIR = ROOT_DIR / "contracts" / "target" / "wasm32-unknown-unknown" / "release"
+SNAPSHOT_DIR = ROOT_DIR / "contracts" / "abi"
+
+# Prefix every Soroban contract in this workspace is built with.
+CONTRACT_PREFIX = "bezamint_"
+
+# Printable ASCII runs, used to render the spec section as reviewable text.
+PRINTABLE = re.compile(rb"[ -~]{3,}")
+
+
+def read_uleb128(data: bytes, offset: int) -> tuple[int, int]:
+    """Read an unsigned LEB128 integer, returning (value, next_offset)."""
+    result = 0
+    shift = 0
+    while True:
+        if offset >= len(data):
+            raise ValueError("unexpected end of wasm while reading LEB128")
+        byte = data[offset]
+        offset += 1
+        result |= (byte & 0x7F) << shift
+        if not byte & 0x80:
+            return result, offset
+        shift += 7
+
+
+def custom_sections(wasm: bytes, wanted: str) -> list[bytes]:
+    """Return the payloads of every custom section named ``wanted``.
+
+    A wasm file is a magic number, a version, then a sequence of sections. Each
+    section is an id and a size (both LEB128) followed by its payload. Custom
+    sections (id 0) begin with their name. Walking the section table rather than
+    searching for the name avoids matching the string inside another section.
+    """
+    if wasm[:4] != b"\x00asm":
+        raise ValueError("not a wasm file (bad magic number)")
+
+    sections: list[bytes] = []
+    offset = 8  # 4 bytes magic + 4 bytes version
+    while offset < len(wasm):
+        section_id, offset = read_uleb128(wasm, offset)
+        size, offset = read_uleb128(wasm, offset)
+        payload = wasm[offset : offset + size]
+        if len(payload) != size:
+            raise ValueError("truncated wasm section")
+        offset += size
+
+        if section_id != 0:
+            continue
+        name_len, name_start = read_uleb128(payload, 0)
+        name = payload[name_start : name_start + name_len]
+        if name.decode("utf-8", "replace") == wanted:
+            sections.append(payload[name_start + name_len :])
+    return sections
+
+
+def spec_bytes(wasm: bytes) -> bytes:
+    """The concatenated ``contractspecv0`` payload for a contract.
+
+    A crate with more than one ``#[contractimpl]`` emits more than one such
+    section; concatenating preserves their order, which is deterministic.
+    """
+    sections = custom_sections(wasm, "contractspecv0")
+    if not sections:
+        raise ValueError(
+            "wasm has no contractspecv0 section; was it built with "
+            "`--target wasm32-unknown-unknown` and the contract feature enabled?"
+        )
+    return b"".join(sections)
+
+
+def digest(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def render_spec(name: str, data: bytes) -> str:
+    """A readable, diffable rendering of a contract's interface section."""
+    strings = sorted({match.decode() for match in PRINTABLE.findall(data)})
+    header = [
+        f"# {name} — interface text extracted from the `contractspecv0` wasm section.",
+        f"# sha256 {digest(data)}",
+        "#",
+        "# Generated by scripts/check-contract-abi.py --write. Do not edit by hand;",
+        "# run the script after reviewing an interface change.",
+        "",
+    ]
+    return "\n".join(header + strings) + "\n"
+
+
+def discover(wasm_dir: Path) -> list[tuple[str, Path]]:
+    if not wasm_dir.is_dir():
+        sys.exit(
+            f"error: wasm directory not found: {wasm_dir}\n"
+            "Build the contracts first: pnpm run contract:build"
+        )
+    found = sorted(
+        (path.stem, path)
+        for path in wasm_dir.glob(f"{CONTRACT_PREFIX}*.wasm")
+        if path.is_file()
+    )
+    if not found:
+        sys.exit(
+            f"error: no {CONTRACT_PREFIX}*.wasm files in {wasm_dir}\n"
+            "Build the contracts first: pnpm run contract:build"
+        )
+    return found
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--write",
+        action="store_true",
+        help="regenerate the committed snapshot instead of verifying it",
+    )
+    parser.add_argument(
+        "--wasm-dir",
+        type=Path,
+        default=DEFAULT_WASM_DIR,
+        help=f"directory holding the release wasm (default: {DEFAULT_WASM_DIR})",
+    )
+    args = parser.parse_args()
+
+    contracts = discover(args.wasm_dir)
+    SNAPSHOT_DIR.mkdir(parents=True, exist_ok=True)
+
+    failures: list[str] = []
+    snapshots = {
+        path.name.removesuffix(".spec.sha256")
+        for path in SNAPSHOT_DIR.glob("*.spec.sha256")
+    }
+    built = {name for name, _ in contracts}
+
+    for name, path in contracts:
+        data = spec_bytes(path.read_bytes())
+        checksum = digest(data)
+        checksum_path = SNAPSHOT_DIR / f"{name}.spec.sha256"
+
+        if args.write:
+            checksum_path.write_text(checksum + "\n")
+            (SNAPSHOT_DIR / f"{name}.spec.txt").write_text(render_spec(name, data))
+            print(f"wrote {checksum_path.relative_to(ROOT_DIR)}")
+            continue
+
+        if not checksum_path.exists():
+            failures.append(
+                f"{name}: no committed ABI snapshot at "
+                f"{checksum_path.relative_to(ROOT_DIR)}"
+            )
+            continue
+        recorded = checksum_path.read_text().strip()
+        if recorded != checksum:
+            failures.append(
+                f"{name}: interface changed (snapshot {recorded[:12]}…, "
+                f"build {checksum[:12]}…)"
+            )
+
+    # A snapshot with no matching wasm means a contract was removed or renamed.
+    for stale in sorted(snapshots - built):
+        failures.append(f"{stale}: snapshot exists but no wasm was built")
+
+    if args.write:
+        print(f"\nSnapshot updated in {SNAPSHOT_DIR.relative_to(ROOT_DIR)}.")
+        return 0
+
+    if failures:
+        print("Contract ABI check failed:\n", file=sys.stderr)
+        for failure in failures:
+            print(f"  - {failure}", file=sys.stderr)
+        print(
+            "\nIf the change is intentional, review the interface diff, update"
+            "\napps/web/src/services/contracts.ts if it is affected, then run:"
+            "\n\n    python3 scripts/check-contract-abi.py --write\n",
+            file=sys.stderr,
+        )
+        return 1
+
+    print(f"Contract ABI unchanged for {len(contracts)} contracts.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

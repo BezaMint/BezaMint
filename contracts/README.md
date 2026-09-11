@@ -203,6 +203,26 @@ not a positional index, so inserting a variant cannot silently break the feed.
 
 ---
 
+## Interface stability
+
+There is no shared IDL between these contracts and the TypeScript client, so a
+changed function signature would otherwise surface only at runtime, in simulation,
+for a user. The repository therefore snapshots each contract's on-chain interface
+
+- the `contractspecv0` section `soroban-sdk` embeds in the release wasm - under
+  [`abi/`](abi/), and CI fails when a rebuild differs.
+
+```bash
+pnpm run contract:abi          # verify the build against the snapshot
+pnpm run contract:abi:update   # regenerate after reviewing an interface change
+```
+
+The snapshot also renders each interface as readable text, so regenerating it
+produces a diff that shows what changed rather than an opaque hash. When a change
+lands, update `apps/web/src/services/contracts.ts` in the same pull request.
+
+---
+
 ## Deploying to testnet
 
 ```bash
