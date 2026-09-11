@@ -20,9 +20,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The pnpm version is pinned by `packageManager` in package.json. Passing a
+      # `version` input as well is an error in pnpm/action-setup v4 ("Multiple
+      # versions of pnpm specified"), which failed every job before it could run.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
@@ -52,9 +53,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The pnpm version is pinned by `packageManager` in package.json. Passing a
+      # `version` input as well is an error in pnpm/action-setup v4 ("Multiple
+      # versions of pnpm specified"), which failed every job before it could run.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
@@ -147,9 +149,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The pnpm version is pinned by `packageManager` in package.json. Passing a
+      # `version` input as well is an error in pnpm/action-setup v4 ("Multiple
+      # versions of pnpm specified"), which failed every job before it could run.
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
