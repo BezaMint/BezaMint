@@ -11,6 +11,7 @@ import {
   PROTOCOL_ENUM_MEMBERS,
   PROTOCOL_ROWS,
   type ErrorDomain,
+  type ProtocolRow,
 } from '@bezamint/shared';
 import {
   AUTH_FAILURE_CODES,
@@ -94,7 +95,11 @@ describe('the protocol table covers the protocol', () => {
       expect(sdkMembers.length).toBeGreaterThan(0);
       expect([...sdkMembers].sort()).toEqual([...members].sort());
 
-      const classified = new Set(PROTOCOL_ROWS.flatMap((row) => [...(row.members ?? [])]));
+      // Widened: the rows are `as const`, so the union does not expose the
+      // optional fields that distinguish a member row from a pattern row.
+      const classified = new Set(
+        (PROTOCOL_ROWS as readonly ProtocolRow[]).flatMap((row) => [...(row.members ?? [])]),
+      );
       for (const member of members) {
         expect(
           classified.has(member) || member in IGNORED_PROTOCOL_MEMBERS,
