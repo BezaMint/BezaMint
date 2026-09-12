@@ -77,10 +77,24 @@ unresolvable.
 
 ### 5. Contract addresses per network
 
-Publish a signed address registry per network with the deployment commit and wasm
+Publish an address registry per network with the deployment commit and wasm
 hashes, so a user can verify that the frontend points at the contracts it claims.
-`scripts/verify-deploy.sh` performs the reachability and wiring half of this; the
-publication half does not exist yet.
+
+[`deployments/testnet.json`](../deployments/testnet.json) is that registry for
+testnet: each contract's address, its wasm hash, the account that deployed it and
+the commit the wasm was built from. It is checkable from the chain — the wasm hash
+is the hash of the optimized artifact and is what `stellar.expert` reports for the
+contract — and `pnpm run deploy:record:check` fails CI when the registry, the
+README's table and `demo/seed-manifest.json` disagree, so a redeployment cannot
+leave one of the three pointing at an abandoned contract set.
+
+`scripts/verify-deploy.sh` covers the reachability and wiring half against the
+chain, which needs a funded key and therefore does not run in CI.
+
+**Still outstanding:** the registry is not cryptographically signed. A reader can
+verify it against the chain, but not against a key the project controls, so a
+compromised repository could publish a registry that points at attacker
+contracts. Signing it (and publishing the key) is required before mainnet.
 
 ### 6. Monitoring and alerting
 

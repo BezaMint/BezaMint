@@ -1,0 +1,53 @@
+{
+  "network": "testnet",
+  "networkPassphrase": "Test SDF Network ; September 2015",
+  "rpcUrl": "https://soroban-testnet.stellar.org",
+  "horizonUrl": "https://horizon-testnet.stellar.org",
+  "explorer": "https://stellar.expert/explorer/testnet",
+  "deployedAt": "2026-09-12T07:12:47Z",
+  "verifiedAt": "2026-09-12T07:13:02Z",
+  "sourceCommit": "8b9cddd7556f90c81e8f1df4d8f175a426de0826",
+  "deployer": {
+    "address": "GDDTJU3ON5QFT7UZIERA4S4OITCDKZUPXS6GI7HC6OPCBDYVVP3UMRQF",
+    "fundedVia": "friendbot"
+  },
+  "contracts": {
+    "nft": {
+      "id": "CDP2SWXDYGPNI4LKM7CSASSTWDXLHHS3USCNDUAFTJD3TZKFM6O4TOGQ",
+      "wasmHash": "d385fde08b739abfb15416d61346f20a3b4fd3ecbb637a78e1ee249926d7a575",
+      "createdAt": "2026-09-12T07:12:07Z"
+    },
+    "collection": {
+      "id": "CCDDBJMP3E7AQFAO5RTQ6YJJEZQYSAD5QIOHJT75PYCO2A5FQKSNY4LH",
+      "wasmHash": "8daeedca3412c9b1303365aa623a24cd2533f94fb8590d003e5ed2ddd06eaed6",
+      "createdAt": "2026-09-12T07:12:17Z"
+    },
+    "royalty": {
+      "id": "CC4VHZG7LIMM2VE5JVFTROJTQVVGKIIGQ5MM6ZSYVODJPAMHLZ77FDXP",
+      "wasmHash": "2659025ccc9a464f902349d8a8b2d9b90134f1e87b818061c57d995b904b0ffa",
+      "createdAt": "2026-09-12T07:12:27Z"
+    },
+    "creator": {
+      "id": "CCCE3BFJKJQ6VZDHEYGRI7QA6Z4LAJQLRD4DHKZWURTINCPA2RWZQIBA",
+      "wasmHash": "566be59de05d043845c3adc8d292c063871c83fc848061832c0eb2d44f98a17c",
+      "createdAt": "2026-09-12T07:12:37Z"
+    },
+    "factory": {
+      "id": "CCDPJDAXU467HI7SJ7PJWXSMCWUFEGS47DD4PELTRJCCTM6FTBDTU2HJ",
+      "wasmHash": "9494848ca540f4015191b7b3f22a33f88084aa0bff55cff3b9892490a769d622",
+      "createdAt": "2026-09-12T07:12:47Z"
+    }
+  },
+  "wiring": {
+    "royaltyAdmin": "CCDPJDAXU467HI7SJ7PJWXSMCWUFEGS47DD4PELTRJCCTM6FTBDTU2HJ",
+    "checks": [
+      "nft.total_supply",
+      "collection.total_collections",
+      "royalty.is_initialized",
+      "creator.total_creators",
+      "factory.get_nft_contract",
+      "royalty.get_admin == factory"
+    ]
+  },
+  "seedManifest": "demo/seed-manifest.json"
+}

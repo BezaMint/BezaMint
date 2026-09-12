@@ -45,6 +45,15 @@ jobs:
       - name: Check demo metadata is up to date
         run: pnpm run demo:metadata:check
 
+      # The deployed addresses are quoted in three hand-edited places -- the
+      # registry, the README and the seed manifest. A redeployment that updates
+      # the registry but forgets one of the others leaves the project advertising
+      # contracts no part of the code uses, which is worse than missing data
+      # because it looks live. This runs without network access: reachability and
+      # wiring are scripts/verify-deploy.sh's job and need a funded key.
+      - name: Check the deployment record matches the docs
+        run: pnpm run deploy:record:check
+
   frontend-tests:
     name: Frontend Tests
     runs-on: ubuntu-latest

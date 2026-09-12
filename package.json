@@ -18,6 +18,7 @@
     "contract:abi:update": "python3 scripts/check-contract-abi.py --write",
     "contract:errors": "python3 scripts/generate-error-catalog.py --write",
     "contract:errors:check": "python3 scripts/generate-error-catalog.py",
+    "deploy:record:check": "python3 scripts/check-deployment-record.py",
     "demo:metadata": "node scripts/generate-demo-metadata.mjs",
     "demo:metadata:check": "node scripts/generate-demo-metadata.mjs --check",
     "demo:seed": "bash scripts/seed-testnet-activity.sh",
