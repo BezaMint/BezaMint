@@ -59,15 +59,26 @@ jobs:
       - uses: actions/checkout@v5
 
       # Only `node` and `curl` are needed: the smoke test asserts on JSON bodies
-      # with node rather than jq or grep, and never installs a dependency.
+      # with node rather than jq or grep, and never installs a dependency. There
+      # is therefore no pnpm/action-setup step, and the dependency cache has to be
+      # switched off explicitly: setup-node defaults `package-manager-cache` to
+      # true, sees this repository's pnpm lockfile and shells out to pnpm, which
+      # is not installed in a job that never runs pnpm. Left on, that made every
+      # run fail at setup with "Unable to locate executable file: pnpm" before a
+      # single verification step ran.
       - uses: actions/setup-node@v5
         with:
           node-version: 24
+          package-manager-cache: false
 
       - name: Resolve the target URL
         id: target
         env:
-          INPUT_BASE_URL: ${{ inputs.base_url }}
+          # `github.event.inputs`, not the `inputs` context: this workflow also
+          # runs on `deployment_status`, where the latter is not defined. A
+          # missing property resolves to empty rather than failing, so the
+          # default below covers every non-dispatch trigger.
+          INPUT_BASE_URL: ${{ github.event.inputs.base_url }}
         run: |
           # The production alias, not the immutable deployment URL: Vercel
           # Deployment Protection can require a session on the per-deployment
