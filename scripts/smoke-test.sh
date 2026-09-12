@@ -109,6 +109,29 @@ check_data() {
   fi
 }
 
+# POST a JSON body, optionally claiming to come from `origin` and/or presenting
+# an API key, recording `body` and `status` exactly as `request` does.
+post_json() {
+  local path="$1" data="$2" origin="${3:-}" api_key="${4:-}"
+  local timeout="${SMOKE_TIMEOUT:-60}"
+  local args=(
+    -sS --max-time "$timeout" -X POST
+    -H 'content-type: application/json' -d "$data"
+    -w $'\n%{http_code}'
+  )
+  [ -n "$origin" ] && args+=(-H "Origin: $origin")
+  [ -n "$api_key" ] && args+=(-H "x-api-key: $api_key")
+
+  local out
+  out="$(curl "${args[@]}" "$BASE_URL$path" 2>&1)" || {
+    body="$out"
+    status="000"
+    return 1
+  }
+  status="${out##*$'\n'}"
+  body="${out%$'\n'*}"
+}
+
 # Query the JSON body with a node expression that must evaluate truthy.
 # Using node rather than grep keeps the assertions about values, not formatting.
 json_ok() {
@@ -217,6 +240,31 @@ check "bad input is reported as BAD_REQUEST" "$(json_ok 'data.error.code === "BA
 
 request "/api/pagination-ish"
 check_status "GET /api/pagination-ish (unknown route)" "404"
+
+# ── Authorizing a mutating request ───────────────────────────
+# A POST that another site's page could have originated must be refused, whatever
+# the deployment's environment says: this is the code that was deployed, so it
+# gates. Nothing here can succeed, so it spends no pinning quota and can run
+# against production on every deploy -- which matters, because a mutating surface
+# is exactly the kind that breaks silently when its authorization is reworked.
+echo "authorization"
+post_json "/api/ipfs/upload" '{"name":"smoke test"}' 'https://smoke-test.invalid'
+check_status "POST /api/ipfs/upload from another origin" "403"
+check "the refusal is reported as FORBIDDEN" "$(json_ok 'data.error.code === "FORBIDDEN"')"
+
+# ── IPFS round trip (opt in) ─────────────────────────────────
+# A minimal valid document, so the assertion is about the pinning path rather
+# than about the schema. Opt-in because a successful run pins real content.
+if [ "${SMOKE_IPFS_UPLOAD:-0}" = "1" ]; then
+  echo "ipfs"
+  post_json "/api/ipfs/upload" \
+    '{"name":"BezaMint smoke test","description":"Pinned by scripts/smoke-test.sh"}' \
+    "$BASE_URL" "${SMOKE_API_KEY:-}"
+  check_status "POST /api/ipfs/upload from the app's own origin" "200"
+  check_data "a real CID came back rather than a fallback URI" "$(json_ok '
+    typeof data.cid === "string" && data.cid.length > 0 && data.fallback !== true
+  ')"
+fi
 
 # ── Result ───────────────────────────────────────────────────
 echo ""
