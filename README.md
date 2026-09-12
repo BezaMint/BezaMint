@@ -24,7 +24,7 @@
   <img src="https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs" alt="Next.js" />
   <img src="https://img.shields.io/badge/Soroban_SDK-22.0.11-7b3fe4" alt="Soroban SDK" />
   <img src="https://img.shields.io/badge/Stellar-Testnet-24a563?logo=stellar" alt="Stellar" />
-  <img src="https://img.shields.io/badge/tests-717_passing-success" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-722_passing-success" alt="Tests" />
   <a href="docs/resource-costs.md">
     <img src="https://img.shields.io/badge/gas-measured_per_entry_point-orange" alt="Gas benchmarks" />
   </a>
@@ -519,11 +519,11 @@ generic 422.
 | Suite           | Framework      | Tests   | Status             |
 | --------------- | -------------- | ------- | ------------------ |
 | Smart Contracts | Rust `#[test]` | 216     | ✅ 216/216 passing |
-| Frontend        | Vitest         | 501     | ✅ 501/501 passing |
-| **Total**       |                | **717** | **All passing**    |
+| Frontend        | Vitest         | 506     | ✅ 506/506 passing |
+| **Total**       |                | **722** | **All passing**    |
 
 ```bash
-pnpm test                # Frontend: 501/501 passing (69 files)
+pnpm test                # Frontend: 506/506 passing (69 files)
 pnpm run contract:test   # Contracts: 216 tests across 5 crates
 ```
 
@@ -603,7 +603,7 @@ A 2-minute walkthrough covering all major features — landing, dashboard, colle
 ## ✅ Production Readiness Checklist
 
 - [x] Smart contract tests (216/216 passing)
-- [x] Frontend tests (501/501 passing)
+- [x] Frontend tests (506/506 passing)
 - [x] End-to-end smoke test against a live deployment
 - [x] Security headers (HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
 - [x] CI/CD pipeline (4 workflows)
@@ -801,7 +801,7 @@ Contributions are welcome! BezaMint uses conventional commits (`.commitlintrc.js
 
 - `pnpm format:check` — Prettier formatting
 - `pnpm lint` — ESLint
-- `pnpm test` — Vitest (501 tests)
+- `pnpm test` — Vitest (506 tests)
 - `pnpm --filter @bezamint/web run test:coverage` — coverage, with a ratcheted floor
 - `cd contracts && cargo test` — Rust (216 tests), plus clippy, rustfmt and the rustdoc gate
 - `cd contracts && cargo build --release --target wasm32-unknown-unknown` — wasm size budgets and the contract ABI snapshot

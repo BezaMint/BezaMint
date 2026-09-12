@@ -40,24 +40,6 @@ export function optionalStellarAddress(
   return value;
 }
 
-/** Parse a bounded non-negative integer query param with a default. */
-export function intParam(
-  searchParams: URLSearchParams,
-  param: string,
-  defaultValue: number,
-  max: number,
-): number {
-  const raw = Number(searchParams.get(param));
-  if (!searchParams.has(param)) return defaultValue;
-  if (!Number.isInteger(raw)) {
-    throw apiError('PARAMETER_NOT_INTEGER', `${param} must be an integer`);
-  }
-  if (raw < 0) {
-    throw apiError('PARAMETER_NEGATIVE', `${param} must not be negative`);
-  }
-  return Math.min(raw, max);
-}
-
 /**
  * Parse a required JSON body, distinguishing "absent" from "unparseable".
  *

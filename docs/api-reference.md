@@ -147,10 +147,10 @@ contract ID is unset).
 
 `/api/nfts`, `/api/collections` and `/api/creators` accept:
 
-| Parameter | Default | Maximum | Notes                                                        |
-| --------- | ------- | ------- | ------------------------------------------------------------ |
-| `limit`   | 20      | 50      | Non-integer or non-positive values fall back to the default. |
-| `offset`  | 0       | —       | Non-integer or negative values fall back to 0.               |
+| Parameter | Default | Maximum | Notes                                                                                         |
+| --------- | ------- | ------- | --------------------------------------------------------------------------------------------- |
+| `limit`   | 20      | 50      | A non-positive value falls back to the default; a non-integer is `400 PARAMETER_NOT_INTEGER`. |
+| `offset`  | 0       | —       | A negative value is `400 PARAMETER_NEGATIVE`; `0` falls back to the default.                  |
 
 The page is applied server side and `pagination.total` is the size of the
 filtered result set, not of the whole platform.

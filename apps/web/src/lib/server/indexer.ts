@@ -376,19 +376,6 @@ async function fetchEvents(limit = 50): Promise<{ events: IndexedEvent[]; cursor
 }
 
 /**
- * Resolve a `startLedger` inside the configured lookback window.
- *
- * Exported for the tests that pin the window; the cold-start path goes through
- * `discoverColdStart`, which uses this as the upper bound of its search.
- */
-export async function startLedgerFor(rpc: {
-  getLatestLedger: () => Promise<{ sequence: number }>;
-}): Promise<number> {
-  const latest = await rpc.getLatestLedger();
-  return Math.max(1, latest.sequence - lookbackLedgers());
-}
-
-/**
  * Merge a freshly-fetched page into the store.
  *
  * Newest first, deduplicated by paging token. The cursor only ever moves
