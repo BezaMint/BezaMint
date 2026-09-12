@@ -136,10 +136,17 @@ def discover(wasm_dir: Path) -> list[tuple[str, Path]]:
             f"error: wasm directory not found: {wasm_dir}\n"
             "Build the contracts first: pnpm run contract:build"
         )
+    # `*.optimized.wasm` is excluded for the same reason the size gate excludes
+    # it: it is a byproduct of `stellar contract optimize`, which scripts/deploy.sh
+    # runs, not an artifact this repository builds. Including it made the check
+    # demand a snapshot for a name no build ever produces, so the gate failed on
+    # any tree where the deploy script had been run. The optimized blob keeps the
+    # `contractspecv0` section of its input, so verifying the input verifies the
+    # deployed interface too.
     found = sorted(
         (path.stem, path)
         for path in wasm_dir.glob(f"{CONTRACT_PREFIX}*.wasm")
-        if path.is_file()
+        if path.is_file() and not path.name.endswith(".optimized.wasm")
     )
     if not found:
         sys.exit(
