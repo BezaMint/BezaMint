@@ -99,7 +99,7 @@ async function runSearch(query: string, type: SearchType, limit: number): Promis
             title: name,
             subtitle: address,
             category: profile.bio || undefined,
-            href: `/profile/${address}`,
+            href: `/creators/${address}`,
           } as SearchItem;
         } catch {
           return null;
@@ -134,7 +134,7 @@ async function runSearch(query: string, type: SearchType, limit: number): Promis
           title: `Collection #${id}`,
           subtitle: collection.creator,
           category: collection.metadata_uri || undefined,
-          href: `/collection/${id}`,
+          href: `/collections/${id}`,
         });
       } catch {
         // Skip ids that no longer resolve.
