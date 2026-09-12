@@ -63,9 +63,12 @@ if [ -n "$network" ] && [ "$network" != "testnet" ] && [ "$network" != "mainnet"
   errors=$((errors + 1))
 fi
 
-# Publishing with a write key unset leaves the mutating API routes unprotected.
+# With a write key unset, a non-browser caller to a mutating route is not asked to
+# authenticate. The middleware still refuses a mutating request that carries an
+# untrusted Origin, so this is a weakening rather than an open door -- and it is
+# still worth saying out loud in a production build log.
 if [ -n "${CI:-}" ] && [ "${NODE_ENV:-}" = "production" ] && [ -z "${API_WRITE_KEY:-}" ]; then
-  echo -e "${yellow}warn${reset}  API_WRITE_KEY is not set — mutating API routes will run without the shared-secret check"
+  echo -e "${yellow}warn${reset}  API_WRITE_KEY is not set — non-browser callers to mutating API routes will not be asked for a key (browser callers are still checked by origin)"
   warnings=$((warnings + 1))
 fi
 

@@ -234,7 +234,12 @@ Two consequences worth stating plainly:
 API routes sit behind `middleware.ts`, which applies a per-IP fixed-window rate limit
 with `X-RateLimit-*` headers, a CORS allowlist (same-origin unless
 `CORS_ALLOWED_ORIGINS` is set), hardening headers, and request logging with
-durations. Routes normalize failures through one error module into a stable envelope:
+durations. It also **authorizes mutating requests**: `POST`, `PUT`, `PATCH` and
+`DELETE` on `/api/*` must present `x-api-key` (when `API_WRITE_KEY` is set) or come
+from the deployment's own origin, because a browser cannot hold a shared secret and
+a public upload endpoint would otherwise be usable from any page on the internet.
+Reads are left open. [`api-reference.md`](api-reference.md#authorizing-a-mutating-request)
+documents the rule in full. Routes normalize failures through one error module into a stable envelope:
 
 ```json
 { "error": { "code": "BAD_REQUEST", "message": "..." } }

@@ -23,6 +23,8 @@ import {
 
 export type ApiErrorCode =
   | 'BAD_REQUEST'
+  | 'UNAUTHORIZED'
+  | 'FORBIDDEN'
   | 'NOT_FOUND'
   | 'RATE_LIMITED'
   | 'CONTRACT_ERROR'
@@ -257,6 +259,22 @@ function isNetworkError(err: unknown): boolean {
 
 export const badRequest = (message: string, details?: unknown) =>
   new ApiError('BAD_REQUEST', message, 400, details);
+
+/**
+ * The caller did not authenticate. Raised for a mutating request that carried
+ * neither a valid `x-api-key` nor a browser origin to attribute it to.
+ *
+ * `apps/web/src/middleware.ts` enforces this before a handler runs; the factory
+ * exists here so the code has one home and handlers can raise it directly.
+ */
+export const unauthorized = (message = 'Authentication required') =>
+  new ApiError('UNAUTHORIZED', message, 401);
+
+/**
+ * The caller authenticated, or was identifiable, but is not allowed to do this
+ * -- an untrusted `Origin` on a mutating request, for instance.
+ */
+export const forbidden = (message = 'Not allowed') => new ApiError('FORBIDDEN', message, 403);
 
 export const notFound = (message: string) => new ApiError('NOT_FOUND', message, 404);
 

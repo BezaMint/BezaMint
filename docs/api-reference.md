@@ -77,15 +77,46 @@ contract deployed ahead of the web app. The numeric `code` is reported either
 way, which is what a caller needs to look the failure up in
 [`docs/error-codes.md`](error-codes.md).
 
-| Code             | HTTP | Meaning                                                              |
-| ---------------- | ---- | -------------------------------------------------------------------- |
-| `BAD_REQUEST`    | 400  | Invalid or missing input; the message names the offending parameter. |
-| `NOT_FOUND`      | 404  | The requested resource does not exist.                               |
-| `RATE_LIMITED`   | 429  | Per-IP limit exceeded. See `Retry-After`.                            |
-| `CONTRACT_ERROR` | 422  | A Soroban call failed (panic, auth failure, bad contract state).     |
-| `NETWORK_ERROR`  | 502  | An upstream (Horizon, RPC, gateway) refused or failed the request.   |
-| `TIMEOUT`        | 504  | An upstream did not answer within the handler's deadline.            |
-| `INTERNAL`       | 500  | Unclassified failure. The message is generic by design.              |
+| Code             | HTTP | Meaning                                                                |
+| ---------------- | ---- | ---------------------------------------------------------------------- |
+| `BAD_REQUEST`    | 400  | Invalid or missing input; the message names the offending parameter.   |
+| `UNAUTHORIZED`   | 401  | A mutating request carried no usable credential.                       |
+| `FORBIDDEN`      | 403  | A mutating request came from an origin that is not allowed to make it. |
+| `NOT_FOUND`      | 404  | The requested resource does not exist.                                 |
+| `RATE_LIMITED`   | 429  | Per-IP limit exceeded. See `Retry-After`.                              |
+| `CONTRACT_ERROR` | 422  | A Soroban call failed (panic, auth failure, bad contract state).       |
+| `NETWORK_ERROR`  | 502  | An upstream (Horizon, RPC, gateway) refused or failed the request.     |
+| `TIMEOUT`        | 504  | An upstream did not answer within the handler's deadline.              |
+| `INTERNAL`       | 500  | Unclassified failure. The message is generic by design.                |
+
+### Authorizing a mutating request
+
+`POST`, `PUT`, `PATCH` and `DELETE` on `/api/*` are checked in
+`apps/web/src/middleware.ts` before any handler runs. `GET` and `HEAD` are not:
+they are cached, spend no third-party quota, and every page depends on them.
+
+There are two callers and therefore two rules, because they can offer different
+things:
+
+| Caller                   | Credential                                                                                                                          |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Script or service        | `x-api-key: $API_WRITE_KEY`, required whenever `API_WRITE_KEY` is set on the deployment.                                            |
+| The app's own browser UI | An `Origin` (or `Referer`) whose host is the host the request was addressed to, or a `CORS_ALLOWED_ORIGINS` entry. Always required. |
+
+A browser cannot hold a secret without publishing it to every visitor, so the UI
+is authorized by origin. That rule applies whether or not `API_WRITE_KEY` is set,
+which is what stops another site from driving a public upload endpoint and
+spending the deployment's pinning quota. When no key is configured, a caller that
+sends no `Origin` at all is not asked for a credential — there is nothing to check
+it against — but it is still subject to the per-IP rate limit.
+
+```bash
+# a non-browser caller, with API_WRITE_KEY set on the deployment
+curl -X POST "$BASE_URL/api/ipfs/upload" \
+  -H "content-type: application/json" \
+  -H "x-api-key: $API_WRITE_KEY" \
+  -d @metadata.json
+```
 
 Handlers that deliberately report an unavailable dependency use the same envelope
 with a `503` status and `CONTRACT_ERROR` (for example `/api/nfts` when the NFT
