@@ -173,6 +173,64 @@ A `degraded` status with `contractsConfigured: false` means a contract ID is
 missing; the readiness endpoint reports `503` in that case, by design, so a
 platform will not route traffic to a deployment that cannot mint.
 
+### 3.1 A hosted deployment keeps its own copy of these values
+
+This is the step that a redeployment most easily misses, and it is worth stating
+plainly. `NEXT_PUBLIC_*` values are inlined into the client bundle at **build**
+time, and on a hosted platform they come from that platform's project settings,
+not from this repository. `scripts/deploy.sh` writes `apps/web/.env.local`, which
+is git-ignored and local only. So deploying a new contract set does **not** move
+the hosted app: the running site keeps reading whichever contract ids its host was
+built with, and it will keep answering `200` while doing it, because those ids
+still resolve to the previous contract set.
+
+The symptom is a site that looks healthy and is disconnected from the contracts
+you just deployed — its reads work, its feed is empty or stale, and nothing in the
+app says so.
+
+To move a hosted deployment onto a new contract set:
+
+1. Update the project's environment variables: the five
+   `NEXT_PUBLIC_*_CONTRACT_ID` values from
+   [`deployments/testnet.json`](../deployments/testnet.json), plus
+   `NEXT_PUBLIC_STELLAR_NETWORK`, `NEXT_PUBLIC_STELLAR_RPC_URL` and
+   `NEXT_PUBLIC_STELLAR_PASSPHRASE` if the network changed.
+2. Trigger a new **build**. Editing an environment variable does not rebuild an
+   existing deployment, and because the values are inlined at build time, a rebuild
+   is the only thing that changes what the bundle contains. Use "Redeploy" on
+   Vercel, or push a commit.
+3. Re-seed if the contract set is new: `bash scripts/seed-testnet-activity.sh`.
+4. Verify with the smoke test from the section above, or let
+   `.github/workflows/deployment-verify.yml` do it after the next production
+   deployment.
+
+```bash
+curl -s "$BASE_URL/api/health" | jq '{commitSha, configured: .checks.contractsConfigured, indexer: .checks.indexer.eventCount}'
+SMOKE_BASE_URL="$BASE_URL" bash scripts/smoke-test.sh   # gated: both tiers
+```
+
+### 3.2 Pruning stale deployments
+
+A platform accumulates a deployment per push. Those are immutable build records
+with their own URLs; pruning them is housekeeping and does not touch the
+production alias, which is the only URL the README publishes.
+
+- On Vercel: **Deployments** → the row's `…` menu → **Delete**. Old preview and
+  superseded production deployments are safe to remove once a newer production
+  deployment is live and healthy.
+- Do not delete the deployment the production alias currently points at, and
+  delete an alias before the deployment behind it if the alias is no longer
+  wanted.
+- Before deleting anything, confirm which deployment is serving production:
+
+```bash
+# The production alias answers with the commit it was built from.
+curl -s https://bezamint.vercel.app/api/health | jq -r .commitSha
+```
+
+If that sha is not the current `main`, the alias is serving an older build: see
+3.1 rather than deleting the deployment, which would take the site down.
+
 ---
 
 ## 4. Upgrading a contract in place

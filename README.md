@@ -79,8 +79,7 @@
 | [`docs/api-reference.md`](docs/api-reference.md)                   | Every `/api/*` route, its parameters, response shapes, error codes and rate limits.    |
 | [`contracts/README.md`](contracts/README.md)                       | The authoritative contract interface reference and the deploy procedure.               |
 | [`docs/indexer-schema.md`](docs/indexer-schema.md)                 | How emitted events map onto indexed records.                                           |
-| [`docs/error-codes.md`](docs/error-codes.md)                       | Every contract error code, what raises it and what it means (generated).               |
-| [`docs/deployment-runbook.md`](docs/deployment-runbook.md)         | Deploying, verifying, upgrading and rolling back the contracts.                        |
+| [`docs/error-codes.md`](docs/error-codes.md)                       | Every contract error code, what raises it and what it means (generated).               |     | [`docs/deployment-runbook.md`](docs/deployment-runbook.md) | Deploying, verifying, upgrading, rolling back, and hosting the frontend. |
 | [`deployments/testnet.json`](deployments/testnet.json)             | The published address registry: contract ids, wasm hashes, deployer and source commit. |
 | [`docs/mainnet-readiness.md`](docs/mainnet-readiness.md)           | What must be true before mainnet, beyond what tests can prove.                         |
 | [`docs/review/critical-review.md`](docs/review/critical-review.md) | An adversarial review of the repository and the findings it produced.                  |
@@ -585,9 +584,25 @@ frontend against the chain rather than trust this table. `pnpm run deploy:record
 fails CI when the registry, the table above and `demo/seed-manifest.json` drift apart,
 which is the failure a redeployment causes when one of the three is missed.
 
-The hosted instance is a **testnet deployment of the seeded contract set**, so
-`/explore`, `/collections` and the NFT pages render real indexed data rather than
-placeholder content, and `/api/health` reports live RPC and indexer state.
+`NEXT_PUBLIC_*` values are inlined at build time and come from the **host's**
+project settings, not from this repository, so a hosted instance does not move when
+the contracts are redeployed — it keeps reading whichever set it was built with.
+That is worth checking on any deployment, including the hosted one:
+
+```bash
+# Which commit the alias serves, and whether all five contracts answer.
+curl -s https://bezamint.vercel.app/api/health | jq '{commitSha, contracts: .checks.contracts}'
+```
+
+At the time of writing the hosted instance still names the **previous** contract
+set, so its reads and its readiness checks work while its event-derived routes
+(`/api/nfts`, the activity feed) are empty — the indexed events for that set have
+aged out of the RPC's event retention window. Repointing it is a change to the
+Vercel project's environment variables; the procedure, and what to prune while you
+are there, is in
+[`docs/deployment-runbook.md` §3.1](docs/deployment-runbook.md#31-a-hosted-deployment-keeps-its-own-copy-of-these-values).
+The `Deployment Verification` workflow reports the same gap after every production
+deploy.
 
 ```bash
 pnpm install
@@ -597,7 +612,8 @@ pnpm dev                              # http://localhost:3000
 
 The frontend is not tied to a hosted instance: it reads whatever contracts its
 environment names, so pointing `apps/web/.env.local` at the testnet deployment
-above is enough to see the seeded collections and tokens. `docs/deployment-runbook.md`
+above — the values in [`deployments/testnet.json`](deployments/testnet.json) — is
+enough to see the seeded collections and tokens. `docs/deployment-runbook.md`
 walks through a fresh deploy, verifying it, seeding it and hosting the frontend.
 
 ---
