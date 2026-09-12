@@ -9,6 +9,7 @@ import {
   formatIssues,
 } from '@/lib/server/metadataSchema';
 import { assertValidCid, verifyPinnedContent } from '@/lib/server/verifyPin';
+import { ipfsGatewayUrl } from '@/lib/ipfsGateway';
 
 /**
  * POST /api/ipfs/upload
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       cid: result.cid,
       ipfsUri,
-      gatewayUrl: `https://gateway.pinata.cloud/ipfs/${result.cid}`,
+      gatewayUrl: ipfsGatewayUrl(result.cid),
       fallback: false,
       integrity,
     });

@@ -11,7 +11,12 @@ leaks, and avoid sharing it between environments.
   `src/lib/pinata.ts`), not at build time. No restart is required after
   changing the secret — the next upload request picks it up.
 - `NEXT_PUBLIC_PINATA_GATEWAY` is **public by design** (it is shipped to
-  the browser so image URLs can resolve). Only `PINATA_JWT` is secret.
+  the browser so image URLs can resolve). Only `PINATA_JWT` is secret. It is
+  read through a single accessor (`src/lib/ipfsGateway.ts`) so the upload
+  response, the metadata proxy, the integrity check and the health probe all
+  agree on one host. It defaults to `https://ipfs.io`: Pinata's public gateway
+  measured 3.7–6.6s per object against ~40ms for ipfs.io, and at that latency
+  the health probe timed out and reported a working deployment as degraded.
 - The startup/health check reports `PINATA_JWT` as a warning when it is
   unset, so a missing secret is visible in `/api/health` rather than
   surfacing later as a confusing upload failure.
@@ -46,8 +51,9 @@ never fail because the old key was revoked too early.
 at boot:
 
 - **Missing** → warning: "IPFS uploads will fall back to placeholder
-  URIs". The app still runs, but uploads return `ipfs://` placeholder
-  values instead of real pins.
+  URIs". The app still runs, but uploads return `beza://metadata/...`
+  placeholder values instead of real pins. Those are not resolvable by any
+  gateway, so treat a minted token from such a deployment as unusable.
 - **Present** → no issue; the health route additionally performs a live
   gateway reachability probe.
 

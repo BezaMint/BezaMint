@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ApiError, normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
 import { fetchWithTimeout } from '@/lib/server/http';
+import { getIpfsGateway } from '@/lib/ipfsGateway';
 import { TtlCache } from '@/lib/server/cache';
 import {
   NFT_METADATA_SCHEMA,
@@ -25,7 +26,7 @@ const metadataCache = new TtlCache<unknown>(60_000);
 const MAX_DOCUMENT_BYTES = 256 * 1024;
 
 function resolveFetchUrl(uri: string): string | null {
-  const gateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud';
+  const gateway = getIpfsGateway();
   if (uri.startsWith('ipfs://')) {
     return `${gateway}/ipfs/${uri.slice('ipfs://'.length)}`;
   }

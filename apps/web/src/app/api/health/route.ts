@@ -4,6 +4,7 @@ import { CONTRACT_IDS } from '@/services';
 import { isIpfsAvailable } from '@/lib/pinata';
 import { collectStartupIssues } from '@/lib/startup';
 import { withTimeout, fetchWithTimeout } from '@/lib/server/http';
+import { getIpfsGateway } from '@/lib/ipfsGateway';
 import { refreshIndexer, getIndexerHealth } from '@/lib/server/indexer';
 
 // Module-level constant so uptime is measured from first request handling.
@@ -33,7 +34,7 @@ async function probeRpc(): Promise<{
 
 /** Probe the Pinata gateway: HEAD the gateway root with a short timeout. */
 async function probeIpfs(): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
-  const gateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud';
+  const gateway = getIpfsGateway();
   const started = Date.now();
   try {
     const response = await fetchWithTimeout(

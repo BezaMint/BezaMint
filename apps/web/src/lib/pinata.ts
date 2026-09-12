@@ -1,4 +1,5 @@
 import { PinataSDK } from 'pinata';
+import { getIpfsGateway } from './ipfsGateway';
 
 /**
  * Pinata SDK instance for server-side IPFS operations.
@@ -11,7 +12,7 @@ export function getPinataClient(): PinataSDK | null {
 
   return new PinataSDK({
     pinataJwt: process.env.PINATA_JWT,
-    pinataGateway: process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud',
+    pinataGateway: getIpfsGateway(),
   });
 }
 

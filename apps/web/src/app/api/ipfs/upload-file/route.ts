@@ -4,6 +4,7 @@ import { validateFile, rateLimitUpload } from '@/lib/server/uploadGuard';
 import { normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
 import { assertValidCid, verifyPinnedContent } from '@/lib/server/verifyPin';
+import { ipfsGatewayUrl } from '@/lib/ipfsGateway';
 
 /**
  * POST /api/ipfs/upload-file
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       cid: result.cid,
       ipfsUri: `ipfs://${result.cid}`,
-      gatewayUrl: `https://gateway.pinata.cloud/ipfs/${result.cid}`,
+      gatewayUrl: ipfsGatewayUrl(result.cid),
       integrity,
     });
   } catch (error: unknown) {

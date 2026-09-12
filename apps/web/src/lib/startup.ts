@@ -7,6 +7,8 @@
  *   actionable log lines instead of confusing downstream failures.
  */
 
+import { getIpfsGateway } from './ipfsGateway';
+
 /** Set the application startup timestamp for health checks */
 if (typeof globalThis !== 'undefined') {
   (globalThis as Record<string, unknown>).__BEZAMINT_START_TIME__ = Date.now();
@@ -95,7 +97,7 @@ export function collectStartupConfig() {
     rpcUrl: process.env.NEXT_PUBLIC_STELLAR_RPC_URL || '(default)',
     pinata: {
       configured: !!process.env.PINATA_JWT,
-      gateway: process.env.NEXT_PUBLIC_PINATA_GATEWAY || '(default)',
+      gateway: getIpfsGateway(),
     },
     corsAllowedOrigins: process.env.CORS_ALLOWED_ORIGINS
       ? process.env.CORS_ALLOWED_ORIGINS.split(',').length

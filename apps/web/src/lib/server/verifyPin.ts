@@ -26,6 +26,7 @@
 import { createHash } from 'node:crypto';
 import { logger } from './logger';
 import { fetchWithTimeout } from './http';
+import { getIpfsGateway } from '../ipfsGateway';
 
 // A CIDv1 in base32 decodes to a fixed 36 bytes for a sha2-256 dag-pb or raw
 // object: 1 version + 1 codec + 1 multihash code + 1 digest length + 32 digest.
@@ -127,7 +128,7 @@ export async function verifyPinnedContent(
   uploadedBytes: Buffer | Uint8Array,
   maxAttempts = 3,
 ): Promise<ContentVerification> {
-  const gateway = process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud';
+  const gateway = getIpfsGateway();
   const expected = sha256Hex(uploadedBytes);
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {

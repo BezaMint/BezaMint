@@ -3,9 +3,11 @@
  *
  * NFT metadata URIs can be ipfs:// CIDs, https gateway URLs, or beza://
  * placeholders. This module resolves them to JSON with a gateway fallback
- * chain (pinata → ipfs.io), a timeout, and shape validation so the UI never
- * renders garbage from a malicious or broken URI.
+ * chain, a timeout, and shape validation so the UI never renders garbage from
+ * a malicious or broken URI.
  */
+
+import { DEFAULT_IPFS_GATEWAY, getIpfsGateways } from './ipfsGateway';
 
 export interface ResolvedMetadata {
   name?: string;
@@ -16,21 +18,18 @@ export interface ResolvedMetadata {
   attributes?: Array<{ trait_type?: string; value?: string; display_type?: string }>;
 }
 
-const GATEWAYS = [
-  process.env.NEXT_PUBLIC_PINATA_GATEWAY || 'https://gateway.pinata.cloud',
-  'https://ipfs.io',
-];
-
 const DEFAULT_TIMEOUT_MS = 8000;
 
 /**
  * Convert an ipfs:// CID URI to a gateway URL. Returns the URI unchanged for
- * non-ipfs schemes.
+ * non-ipfs schemes. Reads the gateway list per call rather than at import so a
+ * caller that changes the configuration sees the new value.
  */
 export function toGatewayUrl(uri: string, gatewayIndex = 0): string {
   if (uri.startsWith('ipfs://')) {
     const cid = uri.slice('ipfs://'.length);
-    const gateway = GATEWAYS[gatewayIndex] || GATEWAYS[0];
+    const gateways = getIpfsGateways();
+    const gateway = gateways[gatewayIndex] ?? gateways[0] ?? DEFAULT_IPFS_GATEWAY;
     return `${gateway}/ipfs/${cid}`;
   }
   return uri;
@@ -58,8 +57,9 @@ export async function resolveMetadataUri(
     return null;
   }
 
+  const gateways = getIpfsGateways();
   let lastError: unknown = null;
-  for (let i = 0; i < GATEWAYS.length; i++) {
+  for (let i = 0; i < gateways.length; i++) {
     const url = toGatewayUrl(uri, i);
     try {
       const response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
@@ -74,7 +74,7 @@ export async function resolveMetadataUri(
 
   // One last attempt with the raw URI (already-https cases where the first
   // gateway attempt was the same URL and failed above).
-  if (GATEWAYS.length > 0 && !uri.startsWith('ipfs://')) {
+  if (gateways.length > 0 && !uri.startsWith('ipfs://')) {
     try {
       const response = await fetch(uri, { signal: AbortSignal.timeout(timeoutMs) });
       if (response.ok) {

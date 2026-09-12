@@ -460,7 +460,7 @@ Pins a metadata JSON document.
 {
   "cid": "bafy...",
   "ipfsUri": "ipfs://bafy...",
-  "gatewayUrl": "https://gateway.pinata.cloud/ipfs/bafy...",
+  "gatewayUrl": "https://ipfs.io/ipfs/bafy...",
   "fallback": false,
   "integrity": { "verified": true }
 }
@@ -489,7 +489,7 @@ Pins a raster image via `multipart/form-data` with a `file` field.
 {
   "cid": "bafy...",
   "ipfsUri": "ipfs://bafy...",
-  "gatewayUrl": "https://gateway.pinata.cloud/ipfs/bafy...",
+  "gatewayUrl": "https://ipfs.io/ipfs/bafy...",
   "integrity": { "verified": true }
 }
 ```
