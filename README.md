@@ -78,9 +78,12 @@
 | [`docs/architecture.md`](docs/architecture.md)                     | How the five contracts compose, the trust boundaries and the off-chain layer.       |
 | [`docs/api-reference.md`](docs/api-reference.md)                   | Every `/api/*` route, its parameters, response shapes, error codes and rate limits. |
 | [`contracts/README.md`](contracts/README.md)                       | The authoritative contract interface reference and the deploy procedure.            |
-| [`docs/indexer-schema.md`](docs/indexer-schema.md)                 | How emitted events map onto indexed records.                                        |     | [`docs/deployment-runbook.md`](docs/deployment-runbook.md) | Deploying, verifying, upgrading and rolling back the contracts.            |
+| [`docs/indexer-schema.md`](docs/indexer-schema.md)                 | How emitted events map onto indexed records.                                        |
+| [`docs/error-codes.md`](docs/error-codes.md)                       | Every contract error code, what raises it and what it means (generated).            |
+| [`docs/deployment-runbook.md`](docs/deployment-runbook.md)         | Deploying, verifying, upgrading and rolling back the contracts.                     |
 | [`docs/mainnet-readiness.md`](docs/mainnet-readiness.md)           | What must be true before mainnet, beyond what tests can prove.                      |
-| [`docs/review/critical-review.md`](docs/review/critical-review.md) | An adversarial review of the repository and the findings it produced.               |     | [`docs/faq.md`](docs/faq.md)                               | Answers and troubleshooting: wallets, funding, upload limits, error codes. |
+| [`docs/review/critical-review.md`](docs/review/critical-review.md) | An adversarial review of the repository and the findings it produced.               |
+| [`docs/faq.md`](docs/faq.md)                                       | Answers and troubleshooting: wallets, funding, upload limits, error codes.          |
 | [`docs/glossary.md`](docs/glossary.md)                             | Stellar and Soroban vocabulary used across the code and docs.                       |
 | [`ISSUES.md`](ISSUES.md)                                           | The current contributor backlog, verified against the tree.                         |
 

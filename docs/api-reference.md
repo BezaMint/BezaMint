@@ -50,6 +50,33 @@ Errors are normalised by `apps/web/src/lib/server/errors.ts` and serialised as:
 `details` is present only when the handler supplied context, and is omitted in
 production for `INTERNAL` errors so internal messages are not leaked.
 
+A `CONTRACT_ERROR` whose message carried the host's `Error(Contract, #N)` also
+reports that code decoded, as `details.contractError`:
+
+```json
+{
+  "error": {
+    "code": "CONTRACT_ERROR",
+    "message": "Contract call failed",
+    "details": {
+      "message": "HostError: Error(Contract, #10)",
+      "contractError": {
+        "code": 10,
+        "contract": "nft",
+        "variant": "TokenNotFound",
+        "meaning": "No token exists with the supplied id."
+      }
+    }
+  }
+}
+```
+
+`contract` is `null` when the call site did not know which contract it invoked,
+and `variant`/`meaning` are `null` for a code the catalog does not know — a
+contract deployed ahead of the web app. The numeric `code` is reported either
+way, which is what a caller needs to look the failure up in
+[`docs/error-codes.md`](error-codes.md).
+
 | Code             | HTTP | Meaning                                                              |
 | ---------------- | ---- | -------------------------------------------------------------------- |
 | `BAD_REQUEST`    | 400  | Invalid or missing input; the message names the offending parameter. |

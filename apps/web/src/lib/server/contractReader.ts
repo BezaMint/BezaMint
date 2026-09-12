@@ -18,10 +18,29 @@ import {
   rpc as SorobanRpc,
 } from '@stellar/stellar-sdk';
 import { getRpcClient, CURRENT_NETWORK } from '@/services/stellar';
-import { normalizeError, ApiError } from './errors';
+import { CONTRACT_IDS } from '@/services';
+import type { ContractName } from '@/lib/contractErrors';
+import { normalizeError, parseContractError, ApiError } from './errors';
 
 function dummySource() {
   return new Account(Keypair.random().publicKey(), '0');
+}
+
+/**
+ * Which contract a configured ID belongs to, or `null` when it is not one of
+ * ours.
+ *
+ * A contract code number is only meaningful against the enum of the contract
+ * that raised it, and the host does not include the contract in the message, so
+ * the caller has to supply it. `simulateRead` already knows the ID it was handed;
+ * this turns that back into the name the error catalog is keyed by.
+ */
+export function contractNameForId(contractId: string): ContractName | null {
+  if (!contractId) return null;
+  for (const [name, id] of Object.entries(CONTRACT_IDS)) {
+    if (id && id === contractId) return name as ContractName;
+  }
+  return null;
 }
 
 const MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER);
@@ -104,7 +123,18 @@ export async function simulateRead<T = unknown>(
     const result = await getRpcClient().simulateTransaction(tx);
 
     if (SorobanRpc.Api.isSimulationError(result)) {
-      throw new ApiError('CONTRACT_ERROR', result.error, 422);
+      // The message is kept as-is because it is the only place the host's own
+      // text appears; the decode is attached alongside it rather than replacing
+      // it, so nothing that used to be diagnosable becomes less so.
+      const contractError = parseContractError(result.error, {
+        contract: contractNameForId(contractId),
+      });
+      throw new ApiError(
+        'CONTRACT_ERROR',
+        result.error,
+        422,
+        contractError !== null ? { contractError } : undefined,
+      );
     }
     if (!result.result?.retval) {
       throw new ApiError('CONTRACT_ERROR', `Empty result from ${method}`, 422);
@@ -113,7 +143,7 @@ export async function simulateRead<T = unknown>(
     // reintroduce the crash by forgetting to convert.
     return toJsonSafe(scValToNative(result.result.retval)) as T;
   } catch (err) {
-    throw normalizeError(err);
+    throw normalizeError(err, { contract: contractNameForId(contractId) });
   }
 }
 

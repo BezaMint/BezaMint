@@ -27,6 +27,32 @@ bash ../scripts/check-wasm-size.sh
 From the repository root, the same checks are exposed as pnpm scripts:
 `contract:test`, `contract:clippy`, `contract:fmt`, `contract:size`.
 
+---
+
+## Error codes
+
+Every contract raises typed numeric codes rather than formatted panic strings, so
+the host reports a failure as `Error(Contract, #N)` — an integer with no name
+attached. The number is only meaningful against the enum of the contract that was
+called, so decoding one requires knowing which contract was invoked.
+
+[`../docs/error-codes.md`](../docs/error-codes.md) is the published reference:
+every code, the variant it names, what raises it and what it means. It is
+**generated** from the `#[contracterror]` enums by
+[`../scripts/generate-error-catalog.py`](../scripts/generate-error-catalog.py),
+which also emits the TypeScript catalog the web app decodes against:
+
+```bash
+pnpm run contract:errors         # regenerate after changing an enum
+pnpm run contract:errors:check   # verify without writing (CI runs this)
+```
+
+The CI job fails if a code is added, renamed or renumbered in Rust without the
+catalog being regenerated, because a stale catalog would have the docs and the
+client disagreeing about what `#N` means. Variants are append-only: changing the
+number of an existing variant changes the meaning of an error already in the
+wild.
+
 Release profile settings live in [`Cargo.toml`](./Cargo.toml) and matter for the
 deployed artifact: `opt-level = "z"`, `lto = true`, `panic = "abort"`,
 `overflow-checks = true`. Overflow checks are intentional — Soroban fees make the

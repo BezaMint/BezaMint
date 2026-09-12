@@ -6,7 +6,20 @@
  * panics). This module maps them onto a small set of typed API errors with
  * stable codes + HTTP statuses, so handlers can respond consistently and
  * clients can branch on `error.code` instead of string matching.
+ *
+ * A contract failure gets a second level of detail. The contracts raise typed
+ * numeric codes, so the host reports `Error(Contract, #12)` — an integer with no
+ * name attached, and the same integer means different things in different
+ * contracts. `parseContractError` decodes it against the generated catalog in
+ * `@/lib/contractErrors` and attaches `details.contractError`, which carries the
+ * numeric code, the owning contract and — when the code is known — the variant
+ * name and its documented meaning.
  */
+import {
+  describeContractError,
+  type ContractErrorDescriptor,
+  type ContractName,
+} from '@/lib/contractErrors';
 
 export type ApiErrorCode =
   | 'BAD_REQUEST'
@@ -82,13 +95,87 @@ export function errorMessage(err: unknown): string {
   return String(err);
 }
 
-/** Heuristic: does this look like a contract-level (panic/auth) failure? */
-function isContractError(err: unknown): boolean {
+/**
+ * Which contract the failing call targeted, when the caller knows.
+ *
+ * `Error(Contract, #N)` does not name the contract — the number is only
+ * meaningful against the enum of the contract that was called, so the call site
+ * has to supply it. Codes are decodable without it; the name is a bonus.
+ */
+export interface ContractErrorContext {
+  readonly contract?: ContractName | null;
+}
+
+/**
+ * A decoded contract failure.
+ *
+ * `code` is always present when the message carried one. `contract` is present
+ * when the call site supplied context. `variant` and `meaning` are `null` when
+ * the code is not in the catalog — a contract deployed ahead of this build, or a
+ * host error that is not a contract error. Nothing here throws: an unknown code
+ * still reports its number, which is what a caller needs to look it up.
+ */
+export interface ContractErrorDetails {
+  readonly code: number;
+  readonly contract: ContractName | null;
+  readonly variant: string | null;
+  readonly meaning: string | null;
+  readonly descriptor: ContractErrorDescriptor | null;
+}
+
+/**
+ * The canonical host rendering, plus the diagnostic-event variant some RPC paths
+ * stringify to instead. Both carry the same integer.
+ */
+const CONTRACT_ERROR_PATTERN = /Error\(\s*Contract\s*,\s*#(\d+)\s*\)/;
+const NUMERIC_CONTRACT_ERROR_PATTERN = /\bcontract error[:\s]+#?(\d+)\b/i;
+
+/**
+ * Decode an `Error(Contract, #N)` from a thrown value.
+ *
+ * Returns `null` when the message carries no numeric contract code, so the
+ * caller can fall back to the generic classification below.
+ */
+export function parseContractError(
+  err: unknown,
+  context: ContractErrorContext = {},
+): ContractErrorDetails | null {
   const message = errorMessage(err);
+  const match =
+    CONTRACT_ERROR_PATTERN.exec(message) ?? NUMERIC_CONTRACT_ERROR_PATTERN.exec(message);
+  if (!match) return null;
+
+  const code = Number(match[1]);
+  if (!Number.isSafeInteger(code) || code < 0) return null;
+
+  const contract = context.contract ?? null;
+  const descriptor = contract ? describeContractError(contract, code) : null;
+
+  return {
+    code,
+    contract,
+    variant: descriptor?.variant ?? null,
+    meaning: descriptor?.meaning ?? null,
+    descriptor,
+  };
+}
+
+/**
+ * Heuristic: does this look like a contract-level (panic/auth) failure?
+ *
+ * Matching is case-insensitive on purpose. The host spells it `HostError`, and
+ * the previous case-sensitive `includes('host error')` meant the most common real
+ * shape — `HostError: Error(Contract, #12)` — matched none of the patterns and
+ * was reported to users as an opaque `500 INTERNAL` instead of a contract
+ * failure. A decoded numeric code is likewise unambiguous evidence.
+ */
+function isContractError(err: unknown): boolean {
+  if (parseContractError(err) !== null) return true;
+  const message = errorMessage(err).toLowerCase();
   return (
     message.includes('host error') ||
     message.includes('contract error') ||
-    message.includes('InvokeHostFunction') ||
+    message.includes('invokehostfunction') ||
     message.includes('require_auth') ||
     message.includes('panicked')
   );
@@ -128,7 +215,11 @@ function isNetworkError(err: unknown): boolean {
 /**
  * Normalize any thrown value into an ApiError.
  * Unknown errors collapse to INTERNAL; caller-supplied status is preserved.
- */ export function normalizeError(err: unknown): ApiError {
+ *
+ * Pass `context.contract` when the call site knows which contract it invoked:
+ * the numeric code is decoded against that enum, so `details.contractError`
+ * comes back with the variant name and meaning instead of a bare integer.
+ */ export function normalizeError(err: unknown, context: ContractErrorContext = {}): ApiError {
   if (err instanceof ApiError) return err;
 
   const message = errorMessage(err);
@@ -148,8 +239,12 @@ function isNetworkError(err: unknown): boolean {
     return new ApiError('NETWORK_ERROR', 'Network request failed', 502, message);
   }
 
-  if (isContractError(err)) {
-    return new ApiError('CONTRACT_ERROR', 'Contract call failed', 422, message);
+  const contractError = parseContractError(err, context);
+  if (contractError !== null || isContractError(err)) {
+    return new ApiError('CONTRACT_ERROR', 'Contract call failed', 422, {
+      message,
+      ...(contractError !== null ? { contractError } : {}),
+    });
   }
 
   return new ApiError(

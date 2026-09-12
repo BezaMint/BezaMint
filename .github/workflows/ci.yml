@@ -141,6 +141,13 @@ jobs:
       - name: Check contract ABI against the committed snapshot
         run: python3 scripts/check-contract-abi.py
 
+      # docs/error-codes.md and the web error catalog are generated from the
+      # contracts' Rust error enums. A code changed in Rust but not regenerated
+      # would leave the docs and the client disagreeing about what #N means, so
+      # the drift has to fail here rather than ship.
+      - name: Check the error catalog matches the contracts
+        run: pnpm run contract:errors:check
+
   frontend-build:
     name: Frontend Build
     runs-on: ubuntu-latest
