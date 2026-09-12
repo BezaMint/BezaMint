@@ -48,6 +48,11 @@ pub enum FactoryEvent {
     CollectionCreated(u64, Address),
     /// The admin role moved to a new address.
     AdminChanged(Address),
+
+    /// The stored schema version advanced. A migration changes what stored
+    /// values mean, so the one operation that most needs a timestamped on-chain
+    /// record is the one that previously left none.
+    Migrated(u32, u32),
 }
 
 /// State-expiration (TTL) policy. Soroban instance data and contract code are
@@ -222,6 +227,7 @@ impl BezaMintFactory {
         env.storage()
             .instance()
             .set(&FactoryKey::Version, &STORAGE_VERSION);
+        emit(&env, FactoryEvent::Migrated(from_version, STORAGE_VERSION));
         env.storage()
             .instance()
             .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);

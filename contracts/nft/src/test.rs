@@ -124,6 +124,14 @@ fn test_migrate_is_version_checked_and_repairs_a_mismatch() {
         env.storage().instance().set(&NftKey::Version, &99u32);
     });
     client.migrate(&99u32);
+    // A migration changes what stored values mean, so it is the one operation
+    // an operator must be able to find a timestamped record of afterwards.
+    let migrated_events = env.events().all();
+    let (_, _, migrated_data) = migrated_events
+        .get(migrated_events.len() - 1)
+        .expect("migrate emits an event");
+    let migrated: NftEvent = NftEvent::try_from_val(&env, &migrated_data).expect("decodable event");
+    assert_eq!(migrated, NftEvent::Migrated(99, crate::STORAGE_VERSION));
     assert_eq!(client.version(), crate::STORAGE_VERSION);
 
     let to = Address::generate(&env);

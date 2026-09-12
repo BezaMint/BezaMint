@@ -119,6 +119,11 @@ pub enum CreatorEvent {
     Verified(Address),
     /// The admin role moved to a new address.
     AdminChanged(Address),
+
+    /// The stored schema version advanced. A migration changes what stored
+    /// values mean, so the one operation that most needs a timestamped on-chain
+    /// record is the one that previously left none.
+    Migrated(u32, u32),
 }
 
 fn emit(env: &Env, event: CreatorEvent) {
@@ -355,6 +360,7 @@ impl BezaMintCreator {
         env.storage()
             .instance()
             .set(&CreatorKey::Version, &STORAGE_VERSION);
+        emit(&env, CreatorEvent::Migrated(from_version, STORAGE_VERSION));
         env.storage()
             .instance()
             .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);

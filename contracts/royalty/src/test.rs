@@ -32,6 +32,15 @@ fn test_storage_version_is_enforced() {
     assert!(client.try_migrate(&0u32).is_err());
 
     client.migrate(&99u32);
+    // A migration changes what stored values mean, so it is the one operation
+    // an operator must be able to find a timestamped record of afterwards.
+    let migrated_events = env.events().all();
+    let (_, _, migrated_data) = migrated_events
+        .get(migrated_events.len() - 1)
+        .expect("migrate emits an event");
+    let migrated: RoyaltyEvent =
+        RoyaltyEvent::try_from_val(&env, &migrated_data).expect("decodable event");
+    assert_eq!(migrated, RoyaltyEvent::Migrated(99, crate::STORAGE_VERSION));
     assert_eq!(client.version(), crate::STORAGE_VERSION);
     client.configure_royalty(&creator, &1u64, &500u32, &recipients, &false);
     assert_eq!(client.get_royalty(&1u64, &false).basis_points, 500);

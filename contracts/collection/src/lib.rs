@@ -128,6 +128,11 @@ pub enum ColEvent {
     NftRemoved(u64, u64),
     /// The admin role moved to a new address.
     AdminChanged(Address),
+
+    /// The stored schema version advanced. A migration changes what stored
+    /// values mean, so the one operation that most needs a timestamped on-chain
+    /// record is the one that previously left none.
+    Migrated(u32, u32),
 }
 
 fn emit(env: &Env, event: ColEvent) {
@@ -285,6 +290,7 @@ impl BezaMintCollection {
         env.storage()
             .instance()
             .set(&ColKey::Version, &STORAGE_VERSION);
+        emit(&env, ColEvent::Migrated(from_version, STORAGE_VERSION));
         env.storage()
             .instance()
             .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);

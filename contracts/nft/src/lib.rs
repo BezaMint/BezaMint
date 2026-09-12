@@ -219,6 +219,11 @@ pub enum NftEvent {
     Approved(u64, Address),
     /// The admin role moved to a new address.
     AdminChanged(Address),
+
+    /// The stored schema version advanced. A migration changes what stored
+    /// values mean, so the one operation that most needs a timestamped on-chain
+    /// record is the one that previously left none.
+    Migrated(u32, u32),
 }
 
 fn emit_nft(env: &Env, event: NftEvent) {
@@ -342,6 +347,7 @@ impl BezaMintNft {
         env.storage()
             .instance()
             .set(&NftKey::Version, &STORAGE_VERSION);
+        emit_nft(&env, NftEvent::Migrated(from_version, STORAGE_VERSION));
         env.storage()
             .instance()
             .extend_ttl(TTL_THRESHOLD, TTL_LEDGERS);
