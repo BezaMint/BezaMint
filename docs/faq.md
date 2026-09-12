@@ -118,7 +118,7 @@ usually enough to identify the problem:
 | `spender is not approved for token`                   | No per-token or blanket approval exists for the caller.                  |
 | `token <id> already belongs to a collection`          | A token can belong to exactly one collection.                            |
 | `Collection: <id> is archived`                        | The collection no longer accepts NFTs or updates.                        |
-| `Collection: <id> is full`                            | The collection reached `MAX_NFTS_PER_COLLECTION` (10,000).               |
+| `Collection: <id> is full`                            | The collection reached `MAX_NFTS_PER_COLLECTION` (8,000).                |
 | `max supply of 1000000 reached`                       | The global `MAX_SUPPLY` ceiling was hit.                                 |
 | `config already exists for target`                    | `configure_royalty` creates terms once; use `update_royalty` afterwards. |
 | `config is frozen`                                    | The creator froze the royalty terms; they are permanent.                 |

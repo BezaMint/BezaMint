@@ -660,3 +660,63 @@ fn test_set_admin_rejects_zero_address() {
     assert!(client.try_set_admin(&zero).is_err());
     assert_eq!(client.get_admin(), admin);
 }
+
+/// The advertised cap has to be a number the contract can actually reach.
+///
+/// Membership is one dense `Vec<u64>` ledger entry and Stellar caps a contract
+/// data entry at 65,536 bytes, so the cap is bounded by the encoding rather than
+/// by policy. This guard runs on the constant, not on a built vector, because
+/// the failure it prevents is a constant being raised past the limit by someone
+/// who reasonably assumed the number was free to choose.
+#[test]
+fn test_collection_cap_fits_one_ledger_entry() {
+    // 4-byte length prefix plus 8 bytes per id.
+    let encoded = |n: u64| 4 + 8 * n;
+
+    assert!(
+        encoded(crate::MAX_NFTS_PER_COLLECTION) <= crate::MAX_ENTRY_BYTES,
+        "the cap encodes to {} bytes, over the {} byte entry limit",
+        encoded(crate::MAX_NFTS_PER_COLLECTION),
+        crate::MAX_ENTRY_BYTES
+    );
+
+    // The value this replaced: 80,004 bytes, 1.22x the limit, so the write that
+    // would have added the 8,192nd token could never have succeeded.
+    assert!(encoded(10_000) > crate::MAX_ENTRY_BYTES);
+
+    // And the cap is the largest round number that fits, so it cannot be raised
+    // by a further 1,000 without breaking the property above.
+    assert!(encoded(crate::MAX_NFTS_PER_COLLECTION + 1_000) > crate::MAX_ENTRY_BYTES);
+}
+
+/// `CollectionFull` is the error a creator sees when a collection is at its cap,
+/// and it is the guard the cap is only meaningful with: an unreachable cap and a
+/// missing guard look the same until someone relies on either.
+#[test]
+fn test_add_nft_refuses_at_the_cap() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let contract_id = env.register(BezaMintCollection, (admin.clone(),));
+    let client = BezaMintCollectionClient::new(&env, &contract_id);
+    let uri = String::from_str(&env, "ipfs://cap");
+    let id = client.create_collection(&creator, &uri);
+
+    // Set the tracked count rather than adding 8,000 members: the guard reads
+    // `nft_count` from the stored record, and building the real membership would
+    // make this test quadratic for no extra coverage.
+    env.as_contract(&contract_id, || {
+        let mut data: crate::CollectionData = env
+            .storage()
+            .persistent()
+            .get(&ColKey::Collection(id))
+            .unwrap();
+        data.nft_count = crate::MAX_NFTS_PER_COLLECTION;
+        env.storage()
+            .persistent()
+            .set(&ColKey::Collection(id), &data);
+    });
+
+    assert!(client.try_add_nft(&id, &1).is_err());
+}

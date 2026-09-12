@@ -38,7 +38,22 @@ const ZERO_ADDRESS: &str = "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
 
 /// Upper bound on how many NFTs a single collection may hold. Kept at module
 /// scope so the enforcement point and the documentation cannot drift apart.
-pub const MAX_NFTS_PER_COLLECTION: u64 = 10_000;
+///
+/// The number is not a policy choice made in isolation: membership is one dense
+/// `Vec<u64>` entry, and Stellar caps a contract-data entry at 65,536 bytes. An
+/// `Vec<u64>` of `n` ids encodes as a 4-byte length plus 8 bytes per id, so
+/// `n <= 8_191` fits (65,532 bytes) and `n = 8_192` does not (65,540).
+///
+/// The previous value of 10,000 encoded to 80,004 bytes, so the advertised cap
+/// was unreachable: the write that would have added the 8,192nd token failed
+/// against the entry limit, and the contract could not honour the number it
+/// documented. 8,000 keeps the promise with 1.5 KB of headroom for the entry
+/// framing around the vector.
+pub const MAX_NFTS_PER_COLLECTION: u64 = 8_000;
+
+/// The largest membership vector that fits a single ledger entry, restated here
+/// so the test that guards it and this constant cannot drift apart.
+pub const MAX_ENTRY_BYTES: u64 = 65_536;
 
 /// Maximum accepted length of a collection metadata URI, in bytes. Mirrors the
 /// NFT contract's limit so a URI is never valid in one place and rejected in
