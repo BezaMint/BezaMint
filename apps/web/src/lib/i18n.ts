@@ -24,7 +24,10 @@ export type TranslationKey =
   | 'landing.organize.title'
   | 'landing.organize.body'
   | 'landing.share.title'
-  | 'landing.share.body';
+  | 'landing.share.body'
+  | 'landing.deployment.status'
+  | 'landing.deployment.contracts'
+  | 'landing.deployment.commit';
 
 const DICTIONARY: Record<Locale, Record<TranslationKey, string>> = {
   en: {
@@ -39,6 +42,9 @@ const DICTIONARY: Record<Locale, Record<TranslationKey, string>> = {
     'landing.organize.body': 'Manage collections with powerful search and filtering',
     'landing.share.title': 'Share',
     'landing.share.body': 'Prepare assets for marketplace integration on Stellar',
+    'landing.deployment.status': 'Live on Stellar',
+    'landing.deployment.contracts': 'Contract set',
+    'landing.deployment.commit': 'Deployed from',
   },
 };
 
