@@ -8,6 +8,7 @@ import {
   validateAgainstSchema,
   formatIssues,
 } from '@/lib/server/metadataSchema';
+import { buildMetadataDocument, NAME_MAX } from '@/lib/server/nftMetadataDocument';
 import { assertValidCid, verifyPinnedContent } from '@/lib/server/verifyPin';
 import { ipfsGatewayUrl } from '@/lib/ipfsGateway';
 
@@ -18,8 +19,6 @@ import { ipfsGatewayUrl } from '@/lib/ipfsGateway';
  * fallback. Enforces a request-body size cap, schema validation (400s rather
  * than 500s) and the per-IP rate limit.
  */
-
-const NAME_MAX = 128;
 
 export async function OPTIONS() {
   return NextResponse.json(
@@ -101,29 +100,9 @@ export async function POST(request: NextRequest) {
 
     const pinata = getPinataClient()!;
 
-    const nftMetadata = {
-      name: safeName,
-      description: typeof metadataRecord.description === 'string' ? metadataRecord.description : '',
-      image: typeof metadataRecord.imageUri === 'string' ? metadataRecord.imageUri : '',
-      animation_url:
-        typeof metadataRecord.animationUri === 'string' ? metadataRecord.animationUri : '',
-      external_url:
-        typeof metadataRecord.externalUrl === 'string' ? metadataRecord.externalUrl : '',
-      attributes: (Array.isArray(metadataRecord.attributes) ? metadataRecord.attributes : []).map(
-        (attr: Record<string, unknown>) => ({
-          trait_type: attr.traitType || attr.trait_type,
-          value: attr.value,
-          display_type: attr.displayType || attr.display_type,
-        }),
-      ),
-      properties: {
-        collection_id:
-          typeof metadataRecord.collectionId === 'string' ? metadataRecord.collectionId : '',
-        royalties: metadataRecord.royalties ?? null,
-      },
-    };
-
-    const serialized = JSON.stringify(nftMetadata);
+    // The pinned document uses the conventional ERC-721 metadata keys, not the
+    // camelCase ones this route accepts; see nftMetadataDocument.ts.
+    const serialized = JSON.stringify(buildMetadataDocument(metadataRecord, safeName));
     const file = new File([serialized], `nft-${Date.now()}.json`, {
       type: 'application/json',
     });

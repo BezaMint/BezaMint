@@ -14,7 +14,7 @@ import { fetchWithTimeout } from '@/lib/server/http';
 import { getIpfsGateways } from '@/lib/ipfsGateway';
 import { TtlCache } from '@/lib/server/cache';
 import {
-  NFT_METADATA_SCHEMA,
+  NFT_METADATA_DOCUMENT_SCHEMA,
   validateAgainstSchema,
   formatIssues,
 } from '@/lib/server/metadataSchema';
@@ -122,7 +122,10 @@ export async function GET(request: NextRequest) {
         throw new ApiError('BAD_REQUEST', 'Metadata document is invalid JSON', 422);
       }
 
-      const issues = validateAgainstSchema(NFT_METADATA_SCHEMA, document);
+      // The document pinned to IPFS is not the request that produced it: it
+      // carries the conventional ERC-721 keys. Validating it against the
+      // request schema rejected every document this app had written.
+      const issues = validateAgainstSchema(NFT_METADATA_DOCUMENT_SCHEMA, document);
       if (issues.length > 0) {
         throw new ApiError(
           'BAD_REQUEST',

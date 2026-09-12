@@ -458,8 +458,17 @@ that throttles this egress IP is stepped over rather than failing the request --
 the pinning provider's gateway is always last in that list and always holds the
 content. An `http(s)` URI has one address and is fetched once.
 
-Returns `{ "data": { … } }` with `Cache-Control: public, max-age=60`. The document
-is validated against the NFT metadata schema before it is returned.
+Returns `{ "data": { … } }` with `Cache-Control: public, max-age=60`.
+
+The document is validated against `NFT_METADATA_DOCUMENT_SCHEMA` -- the shape
+`POST /api/ipfs/upload` pins, using the conventional ERC-721 keys (`image`,
+`animation_url`, `external_url`). This is deliberately not the schema the upload
+route enforces on its _request_ (`imageUri`, `collectionId`, …): the two shapes
+differ, and validating fetched documents against the request schema rejected
+every document this app had written. `name` is required, as it is on the
+request; unknown top-level keys are accepted, since a content-addressed document
+may have been written by any minter, and the remaining fields the UI reads are
+type-checked when present. A document that fails validation returns `422`.
 
 Errors: `400` for a missing or unsupported `uri`; `404` when the document does not
 exist; `502` when the gateway fails; `413` when the document exceeds 256 KiB;

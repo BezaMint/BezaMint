@@ -8,8 +8,14 @@
  * between client and server is explicit, documented, and unit-testable.
  *
  * The validator implements the subset of JSON Schema the metadata uses
- * (type, required, properties, maxLength, minLength, items, enum,
+ * (type, required, properties, maxLength, minLength, items, maxItems, enum,
  * additionalProperties) — no dependency needed.
+ *
+ * Two schemas live here because there are two shapes: `NFT_METADATA_SCHEMA`
+ * validates the upload *request*, and `NFT_METADATA_DOCUMENT_SCHEMA` validates
+ * a *document fetched back from IPFS*. They are not interchangeable — the
+ * document uses the conventional ERC-721 keys — and using one for the other
+ * made the metadata proxy reject everything this app pinned.
  */
 
 export interface SchemaNode {
@@ -19,6 +25,7 @@ export interface SchemaNode {
   items?: SchemaNode;
   maxLength?: number;
   minLength?: number;
+  maxItems?: number;
   maximum?: number;
   minimum?: number;
   enum?: unknown[];
@@ -26,6 +33,12 @@ export interface SchemaNode {
 }
 
 export type ValidationIssue = { path: string; message: string };
+
+/**
+ * Attribute cap shared by both schemas. Bounded rather than unbounded so a
+ * hostile payload cannot grow after it has been accepted.
+ */
+export const MAX_ATTRIBUTE_ITEMS = 20;
 
 export const NFT_METADATA_SCHEMA: SchemaNode = {
   type: 'object',
@@ -41,6 +54,8 @@ export const NFT_METADATA_SCHEMA: SchemaNode = {
     royalties: { type: 'number', minimum: 0, maximum: 10000 },
     attributes: {
       type: 'array',
+      // Bounded so a hostile payload cannot blow up memory later.
+      maxItems: MAX_ATTRIBUTE_ITEMS,
       items: {
         type: 'object',
         // A trait name may arrive as either camelCase or snake_case; only
@@ -55,12 +70,48 @@ export const NFT_METADATA_SCHEMA: SchemaNode = {
           display_type: { type: 'string', maxLength: 64 },
         },
       },
-      // Bounded inline so a hostile payload cannot blow up memory later.
     },
   },
 };
 
-const MAX_ATTRIBUTE_ITEMS = 20;
+/**
+ * A document fetched back from IPFS, in the shape `buildMetadataDocument`
+ * writes and the ERC-721 convention documents.
+ *
+ * More permissive than the request schema in one direction: unknown top-level
+ * keys are allowed, because a content-addressed document can have been written
+ * by any minter (`background_color`, `tokenId`, and so on), and rejecting a
+ * document the UI can render perfectly well would make the proxy useless for
+ * anything this app did not pin itself. `name` is still required, as the
+ * ERC-721 metadata convention and the upload route both have it, and the fields
+ * the UI reads are type-checked when present.
+ */
+export const NFT_METADATA_DOCUMENT_SCHEMA: SchemaNode = {
+  type: 'object',
+  required: ['name'],
+  additionalProperties: true,
+  properties: {
+    name: { type: 'string', maxLength: 256 },
+    description: { type: 'string', maxLength: 4000 },
+    image: { type: 'string', maxLength: 1000 },
+    animation_url: { type: 'string', maxLength: 1000 },
+    external_url: { type: 'string', maxLength: 1000 },
+    attributes: {
+      type: 'array',
+      maxItems: MAX_ATTRIBUTE_ITEMS,
+      items: {
+        type: 'object',
+        additionalProperties: true,
+        properties: {
+          trait_type: { type: 'string', maxLength: 64 },
+          value: { type: 'string', maxLength: 256 },
+          display_type: { type: 'string', maxLength: 64 },
+        },
+      },
+    },
+    properties: { type: 'object' },
+  },
+};
 
 function typeMatches(node: SchemaNode, value: unknown): boolean {
   switch (node.type) {
@@ -139,13 +190,10 @@ function validateNode(node: SchemaNode, value: unknown, path: string, issues: Va
   }
 
   if (node.type === 'array' && Array.isArray(value)) {
+    if (node.maxItems !== undefined && value.length > node.maxItems) {
+      issues.push({ path, message: `more than ${node.maxItems} items` });
+    }
     if (node.items) {
-      if (
-        node.items === NFT_METADATA_SCHEMA.properties?.attributes?.items &&
-        value.length > MAX_ATTRIBUTE_ITEMS
-      ) {
-        issues.push({ path, message: `more than ${MAX_ATTRIBUTE_ITEMS} items` });
-      }
       value.forEach((item, index) => {
         validateNode(node.items!, item, `${path}[${index}]`, issues);
       });
@@ -160,9 +208,14 @@ export function validateAgainstSchema(schema: SchemaNode, value: unknown): Valid
   return issues;
 }
 
-/** Convenience: does the value conform to the NFT metadata schema? */
+/** Convenience: does the value conform to the upload request schema? */
 export function isValidNftMetadata(value: unknown): boolean {
   return validateAgainstSchema(NFT_METADATA_SCHEMA, value).length === 0;
+}
+
+/** Convenience: does the value conform to the pinned document schema? */
+export function isValidNftMetadataDocument(value: unknown): boolean {
+  return validateAgainstSchema(NFT_METADATA_DOCUMENT_SCHEMA, value).length === 0;
 }
 
 /** Map schema issues onto a single human-readable message. */
