@@ -1,6 +1,6 @@
 # BezaMint — Contributor Backlog
 
-99 open issues, every one verified against the current tree. Each entry names the
+98 open issues, every one verified against the current tree. Each entry names the
 problem, the evidence that it is real, and acceptance criteria a reviewer can check
 objectively. Every entry here corresponds to an open issue in the tracker, and every
 issue in the tracker corresponds to an entry here — the two are kept in step
@@ -21,13 +21,15 @@ implemented, one adding a second module duplicating `apps/web/src/lib/explorer.t
 adding a `CONTRIBUTING.md` that already existed. Those issues were closed and the tracker
 was reduced to the work that was genuinely open.
 
-It has since been grown back to 100, and now stands at **99** after the admin-rotation
-work landed and closed #133 and #134. That count is only defensible because every new
-entry was checked against the tree first and carries the command or file that
-demonstrates the gap. An entry whose evidence no longer holds should be closed, not
-rewritten — #133 and #134 were closed the moment the fix shipped, rather than being
-kept open to hold the number up. The distinction that matters is not the count, it is
-whether opening an issue tells a contributor something true.
+It has since been grown back to 100, and now stands at **98**. The admin-rotation work
+closed #133 and #134; the error-catalog work closed #138 and #139; #209 was filed when
+the `Security` workflow was found to have been failing on every run. That count is only
+defensible because every new entry was checked against the tree first and carries the
+command or file that demonstrates the gap. An entry whose evidence no longer holds
+should be closed, not rewritten — the four closed above went the moment the fix
+shipped, rather than being kept open to hold the number up. The distinction that
+matters is not the count, it is whether opening an issue tells a contributor something
+true.
 
 Labels: `good first issue` for scoped work needing no context, `difficulty: easy`/
 `medium`/`hard`, and `design-decision-needed` where the work cannot start before a
@@ -146,30 +148,6 @@ Five workspace members each re-implement `bump_ttl`, `assert_version` and `start
 - [ ] A `contracts/common` crate (or documented reason not to have one) holding the genuinely shared helpers.
 - [ ] Wasm size impact measured and budgets adjusted in the same commit.
 - [ ] A short ADR recording the decision.
-
-### 138. [contracts] The 72 contract error codes have no published reference
-
-**Problem.**
-The contracts now return typed numeric codes, but nothing documents them. An integrator can only discover the meaning of `Error(Contract, #12)` by reading Rust source, which is exactly the situation the typed errors were meant to end.
-**Evidence.**
-No file under `docs/` mentions the error enums; `grep -rln 'contract error' docs/*.md` finds only the review doc.
-**Acceptance criteria.**
-
-- [ ] A published table of every code, its contract, its meaning and its trigger.
-- [ ] Generated from the source rather than hand-maintained, or checked by CI so it cannot drift.
-- [ ] Linked from `contracts/README.md` and `docs/api-reference.md`.
-
-### 139. [contracts] The TypeScript client does not decode contract error codes
-
-**Problem.**
-`normalizeError` maps Soroban failures to generic `CONTRACT_ERROR`, so a caller receives an opaque string and cannot branch on the code the contract deliberately returned.
-**Evidence.**
-`grep -rn 'Error(Contract' apps/web/src --include=*.ts` returns nothing; `ApiErrorCode` in `apps/web/src/lib/server/errors.ts` has no contract-code dimension.
-**Acceptance criteria.**
-
-- [ ] `Error(Contract, #N)` is parsed into a structured field carrying the numeric code and the owning contract.
-- [ ] The mapping is covered by tests using real host-shaped errors.
-- [ ] Unmapped codes degrade gracefully rather than throwing.
 
 ### 140. [security] No independent security audit has been performed
 
@@ -951,6 +929,19 @@ After editing all five contracts, `pnpm run contract:size` reported `bezamint_fa
 
 - [ ] `contract:size` and `contract:abi` rebuild first (`pnpm run contract:build && …`), or fail with "artifacts are older than sources" rather than reporting on stale ones.
 - [ ] The failure path is demonstrated — a test or CI step that shows the stale case failing instead of passing.
+
+### 209. [ci] The Security workflow's Rust audit has never run
+
+**Problem.**
+The `Security` workflow's `Dependency Audit` job failed on every run since at least 2026-09-07 — every push to `main` touching a `package.json`, plus the weekly schedule. It never reached the audit: it died installing its own tool, so the Rust advisory check has not been running at all. A red job that nobody reads is worse than no job, because it looks like coverage.
+**Evidence.**
+Run [34663643133](https://github.com/BezaMint/BezaMint/actions/runs/34663643133) fails at `Audit Rust dependencies` with `failed to compile cargo-audit v0.22.2` / `rustc 1.88.0 is not supported by the following packages: kstring@2.0.4 requires rustc 1.96.0, smol_str@0.3.6 requires rustc 1.89`. The job reads the channel pinned in `contracts/rust-toolchain.toml` and installs the tool under it, and `audit-check` runs with `working-directory: contracts` where rustup would pick that pin up regardless. `cargo audit --file contracts/Cargo.lock` under a current toolchain is clean, so nothing was being masked — the check simply was not running.
+**Acceptance criteria.**
+
+- [ ] The audit installs its tool under a toolchain that can build it, independent of the contracts' pin.
+- [ ] The pin still governs the contracts' build in `ci.yml`, unchanged.
+- [ ] The job passes on a clean tree and fails on a real advisory.
+- [ ] A cold install does not risk the job's timeout.
 
 ## Documentation
 

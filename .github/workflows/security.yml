@@ -16,7 +16,10 @@ jobs:
   dependency-audit:
     name: Dependency Audit
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # A cold `cargo install cargo-audit` is a several-minute source build, and the
+    # original 10-minute ceiling left little room for a slow runner. The cache
+    # below removes the build on a hit; this is the ceiling for a cold miss.
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v5
@@ -34,23 +37,36 @@ jobs:
           pnpm audit --audit-level=high
           pnpm audit --prod --audit-level=high
 
-      - name: Read the pinned Rust toolchain
-        id: rust
-        run: |
-          channel=$(sed -n 's/^channel *= *"\(.*\)"/\1/p' contracts/rust-toolchain.toml)
-          if [ -z "$channel" ]; then
-            echo "contracts/rust-toolchain.toml does not declare a channel" >&2
-            exit 1
-          fi
-          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+      # Deliberately `stable`, not the channel pinned in
+      # contracts/rust-toolchain.toml. cargo-audit is a tool this job installs
+      # and runs; it is not part of the contracts' build, and it must not inherit
+      # the contracts' pin. The pin is rustc 1.88, while cargo-audit's own
+      # dependency tree has moved past it — `cargo install cargo-audit` under the
+      # pin fails outright (`kstring` requires 1.96, `smol_str` requires 1.89),
+      # which failed this job on every push. The audit reads Cargo.lock, so the
+      # toolchain used to run it has no bearing on which advisories are found.
+      - name: Set up Rust for the audit tool
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Set up Rust
-        uses: dtolnay/rust-toolchain@master
+      # `audit-check` installs `cargo-audit` itself and skips the install when the
+      # binary is already on PATH, so caching it turns a multi-minute compile into
+      # a restore. The key is deliberately versioned by hand rather than hashed:
+      # the tool is independent of this repository's dependencies, so there is
+      # nothing in the tree to hash against. Bump the suffix to pick up a newer
+      # cargo-audit.
+      - name: Cache cargo-audit
+        uses: actions/cache@v4
         with:
-          toolchain: ${{ steps.rust.outputs.channel }}
+          path: ~/.cargo/bin/cargo-audit
+          key: cargo-audit-${{ runner.os }}-v1
 
       - name: Audit Rust dependencies
         uses: rustsec/audit-check@v2.0.0
+        # `working-directory` puts the tool inside contracts/, where rustup would
+        # otherwise read rust-toolchain.toml and switch back to the pin that the
+        # step above exists to avoid.
+        env:
+          RUSTUP_TOOLCHAIN: stable
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           working-directory: contracts
