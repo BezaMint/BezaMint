@@ -1,5 +1,5 @@
 import { xdr, Address, nativeToScVal, scValToNative } from '@stellar/stellar-sdk';
-import type { SocialLink } from '@bezamint/shared';
+import { isErrorCode, type AnyErrorCode, type SocialLink } from '@bezamint/shared';
 import {
   buildContractTransaction,
   simulateTransaction,
@@ -41,41 +41,123 @@ export class TxError extends Error {
     message: string,
     public readonly type: TxErrorType,
     public readonly originalError?: unknown,
+    /**
+     * The catalogue code for this failure.
+     *
+     * `type` is the coarse bucket the UI switches on; `code` is the specific
+     * failure, and it is what a user is told when the bucket is `Unknown` and
+     * what a bug report quotes. Both are carried because removing `type` would
+     * rewrite every consumer for no user-visible gain.
+     */
+    public readonly code: AnyErrorCode = 'TX_RESULT_FAILED',
   ) {
     super(message);
     this.name = 'TxError';
   }
 }
 
-function categorizeError(err: unknown): TxError {
+/**
+ * Classify a wallet or network failure into a catalogue code.
+ *
+ * The patterns are the vocabulary the Freighter extension and the Stellar SDK
+ * actually use. Matching is on lower-cased text because the same refusal arrives
+ * as `User declined`, `user rejected`, and `Request was denied` depending on the
+ * extension version, and a user cancelling was previously reported as a network
+ * error whenever their browser's phrase differed from the one we happened to
+ * check for.
+ *
+ * Ordered from most specific to least: `insufficient` appears in both
+ * "insufficient balance" and "insufficient fee", and the balance case is the
+ * one a user can act on.
+ */
+export function categorizeError(err: unknown): TxError {
   const message = (err as { message?: string })?.message || '';
+  const text = message.toLowerCase();
 
-  if (message.includes('not installed') || message.includes('Freighter')) {
+  const has = (...needles: string[]) => needles.some((needle) => text.includes(needle));
+
+  // A failure that already knows its code — a `WalletError` from the wrapper, or
+  // a protocol failure that `normalizeError` classified — is taken at its word.
+  // Re-deriving it from the sentence here is how a wallet's own precise code got
+  // downgraded to "unknown" on the way to the UI.
+  const preset = (err as { code?: unknown })?.code;
+  if (typeof preset === 'string' && isErrorCode(preset)) {
+    const type = preset.startsWith('WALLET_')
+      ? preset === 'WALLET_USER_REJECTED'
+        ? TxErrorType.UserCancelled
+        : TxErrorType.ConnectionRejected
+      : TxErrorType.ContractError;
+    return new TxError(message || 'Transaction failed', type, err, preset as AnyErrorCode);
+  }
+
+  if (has('not installed', 'extension is not available', 'freighter is not installed')) {
     return new TxError(
       'Freighter wallet is not installed. Please install the Freighter browser extension.',
       TxErrorType.WalletNotInstalled,
       err,
+      'WALLET_NOT_INSTALLED',
     );
   }
-  if (
-    message.includes('cancelled') ||
-    message.includes('rejected') ||
-    message.includes('denied') ||
-    message.includes('user')
-  ) {
-    return new TxError('Transaction was cancelled by user.', TxErrorType.UserCancelled, err);
+  if (has('not connected', 'not authorised', 'no account is connected')) {
+    return new TxError(
+      'Your wallet is not connected. Connect it and try again.',
+      TxErrorType.ConnectionRejected,
+      err,
+      'WALLET_NOT_CONNECTED',
+    );
   }
-  if (message.includes('insufficient') || message.includes('balance')) {
-    return new TxError(message, TxErrorType.InsufficientBalance, err);
+  if (has('declined', 'rejected', 'denied', 'cancelled', 'canceled')) {
+    return new TxError(
+      'Transaction was cancelled by user.',
+      TxErrorType.UserCancelled,
+      err,
+      'WALLET_USER_REJECTED',
+    );
   }
-  if (message.includes('timeout') || message.includes('not finalized')) {
-    return new TxError(message, TxErrorType.Timeout, err);
+  if (has('access to this site', 'site access', 'permission')) {
+    return new TxError(
+      'Freighter refused this site access to your account.',
+      TxErrorType.ConnectionRejected,
+      err,
+      'WALLET_ACCESS_DENIED',
+    );
   }
-  if (message.includes('network') || message.includes('fetch')) {
-    return new TxError(message, TxErrorType.NetworkError, err);
+  if (has('popup', 'blocked')) {
+    return new TxError(
+      'Your browser blocked the wallet window. Allow pop-ups for this site and try again.',
+      TxErrorType.ConnectionRejected,
+      err,
+      'WALLET_POPUP_BLOCKED',
+    );
+  }
+  if (has('different network', 'wrong network', 'network mismatch', 'passphrase')) {
+    return new TxError(
+      'Your wallet is on a different network than this app. Switch it and try again.',
+      TxErrorType.NetworkError,
+      err,
+      'WALLET_WRONG_NETWORK',
+    );
+  }
+  if (has('insufficient balance', 'insufficient funds', 'underfunded')) {
+    return new TxError(message, TxErrorType.InsufficientBalance, err, 'TX_FEE_UNPAYABLE');
+  }
+  if (has('timeout', 'timed out', 'not finalized')) {
+    return new TxError(message, TxErrorType.Timeout, err, 'TX_CONFIRMATION_TIMEOUT');
+  }
+  if (has('bad sequence', 'tx_bad_seq', 'sequence number')) {
+    return new TxError(message, TxErrorType.NetworkError, err, 'TX_SEQUENCE_STALE');
+  }
+  if (has('malformed', 'invalid xdr', 'not valid base64')) {
+    return new TxError(message, TxErrorType.Unknown, err, 'TX_XDR_MALFORMED');
+  }
+  if (has('auth', 'unauthorized', 'signature')) {
+    return new TxError(message, TxErrorType.ContractError, err, 'TX_AUTH_ENTRY_MISSING');
+  }
+  if (has('network', 'fetch', 'connection')) {
+    return new TxError(message, TxErrorType.NetworkError, err, 'NETWORK_ERROR');
   }
 
-  return new TxError(message || 'Transaction failed', TxErrorType.Unknown, err);
+  return new TxError(message || 'Transaction failed', TxErrorType.Unknown, err, 'TX_RESULT_FAILED');
 }
 
 // ─────────────────────── NFT Contract ───────────────────────
@@ -636,6 +718,8 @@ export async function signAndSubmit(
     throw new TxError(
       'Freighter wallet is not installed. Please install the Freighter browser extension.',
       TxErrorType.WalletNotInstalled,
+      undefined,
+      'WALLET_NOT_INSTALLED',
     );
   }
 
@@ -653,13 +737,29 @@ export async function signAndSubmit(
   const submitResult = await submitSignedTransaction(signedXdr);
 
   if (submitResult.status === 'ERROR') {
+    // The result XDR carries the diagnosis; classify it rather than reporting it
+    // as an opaque string. `errorResultXdr` is base64, so the protocol code is
+    // looked up from the diagnostic text the RPC includes alongside it when it
+    // is present, and the envelope is quoted when it is not.
+    const detail = (submitResult as { errorResultXdr?: string }).errorResultXdr;
     throw new TxError(
-      `Submission failed: ${(submitResult as { errorResultXdr?: string }).errorResultXdr || 'Unknown error'}`,
+      `Submission failed: ${detail || 'no result from the network'}`,
       TxErrorType.ContractError,
+      undefined,
+      'TX_RESULT_FAILED',
     );
   }
 
   const txHash = submitResult.hash;
+  if (!txHash) {
+    throw new TxError(
+      'The network accepted the submission but returned no hash to track.',
+      TxErrorType.Unknown,
+      undefined,
+      'TX_INCLUSION_MISSING',
+    );
+  }
+
   onStatus?.('confirming');
 
   const result = await waitForTransaction(txHash);

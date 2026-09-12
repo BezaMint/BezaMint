@@ -160,6 +160,15 @@ jobs:
       - name: Check the error catalog matches the contracts
         run: python3 scripts/generate-error-catalog.py
 
+      # The catalog is easy to inflate: a declared code that nothing raises is
+      # documentation of an intention, and it makes the whole list untrustworthy
+      # because a reader cannot tell which entries a caller can meet. This is the
+      # gate that keeps every entry reachable, and it covers the application
+      # codes as well as the contract ones now that the generated page renders
+      # both halves.
+      - name: Check every declared error code has a call site
+        run: python3 scripts/check-error-codes.py
+
       # docs/resource-costs.md is generated from the benchmark suite. The suite
       # itself ran with the tests above and carries the per-entry-point budgets,
       # which is what catches a hot path getting more expensive. What no other

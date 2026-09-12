@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
+import { ERROR_CODE_BY_NAME } from '@bezamint/shared';
 import {
   ApiError,
+  apiError,
   errorMessage,
   normalizeError,
   badRequest,
@@ -102,7 +104,74 @@ describe('normalizeError', () => {
 describe('error helpers', () => {
   it('badRequest produces a serializable shape', () => {
     const json = badRequest('bad input').toJson();
-    expect(json).toEqual({ error: { code: 'BAD_REQUEST', message: 'bad input' } });
+    expect(json).toEqual({
+      error: {
+        code: 'BAD_REQUEST',
+        // The catalogue id is published alongside the symbolic name: an operator
+        // greps a log for `BM-API-0001`, a client branches on `BAD_REQUEST`.
+        errorCode: 'BM-API-0001',
+        message: 'bad input',
+      },
+    });
+  });
+
+  it('takes the default message and status from the catalogue', () => {
+    // A call site with nothing to add should not restate what the catalogue
+    // already documents, or the docs and the response drift apart.
+    const error = apiError('TOKEN_ALREADY_IN_COLLECTION');
+    expect(error.message).toBe(ERROR_CODE_BY_NAME['TOKEN_ALREADY_IN_COLLECTION']?.message);
+    expect(error.status).toBe(409);
+    expect(error.retryable).toBe(false);
+  });
+
+  it('classifies a Horizon submission failure by its result code', () => {
+    // Before this, `result_codes` was ignored entirely and a stale sequence
+    // number was answered with 500 INTERNAL.
+    const err = new Error('Transaction submission failed');
+    Object.assign(err, { result_codes: { transaction: 'tx_bad_seq' } });
+    const result = normalizeError(err);
+    expect(result.code).toBe('TX_SEQUENCE_STALE');
+    expect(result.status).toBe(409);
+    expect(result.retryable).toBe(true);
+  });
+
+  it('prefers the operation result over the generic transaction result', () => {
+    // `tx_failed` only says "something substantive failed"; the operation result
+    // says which. Reporting the outer code discards the useful half.
+    const err = new Error('Transaction submission failed');
+    Object.assign(err, {
+      result_codes: { transaction: 'tx_failed', operations: ['op_underfunded'] },
+    });
+    const result = normalizeError(err);
+    expect(result.code).toBe('PAYMENT_UNDERFUNDED');
+  });
+
+  it('reads result codes out of a Horizon response wrapper too', () => {
+    const err = new Error('Request failed with status code 400');
+    Object.assign(err, {
+      response: { data: { extras: { result_codes: { transaction: 'tx_insufficient_fee' } } } },
+    });
+    expect(normalizeError(err).code).toBe('TX_FEE_TOO_LOW');
+  });
+
+  it('names a host authorization failure precisely rather than as a generic contract error', () => {
+    // There is no `Error(Contract, #N)` here, so this is not a contract error the
+    // catalogue can name by number -- it is the host refusing an authorization.
+    // Reporting 403 with the reason beats reporting 422 with "a contract call
+    // failed".
+    const result = normalizeError(new Error('HostError: Error(Auth, InvalidAction)'));
+    expect(result.code).toBe('HOST_AUTH_FAILED');
+    expect(result.status).toBe(403);
+    expect(result.details).toMatchObject({ stellar: { code: 'HOST_AUTH_FAILED' } });
+  });
+
+  it('keeps CONTRACT_ERROR for a numbered contract failure and adds the protocol detail', () => {
+    const err = new Error('HostError: Error(Contract, #12)');
+    const result = normalizeError(err, { contract: 'nft' });
+    expect(result.code).toBe('CONTRACT_ERROR');
+    expect(result.details).toMatchObject({
+      contractError: { code: 12, contract: 'nft', variant: 'FromIsNotOwner' },
+    });
   });
 
   it('rateLimited sets status 429', () => {

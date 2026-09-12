@@ -45,6 +45,36 @@ CONTRACTS_DIR = ROOT_DIR / "contracts"
 DOC_PATH = ROOT_DIR / "docs" / "error-codes.md"
 TS_PATH = ROOT_DIR / "apps" / "web" / "src" / "lib" / "contractErrors.ts"
 
+# The application half of the catalogue. Contract codes are numbered per contract
+# by the Rust enums above; the rest of the system declares its codes in one
+# TypeScript registry, and this script renders both into one page so an
+# integrator has a single place to look.
+SHARED_ERRORS_DIR = ROOT_DIR / "packages" / "shared" / "src" / "errors"
+CODES_PATH = SHARED_ERRORS_DIR / "codes.ts"
+PROTOCOL_PATH = SHARED_ERRORS_DIR / "protocol.ts"
+
+# Domains that have no rows in `ERROR_ROWS`: contract codes are generated, and
+# protocol codes are Stellar's own tables.
+SHARED_ROW_RE = re.compile(r"^\s*\['([A-Z][A-Z0-9_]+)',\s*(\d+),\s*'([^']*)'", re.M)
+DOMAIN_RE = re.compile(r"^  (\w+): \[", re.M)
+PROTOCOL_ROW_RE = re.compile(
+    r"^\s*name: '([A-Z][A-Z0-9_]+)',\s*\n\s*status: (\d+),\s*\n\s*retryable: (true|false),\s*\n\s*message: '([^']*)'",
+    re.M,
+)
+
+DOMAIN_TITLES = {
+    "api": "HTTP outcomes the API returns",
+    "auth": "Authentication and authorization",
+    "validation": "Input validation rules",
+    "wallet": "Browser wallet failures",
+    "transaction": "Building, signing and submitting a transaction",
+    "ipfs": "Pinning and gateway reads",
+    "metadata": "Metadata resolution and document shape",
+    "indexer": "Reading the chain into a snapshot",
+    "config": "Deployment and build configuration",
+    "ui": "Client-side failures a component or boundary caught",
+}
+
 # Contract order matches `CONTRACT_IDS` in apps/web/src/services/contracts.ts and
 # the `checks.contracts` object in /api/health, so the three stay comparable.
 CONTRACTS: tuple[str, ...] = ("nft", "collection", "royalty", "creator", "factory")
@@ -201,11 +231,138 @@ def parse_source(path: Path) -> tuple[str, dict[int, dict[str, object]]]:
     return enum_name, codes
 
 
+def parse_shared_catalogue() -> tuple[dict[str, list[tuple[str, int, str, bool]]], list[tuple[str, int, str, bool]]]:
+    """Read the application and protocol halves of the catalogue.
+
+    Parsed rather than imported because this generator is Python and the
+    registry is TypeScript. The shape is asserted by the regexes: a row that
+    stops matching is a hard error here rather than a silently missing line in
+    the published page, and `scripts/check-error-codes.py` independently proves
+    that every parsed name has a call site.
+    """
+    text = CODES_PATH.read_text(encoding="utf-8")
+    domains: dict[str, list[tuple[str, int, str, bool]]] = {}
+
+    # Walk the file once, tracking which domain block each row belongs to.
+    current: str | None = None
+    for line in text.split("\n"):
+        header = re.match(r"^  (\w+): \[", line)
+        if header:
+            current = header.group(1)
+            domains.setdefault(current, [])
+            continue
+        row = re.match(r"^\s*\['([A-Z][A-Z0-9_]+)',\s*(\d+),\s*'([^']*)'(?:,\s*(true|false))?\]", line)
+        if row and current:
+            domains[current].append(
+                (row.group(1), int(row.group(2)), row.group(3), row.group(4) == "true")
+            )
+
+    protocol: list[tuple[str, int, str, bool]] = []
+    proto_text = PROTOCOL_PATH.read_text(encoding="utf-8")
+    for match in PROTOCOL_ROW_RE.finditer(proto_text):
+        protocol.append(
+            (match.group(1), int(match.group(2)), match.group(4), match.group(3) == "true")
+        )
+
+    if not domains:
+        raise ContractError(f"{CODES_PATH} declares no error rows")
+    if not protocol:
+        raise ContractError(f"{PROTOCOL_PATH} declares no protocol rows")
+
+    return domains, protocol
+
+
+def render_shared_sections(
+    domains: dict[str, list[tuple[str, int, str, bool]]],
+    protocol: list[tuple[str, int, str, bool]],
+) -> list[str]:
+    """The application and protocol tables, as markdown lines."""
+    out: list[str] = []
+    out.append("## Application and protocol codes")
+    out.append("")
+    out.append(
+        "Contract codes are numbered per contract and carry no name until this page\n"
+        "maps them. Everything else the system can fail with has a symbolic name from\n"
+        "the outset, because those failures are raised by code this repository owns or\n"
+        "observed from a dependency it calls. They are declared in\n"
+        "`packages/shared/src/errors/`, and `scripts/check-error-codes.py` fails CI when\n"
+        "a declared code has no call site — so every row below is reachable, not\n"
+        "aspirational."
+    )
+    out.append("")
+    out.append(
+        "Each code also carries a stable `BM-<DOMAIN>-<NNNN>` identifier. Clients branch\n"
+        "on the name; operators grep logs and configure alerts on the identifier. Both\n"
+        "are published and neither is ever reused."
+    )
+    out.append("")
+    out.append("| Domain | Codes |")
+    out.append("| ------ | ----: |")
+    for domain in DOMAIN_TITLES:
+        if domain in domains:
+            out.append(f"| `{domain}` | {len(domains[domain])} |")
+    out.append(f"| `protocol` | {len(protocol)} |")
+    out.append("")
+
+    out.append("### Stellar protocol codes")
+    out.append("")
+    out.append(
+        "These are the network's own result codes, not ours. `classifyProtocolError` maps\n"
+        "them onto the names below so a rejection says what actually failed: a stale\n"
+        "sequence number and an underfunded account were previously both reported as\n"
+        "`INTERNAL`. The list covers every member of the SDK's `TransactionResultCode`,\n"
+        "`OperationResultCode`, `InvokeHostFunctionResultCode` and `PaymentResultCode`\n"
+        "enums that represents a failure, plus the host error families the host reports\n"
+        "as text; `errors.test.ts` fails if a future SDK adds a member this table does not\n"
+        "account for."
+    )
+    out.append("")
+    out.append("| Code | Name | HTTP | Retryable | Meaning |")
+    out.append("| ---- | ---- | ---- | --------- | ------- |")
+    for index, (name, status, message, retryable) in enumerate(protocol):
+        out.append(
+            f"| `BM-PROTOCOL-{index + 1:04d}` | `{name}` | {status or '—'} | "
+            f"{'yes' if retryable else 'no'} | {message} |"
+        )
+    out.append("")
+
+    for domain, title in DOMAIN_TITLES.items():
+        rows = domains.get(domain)
+        if not rows:
+            continue
+        out.append(f"### `{domain}` — {title}")
+        out.append("")
+        out.append(f"{len(rows)} codes.")
+        out.append("")
+        out.append("| Code | Name | HTTP | Retryable | Meaning |")
+        out.append("| ---- | ---- | ---- | --------- | ------- |")
+        for index, (name, status, message, retryable) in enumerate(rows):
+            prefix = {
+                "api": "API",
+                "auth": "AUTH",
+                "validation": "VALIDATION",
+                "wallet": "WALLET",
+                "transaction": "TX",
+                "ipfs": "IPFS",
+                "metadata": "METADATA",
+                "indexer": "INDEXER",
+                "config": "CONFIG",
+                "ui": "UI",
+            }[domain]
+            out.append(
+                f"| `BM-{prefix}-{index + 1:04d}` | `{name}` | {status or '—'} | "
+                f"{'yes' if retryable else 'no'} | {message} |"
+            )
+        out.append("")
+
+    return out
+
+
 def render_markdown(catalog: dict[str, tuple[str, dict[int, dict[str, object]]]]) -> str:
     total = sum(len(codes) for _, codes in catalog.values())
 
     out: list[str] = []
-    out.append("# BezaMint Contract Error Codes")
+    out.append("# BezaMint Error Codes")
     out.append("")
     out.append(GENERATED_WARNING_MD)
     out.append("")
@@ -214,7 +371,10 @@ def render_markdown(catalog: dict[str, tuple[str, dict[int, dict[str, object]]]]
         f"strings. When a contract call fails, the Soroban host reports it as\n"
         f"`Error(Contract, #N)` — an integer with no name attached. This page maps each\n"
         f"integer back to its variant, what it means, and which functions can raise it.\n"
-        f"**{total} codes** are in use across the five contracts."
+        f"**{total} codes** are in use across the five contracts, and every other\n"
+        f"failure the system can produce or surface has a named code below. The two\n"
+        f"halves are generated from their own sources so neither can drift from the\n"
+        f"code that raises it."
     )
     out.append("")
     out.append("## Decoding a failure")
@@ -269,6 +429,9 @@ def render_markdown(catalog: dict[str, tuple[str, dict[int, dict[str, object]]]]
             meaning = entry["meaning"] or "—"
             out.append(f"| {code} | `{entry['variant']}` | {raised_text} | {meaning} |")
         out.append("")
+
+    domains, protocol = parse_shared_catalogue()
+    out.extend(render_shared_sections(domains, protocol))
 
     out.append("## Editing this catalog")
     out.append("")

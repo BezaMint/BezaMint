@@ -15,26 +15,35 @@
  * numeric code, the owning contract and — when the code is known — the variant
  * name and its documented meaning.
  */
+import { classifyProtocolError, ERROR_CODE_BY_NAME, type AnyErrorCode } from '@bezamint/shared';
 import {
   describeContractError,
   type ContractErrorDescriptor,
   type ContractName,
 } from '@/lib/contractErrors';
 
-export type ApiErrorCode =
-  | 'BAD_REQUEST'
-  | 'UNAUTHORIZED'
-  | 'FORBIDDEN'
-  | 'NOT_FOUND'
-  | 'RATE_LIMITED'
-  | 'CONTRACT_ERROR'
-  | 'NETWORK_ERROR'
-  | 'TIMEOUT'
-  | 'INTERNAL';
+/**
+ * Every code an API error may carry.
+ *
+ * This used to be a hand-written union of nine names, which meant a route could
+ * only say "bad request" — `COLLECTION_ARCHIVED` and `TOKEN_ALREADY_IN_COLLECTED`
+ * were the same answer to a caller. It is now the catalogue's name union, so a
+ * typo fails to compile and a new failure is a one-line addition to
+ * `packages/shared/src/errors/codes.ts` rather than a new string in a handler.
+ */
+export type ApiErrorCode = AnyErrorCode;
 
 export interface ApiErrorShape {
   error: {
     code: ApiErrorCode;
+    /**
+     * The catalogue's `BM-…` identifier.
+     *
+     * `code` is what a client branches on; this is what an operator greps a log
+     * for and what a monitoring rule fires on. Both are published, because a
+     * symbolic name alone is ambiguous the moment two domains reuse a word.
+     */
+    errorCode: string;
     message: string;
     details?: unknown;
   };
@@ -45,18 +54,32 @@ export class ApiError extends Error {
   readonly status: number;
   readonly details?: unknown;
 
-  constructor(code: ApiErrorCode, message: string, status: number, details?: unknown) {
-    super(message);
+  constructor(code: ApiErrorCode, message?: string, status?: number, details?: unknown) {
+    const definition = ERROR_CODE_BY_NAME[code];
+    // The catalogue supplies the default message and status, so a call site with
+    // nothing to add does not restate them and cannot drift from the docs.
+    super(message ?? definition?.message ?? 'Request failed');
     this.name = 'ApiError';
     this.code = code;
-    this.status = status;
+    this.status = status ?? definition?.status ?? 500;
     this.details = details;
+  }
+
+  /** The catalogue entry this error was raised from, when the code is known. */
+  get definition() {
+    return ERROR_CODE_BY_NAME[this.code] ?? null;
+  }
+
+  /** Whether retrying the same request could plausibly succeed. */
+  get retryable(): boolean {
+    return this.definition?.retryable ?? false;
   }
 
   toJson(): ApiErrorShape {
     return {
       error: {
         code: this.code,
+        errorCode: this.definition?.id ?? 'BM-API-0001',
         message: this.message,
         ...(this.details !== undefined ? { details: this.details } : {}),
       },
@@ -241,11 +264,30 @@ function isNetworkError(err: unknown): boolean {
     return new ApiError('NETWORK_ERROR', 'Network request failed', 502, message);
   }
 
+  const protocol = classifyProtocolError({
+    ...extractResultCodes(err),
+    message,
+  });
+
   const contractError = parseContractError(err, context);
   if (contractError !== null || isContractError(err)) {
     return new ApiError('CONTRACT_ERROR', 'Contract call failed', 422, {
       message,
       ...(contractError !== null ? { contractError } : {}),
+      ...(protocol !== null ? { stellar: stellarDetail(protocol) } : {}),
+    });
+  }
+
+  // A Horizon submission failure carries the diagnosis in `result_codes`, and
+  // that is not a contract error, so it used to collapse to INTERNAL/500: a user
+  // whose sequence number was stale and a user whose balance was short both
+  // read "Internal server error". The protocol code is the answer, and it was
+  // already in the thrown value.
+  if (protocol !== null) {
+    const { definition } = protocol;
+    return new ApiError(definition.name as ApiErrorCode, definition.message, definition.status, {
+      message,
+      stellar: stellarDetail(protocol),
     });
   }
 
@@ -257,8 +299,75 @@ function isNetworkError(err: unknown): boolean {
   );
 }
 
+/**
+ * Pull Stellar `result_codes` out of whatever shape the caller threw.
+ *
+ * Horizon nests them under `response.data.extras.result_codes`; the Soroban RPC
+ * puts them on the error itself, and a hand-built error from the browser carries
+ * them directly. All three are real shapes seen in this codebase, so all three
+ * are read rather than only the one the server happens to meet.
+ */
+function extractResultCodes(err: unknown): {
+  transaction?: string | null;
+  operations?: readonly string[] | null;
+} {
+  const candidates: unknown[] = [
+    (err as { result_codes?: unknown })?.result_codes,
+    (err as { response?: { data?: { extras?: { result_codes?: unknown } } } })?.response?.data
+      ?.extras?.result_codes,
+    (err as { extras?: { result_codes?: unknown } })?.extras?.result_codes,
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate || typeof candidate !== 'object') continue;
+    const codes = candidate as { transaction?: unknown; operations?: unknown };
+    const transaction = typeof codes.transaction === 'string' ? codes.transaction : null;
+    const operations = Array.isArray(codes.operations)
+      ? codes.operations.filter((op): op is string => typeof op === 'string')
+      : null;
+    if (transaction !== null || (operations !== null && operations.length > 0)) {
+      return { transaction, operations };
+    }
+  }
+
+  return {};
+}
+
+/** The `details.stellar` payload attached to a classified protocol failure. */
+export interface StellarFailureDetail {
+  readonly id: string;
+  readonly code: string;
+  readonly message: string;
+  readonly retryable: boolean;
+  /** The raw result code or host-error fragment that matched. */
+  readonly matched: string | null;
+}
+
+function stellarDetail(classified: {
+  definition: { id: string; name: string; message: string; retryable: boolean };
+  matched: string | null;
+}): StellarFailureDetail {
+  return {
+    id: classified.definition.id,
+    code: classified.definition.name,
+    message: classified.definition.message,
+    retryable: classified.definition.retryable,
+    matched: classified.matched,
+  };
+}
+
 export const badRequest = (message: string, details?: unknown) =>
   new ApiError('BAD_REQUEST', message, 400, details);
+
+/**
+ * Raise any catalogue code, taking the default message and status from it.
+ *
+ * This is how a route says what actually went wrong — `COLLECTION_ARCHIVED`
+ * rather than "bad request" — without restating a message the catalogue already
+ * carries and the docs already publish.
+ */
+export const apiError = (code: ApiErrorCode, message?: string, details?: unknown) =>
+  new ApiError(code, message, undefined, details);
 
 /**
  * The caller did not authenticate. Raised for a mutating request that carried
@@ -280,6 +389,18 @@ export const notFound = (message: string) => new ApiError('NOT_FOUND', message, 
 
 export const rateLimited = (message = 'Too many requests') =>
   new ApiError('RATE_LIMITED', message, 429);
+
+/** A required deployment configuration is absent, so this route cannot answer. */
+export const notConfigured = (message: string, details?: unknown) =>
+  new ApiError('CONTRACT_NOT_CONFIGURED', message, 503, details);
+
+/** The indexer has not produced a usable snapshot yet. Retryable by design. */
+export const indexerUnavailable = (message = 'The indexer is not ready yet') =>
+  new ApiError('INDEXER_UNAVAILABLE', message, 503);
+
+/** The request was understood and rejected on its content, not its shape. */
+export const unprocessable = (code: ApiErrorCode, message?: string, details?: unknown) =>
+  new ApiError(code, message, undefined, details);
 
 export const internalError = (message = 'Internal server error', details?: unknown) =>
   new ApiError('INTERNAL', message, 500, details);
