@@ -8,10 +8,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getHorizonServer } from '@/services/stellar';
 import { CONTRACT_IDS } from '@/services';
-import { normalizeError } from '@/lib/server/errors';
+import { apiError, normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
 import { simulateRead, addressScVal } from '@/lib/server/contractReader';
 import { withTimeout } from '@/lib/server/http';
+import { isAccountMissing } from '@/lib/server/horizon';
 import { TtlCache, SHORT_CACHE_CONTROL } from '@/lib/server/cache';
 import { requireStellarAddress } from '@/lib/server/validation';
 
@@ -45,7 +46,9 @@ export async function GET(request: NextRequest) {
 }
 
 async function loadBalance(address: string): Promise<BalancePayload> {
-  // XLM balance via Horizon; a nonexistent account is a normal case, not an error.
+  // XLM balance via Horizon. A missing account is a normal state, not an error:
+  // the address has never been funded. A Horizon failure is not that, and
+  // answering `0 XLM` for it told the user their wallet was empty.
   let xlm: BalancePayload['xlm'] = { balance: '0', isFunded: false };
   try {
     const account = await withTimeout(
@@ -58,8 +61,14 @@ async function loadBalance(address: string): Promise<BalancePayload> {
       balance: native?.balance ?? '0',
       isFunded: true,
     };
-  } catch {
-    // Unfunded account -> zero balance; keep the response shape stable.
+  } catch (err) {
+    if (!isAccountMissing(err)) {
+      logger.warn('Horizon balance lookup failed', {
+        error: err instanceof Error ? err.message : String(err),
+        address,
+      });
+      throw apiError('WALLET_BALANCE_UNAVAILABLE', 'Could not read this account from Horizon');
+    }
   }
 
   // NFT balance via the contract. Null when the NFT contract is unconfigured.

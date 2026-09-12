@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPinataClient, isIpfsAvailable } from '@/lib/pinata';
 import { rateLimitUpload, MAX_METADATA_SIZE } from '@/lib/server/uploadGuard';
-import { normalizeError, badRequest } from '@/lib/server/errors';
+import { normalizeError, apiError, type ApiErrorCode } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
 import {
   NFT_METADATA_SCHEMA,
@@ -33,8 +33,15 @@ export async function OPTIONS() {
   );
 }
 
-function validationError(message: string): NextResponse {
-  const error = badRequest(message);
+/**
+ * Reject the request with the code for the rule it broke.
+ *
+ * Every rejection here used to be `BAD_REQUEST`, so "the body is not JSON",
+ * "the body is JSON but not an object", "the document fails its schema" and
+ * "the document has no name" were one answer. They are four different fixes.
+ */
+function validationError(code: ApiErrorCode, message?: string): NextResponse {
+  const error = apiError(code, message);
   return NextResponse.json(error.toJson(), { status: error.status });
 }
 
@@ -42,17 +49,29 @@ function validateMetadata(
   input: unknown,
 ): { ok: true; value: { name: string } } | { ok: false; error: NextResponse } {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) {
-    return { ok: false, error: validationError('Metadata must be a JSON object') };
+    return {
+      ok: false,
+      error: validationError('JSON_BODY_NOT_OBJECT', 'Metadata must be a JSON object'),
+    };
   }
 
   const issues = validateAgainstSchema(NFT_METADATA_SCHEMA, input);
   if (issues.length > 0) {
-    return { ok: false, error: validationError(`Invalid metadata: ${formatIssues(issues)}`) };
+    return {
+      ok: false,
+      error: validationError(
+        'DOCUMENT_SCHEMA_INVALID',
+        `Invalid metadata: ${formatIssues(issues)}`,
+      ),
+    };
   }
 
   const name = (input as { name?: unknown }).name;
   if (typeof name !== 'string' || !name.trim()) {
-    return { ok: false, error: validationError('Metadata must include a name field') };
+    return {
+      ok: false,
+      error: validationError('NAME_REQUIRED', 'Metadata must include a name field'),
+    };
   }
   return { ok: true, value: { name } };
 }
@@ -69,14 +88,17 @@ export async function POST(request: NextRequest) {
 
     const contentLength = request.headers.get('content-length');
     if (contentLength && parseInt(contentLength, 10) > MAX_METADATA_SIZE) {
-      return NextResponse.json({ error: 'Request body too large' }, { status: 413 });
+      return validationError(
+        'DOCUMENT_TOO_LARGE',
+        `Metadata exceeds the ${MAX_METADATA_SIZE} byte limit`,
+      );
     }
 
     let metadata: unknown;
     try {
       metadata = await request.json();
     } catch {
-      return validationError('Request body must be valid JSON');
+      return validationError('JSON_BODY_MALFORMED', 'Request body must be valid JSON');
     }
 
     const validation = validateMetadata(metadata);
@@ -131,17 +153,14 @@ export async function POST(request: NextRequest) {
       integrity,
     });
   } catch (error: unknown) {
-    const apiError = normalizeError(error);
-    logger.warn('metadata upload failed', { requestId, error: apiError.message });
-    timer.done(apiError.status, { error: apiError.code });
+    const failure = normalizeError(error);
+    logger.warn('metadata upload failed', { requestId, error: failure.message });
+    timer.done(failure.status, { error: failure.code });
+    // The typed envelope plus the null result fields: a caller that reads only
+    // `error` gets the code, and one that reads the result shape still finds it.
     return NextResponse.json(
-      {
-        error: apiError.message,
-        cid: null,
-        ipfsUri: null,
-        fallback: false,
-      },
-      { status: apiError.status },
+      { ...failure.toJson(), cid: null, ipfsUri: null, fallback: false },
+      { status: failure.status },
     );
   }
 }

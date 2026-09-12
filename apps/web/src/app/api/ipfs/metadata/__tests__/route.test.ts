@@ -82,9 +82,10 @@ describe('GET /api/ipfs/metadata', () => {
       new NextRequest('http://localhost/api/ipfs/metadata?uri=ipfs://QmD'),
     );
     expect(response.status).toBe(422);
+    expect((await response.json()).error.code).toBe('DOCUMENT_SCHEMA_INVALID');
   });
 
-  it('returns 422 for a non-json document', async () => {
+  it('answers 502 for a non-json document, with the code that names it', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn().mockResolvedValue(
@@ -97,6 +98,12 @@ describe('GET /api/ipfs/metadata', () => {
     const response = await GET(
       new NextRequest('http://localhost/api/ipfs/metadata?uri=ipfs://QmE'),
     );
-    expect(response.status).toBe(422);
+    // 502 rather than 422: the request was valid and the caller cannot fix this
+    // by changing it -- the content behind the URI is not a metadata document.
+    // The status now comes from `DOCUMENT_NOT_JSON` instead of being restated at
+    // the call site, which is how the route's answer and the published catalogue
+    // came to disagree.
+    expect(response.status).toBe(502);
+    expect((await response.json()).error.code).toBe('DOCUMENT_NOT_JSON');
   });
 });

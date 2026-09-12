@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { refreshIndexer, getIndexedEvents } from '@/lib/server/indexer';
 import { parsePagination } from '@/lib/server/pagination';
 import { simulateRead, addressScVal } from '@/lib/server/contractReader';
-import { ApiError, normalizeError } from '@/lib/server/errors';
+import { apiError, normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
 import { TtlCache, SHORT_CACHE_CONTROL } from '@/lib/server/cache';
 import { CONTRACT_IDS } from '@/services';
@@ -41,11 +41,18 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const { limit, offset } = parsePagination(searchParams);
-    const verifiedOnly = searchParams.get('verified') === 'true';
+    // An unrecognized value used to be read as "not set", so `verified=yes`
+    // returned unverified creators alongside verified ones and a caller could
+    // not tell the filter had been ignored.
+    const verifiedParam = searchParams.get('verified');
+    if (verifiedParam !== null && verifiedParam !== 'true' && verifiedParam !== 'false') {
+      throw apiError('FILTER_INVALID', 'verified must be "true" or "false"');
+    }
+    const verifiedOnly = verifiedParam === 'true';
     const query = searchParams.get('q')?.trim().toLowerCase();
 
     if (!CONTRACT_IDS.creator) {
-      throw new ApiError('CONTRACT_ERROR', 'Creator contract not configured', 503);
+      throw apiError('CONTRACT_NOT_CONFIGURED', 'Creator contract not configured');
     }
 
     await refreshIndexer();

@@ -50,7 +50,11 @@ SEARCH_SUFFIXES = (".ts", ".tsx", ".py", ".rs")
 # Files whose contents are the declaration itself and therefore prove nothing.
 DECLARATION_FILES = {CODES_FILE.resolve(), PROTOCOL_FILE.resolve()}
 
-ROW = re.compile(r"^\s*\['([A-Z][A-Z0-9_]+)',", re.M)
+# A row may be written on one line or across several -- two of them are, because
+# prettier wraps a row whose message is long enough. Anchoring this to a compact
+# one-line form made both scripts miss those two rows: the catalogue was
+# under-reported by two codes and neither was checked for a call site.
+ROW = re.compile(r"^\s*\[\s*'([A-Z][A-Z0-9_]+)'\s*,", re.M)
 PROTOCOL_NAME = re.compile(r"^\s*name: '([A-Z][A-Z0-9_]+)',", re.M)
 
 

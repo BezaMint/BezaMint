@@ -55,7 +55,14 @@ PROTOCOL_PATH = SHARED_ERRORS_DIR / "protocol.ts"
 
 # Domains that have no rows in `ERROR_ROWS`: contract codes are generated, and
 # protocol codes are Stellar's own tables.
-SHARED_ROW_RE = re.compile(r"^\s*\['([A-Z][A-Z0-9_]+)',\s*(\d+),\s*'([^']*)'", re.M)
+# A row is `['NAME', status, 'message', retryable?]` and may be written across
+# several lines, because prettier wraps one whose message is long enough. Two are
+# wrapped today; a pattern anchored to the compact single-line form silently
+# dropped them, which is how the published per-domain counts went wrong.
+SHARED_ROW_RE = re.compile(
+    r"^\s*\[\s*'([A-Z][A-Z0-9_]+)'\s*,\s*(\d+)\s*,\s*'([^']*)'(?:\s*,\s*(true|false))?",
+    re.M,
+)
 DOMAIN_RE = re.compile(r"^  (\w+): \[", re.M)
 PROTOCOL_ROW_RE = re.compile(
     r"^\s*name: '([A-Z][A-Z0-9_]+)',\s*\n\s*status: (\d+),\s*\n\s*retryable: (true|false),\s*\n\s*message: '([^']*)'",
@@ -243,19 +250,29 @@ def parse_shared_catalogue() -> tuple[dict[str, list[tuple[str, int, str, bool]]
     text = CODES_PATH.read_text(encoding="utf-8")
     domains: dict[str, list[tuple[str, int, str, bool]]] = {}
 
-    # Walk the file once, tracking which domain block each row belongs to.
-    current: str | None = None
-    for line in text.split("\n"):
-        header = re.match(r"^  (\w+): \[", line)
-        if header:
-            current = header.group(1)
-            domains.setdefault(current, [])
-            continue
-        row = re.match(r"^\s*\['([A-Z][A-Z0-9_]+)',\s*(\d+),\s*'([^']*)'(?:,\s*(true|false))?\]", line)
-        if row and current:
-            domains[current].append(
-                (row.group(1), int(row.group(2)), row.group(3), row.group(4) == "true")
-            )
+    # Split the file at its domain headers, then parse each block with the same
+    # row pattern the rest of this module uses. Walking line by line and matching
+    # one line at a time used to skip any row prettier had wrapped, so two codes
+    # were missing from every count on the published page.
+    headers = list(DOMAIN_RE.finditer(text))
+    for index, header in enumerate(headers):
+        start = header.end()
+        end = headers[index + 1].start() if index + 1 < len(headers) else len(text)
+        domain = header.group(1)
+        domains.setdefault(domain, []).extend(
+            (name, int(status), message, retryable == "true")
+            for name, status, message, retryable in SHARED_ROW_RE.findall(text[start:end])
+        )
+
+    # A row in a shape the parser does not recognise is a hard error rather than
+    # a silently missing line, which is the promise the docstring above makes.
+    declared = len(SHARED_ROW_RE.findall(text))
+    parsed = sum(len(rows) for rows in domains.values())
+    if parsed != declared:
+        raise ContractError(
+            f"parsed {parsed} of {declared} declared rows: a row is written in a shape "
+            "this parser does not recognise"
+        )
 
     protocol: list[tuple[str, int, str, bool]] = []
     proto_text = PROTOCOL_PATH.read_text(encoding="utf-8")

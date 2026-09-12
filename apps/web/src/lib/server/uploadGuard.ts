@@ -4,27 +4,42 @@
  * enforce identical policy without duplicating the logic.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { rateLimited } from './errors';
+import { apiError, rateLimited } from './errors';
 
 export const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 export const MAX_METADATA_SIZE = 1_000_000; // 1MB
 export const ALLOWED_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
-/** Validate a file against the shared policy; returns an error response or null. */
+/**
+ * Validate a file against the shared policy; returns an error response or null.
+ *
+ * Each rejection carries the catalogue code for the rule it broke, in the same
+ * envelope every other route returns. These three were the last responses in the
+ * app that answered with a bare `{ error: "prose" }` and no code, which left a
+ * client unable to tell "too large" from "wrong type" without matching on the
+ * sentence -- and the sentences are not a published interface.
+ */
 export function validateFile(file: File): NextResponse | null {
+  const failure = (error: ReturnType<typeof apiError>): NextResponse =>
+    NextResponse.json(error.toJson(), { status: error.status });
+
   if (file.size === 0) {
-    return NextResponse.json({ error: 'Uploaded file is empty' }, { status: 400 });
+    return failure(apiError('UPLOAD_EMPTY_FILE'));
   }
   if (file.size > MAX_FILE_SIZE) {
-    return NextResponse.json(
-      { error: `File exceeds the ${MAX_FILE_SIZE / 1024 / 1024}MB limit` },
-      { status: 413 },
+    return failure(
+      apiError('UPLOAD_FILE_TOO_LARGE', `File exceeds the ${MAX_FILE_SIZE / 1024 / 1024}MB limit`, {
+        maxBytes: MAX_FILE_SIZE,
+        sizeBytes: file.size,
+      }),
     );
   }
   if (!ALLOWED_MIME_TYPES.has(file.type)) {
-    return NextResponse.json(
-      { error: 'Only JPEG, PNG, WebP and GIF images are allowed' },
-      { status: 415 },
+    return failure(
+      apiError('UPLOAD_MEDIA_TYPE_NOT_ALLOWED', 'Only JPEG, PNG, WebP and GIF images are allowed', {
+        allowed: [...ALLOWED_MIME_TYPES],
+        received: file.type,
+      }),
     );
   }
   return null;

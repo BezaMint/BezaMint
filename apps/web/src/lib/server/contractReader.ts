@@ -20,7 +20,7 @@ import {
 import { getRpcClient, CURRENT_NETWORK } from '@/services/stellar';
 import { CONTRACT_IDS } from '@/services';
 import type { ContractName } from '@/lib/contractErrors';
-import { normalizeError, parseContractError, ApiError } from './errors';
+import { normalizeError, parseContractError, apiError, ApiError } from './errors';
 
 function dummySource() {
   return new Account(Keypair.random().publicKey(), '0');
@@ -137,7 +137,7 @@ export async function simulateRead<T = unknown>(
       );
     }
     if (!result.result?.retval) {
-      throw new ApiError('CONTRACT_ERROR', `Empty result from ${method}`, 422);
+      throw apiError('CONTRACT_RESULT_EMPTY', `Empty result from ${method}`);
     }
     // Normalized here rather than at each response, so a new route cannot
     // reintroduce the crash by forgetting to convert.

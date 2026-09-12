@@ -10,10 +10,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { refreshIndexer, getIndexedEvents } from '@/lib/server/indexer';
 import { parsePagination } from '@/lib/server/pagination';
 import { simulateRead, u64ScVal } from '@/lib/server/contractReader';
-import { ApiError, normalizeError } from '@/lib/server/errors';
+import { apiError, normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
 import { TtlCache, SHORT_CACHE_CONTROL } from '@/lib/server/cache';
-import { isValidStellarAddress } from '@/lib/server/validation';
+import { optionalStellarAddress } from '@/lib/server/validation';
 import { CONTRACT_IDS } from '@/services';
 
 export const dynamic = 'force-dynamic';
@@ -37,14 +37,10 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const { limit, offset } = parsePagination(searchParams);
-    const creator = searchParams.get('creator')?.trim();
-
-    if (creator && !isValidStellarAddress(creator)) {
-      throw new ApiError('BAD_REQUEST', 'creator must be a valid Stellar address', 400);
-    }
+    const creator = optionalStellarAddress(searchParams, 'creator');
 
     if (!CONTRACT_IDS.collection) {
-      throw new ApiError('CONTRACT_ERROR', 'Collection contract not configured', 503);
+      throw apiError('CONTRACT_NOT_CONFIGURED', 'Collection contract not configured');
     }
 
     await refreshIndexer();

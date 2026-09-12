@@ -178,15 +178,15 @@ are published and neither is ever reused.
 
 | Domain | Codes |
 | ------ | ----: |
-| `api` | 13 |
+| `api` | 16 |
 | `auth` | 7 |
-| `validation` | 16 |
+| `validation` | 21 |
 | `wallet` | 10 |
 | `transaction` | 7 |
-| `ipfs` | 19 |
+| `ipfs` | 23 |
 | `metadata` | 12 |
 | `indexer` | 14 |
-| `config` | 13 |
+| `config` | 14 |
 | `ui` | 8 |
 | `protocol` | 43 |
 
@@ -249,7 +249,7 @@ account for.
 
 ### `api` — HTTP outcomes the API returns
 
-13 codes.
+16 codes.
 
 | Code | Name | HTTP | Retryable | Meaning |
 | ---- | ---- | ---- | --------- | ------- |
@@ -266,6 +266,9 @@ account for.
 | `BM-API-0011` | `TOKEN_ALREADY_IN_COLLECTION` | 409 | no | The token already belongs to a collection |
 | `BM-API-0012` | `CONTRACT_NOT_CONFIGURED` | 503 | no | A required contract id is not configured |
 | `BM-API-0013` | `INDEXER_UNAVAILABLE` | 503 | yes | The indexer has not produced a usable snapshot yet |
+| `BM-API-0014` | `CONTRACT_RESULT_EMPTY` | 502 | no | A contract read returned no value |
+| `BM-API-0015` | `HISTORY_UNAVAILABLE` | 502 | yes | The account history could not be loaded |
+| `BM-API-0016` | `WALLET_BALANCE_UNAVAILABLE` | 502 | yes | The account balance could not be loaded |
 
 ### `auth` — Authentication and authorization
 
@@ -283,7 +286,7 @@ account for.
 
 ### `validation` — Input validation rules
 
-16 codes.
+21 codes.
 
 | Code | Name | HTTP | Retryable | Meaning |
 | ---- | ---- | ---- | --------- | ------- |
@@ -303,6 +306,11 @@ account for.
 | `BM-VALIDATION-0014` | `URL_MALFORMED` | 400 | no | Not a usable absolute URL |
 | `BM-VALIDATION-0015` | `JSON_BODY_REQUIRED` | 400 | no | A JSON request body is required |
 | `BM-VALIDATION-0016` | `JSON_BODY_MALFORMED` | 400 | no | The request body is not valid JSON |
+| `BM-VALIDATION-0017` | `JSON_BODY_NOT_OBJECT` | 400 | no | The JSON request body is not an object |
+| `BM-VALIDATION-0018` | `URI_REQUIRED` | 400 | no | A uri parameter is required |
+| `BM-VALIDATION-0019` | `URI_SCHEME_UNSUPPORTED` | 400 | no | The URI scheme is not one this endpoint resolves |
+| `BM-VALIDATION-0020` | `ID_NOT_POSITIVE_INTEGER` | 400 | no | The identifier must be a positive integer |
+| `BM-VALIDATION-0021` | `FILTER_INVALID` | 400 | no | A filter parameter has a value this endpoint does not implement |
 
 ### `wallet` — Browser wallet failures
 
@@ -337,7 +345,7 @@ account for.
 
 ### `ipfs` — Pinning and gateway reads
 
-19 codes.
+23 codes.
 
 | Code | Name | HTTP | Retryable | Meaning |
 | ---- | ---- | ---- | --------- | ------- |
@@ -360,6 +368,10 @@ account for.
 | `BM-IPFS-0017` | `CID_DIGEST_MISMATCH` | 502 | no | The CID digest does not match the bytes it names |
 | `BM-IPFS-0018` | `PIN_NOT_PROPAGATED` | 409 | yes | The pin succeeded but the content is not reachable yet |
 | `BM-IPFS-0019` | `GATEWAY_FALLBACK_EXHAUSTED` | 502 | yes | Every configured gateway was tried and refused |
+| `BM-IPFS-0020` | `UPLOAD_FILE_MISSING` | 400 | no | The request carries no file field |
+| `BM-IPFS-0021` | `UPLOAD_EMPTY_FILE` | 400 | no | The uploaded file is empty |
+| `BM-IPFS-0022` | `UPLOAD_FILE_TOO_LARGE` | 413 | no | The uploaded file is larger than the accepted limit |
+| `BM-IPFS-0023` | `UPLOAD_MEDIA_TYPE_NOT_ALLOWED` | 415 | no | That media type is not accepted for uploads |
 
 ### `metadata` — Metadata resolution and document shape
 
@@ -403,7 +415,7 @@ account for.
 
 ### `config` — Deployment and build configuration
 
-13 codes.
+14 codes.
 
 | Code | Name | HTTP | Retryable | Meaning |
 | ---- | ---- | ---- | --------- | ------- |
@@ -415,11 +427,12 @@ account for.
 | `BM-CONFIG-0006` | `RPC_URL_MISSING` | 503 | no | NEXT_PUBLIC_STELLAR_RPC_URL is not set |
 | `BM-CONFIG-0007` | `NETWORK_PASSPHRASE_MISSING` | 503 | no | NEXT_PUBLIC_STELLAR_PASSPHRASE is not set |
 | `BM-CONFIG-0008` | `APP_URL_MISSING` | 503 | no | NEXT_PUBLIC_APP_URL is not set |
-| `BM-CONFIG-0009` | `WRITE_KEY_MISSING` | 500 | no | API_WRITE_KEY is not set in a production deployment |
-| `BM-CONFIG-0010` | `CONTRACT_ID_MALFORMED` | 500 | no | A configured contract id is not a valid contract address |
-| `BM-CONFIG-0011` | `ENV_VAR_MALFORMED` | 500 | no | An environment variable has an unexpected shape |
-| `BM-CONFIG-0012` | `GATEWAY_URL_INVALID` | 500 | no | The configured IPFS gateway is not a usable http(s) URL |
-| `BM-CONFIG-0013` | `NETWORK_MISMATCH` | 500 | no | The configured network and RPC endpoint do not agree |
+| `BM-CONFIG-0009` | `PINATA_JWT_MISSING` | 503 | no | PINATA_JWT is not set, so pinning falls back to a placeholder URI |
+| `BM-CONFIG-0010` | `WRITE_KEY_MISSING` | 500 | no | API_WRITE_KEY is not set in a production deployment |
+| `BM-CONFIG-0011` | `CONTRACT_ID_MALFORMED` | 500 | no | A configured contract id is not a valid contract address |
+| `BM-CONFIG-0012` | `ENV_VAR_MALFORMED` | 500 | no | An environment variable has an unexpected shape |
+| `BM-CONFIG-0013` | `GATEWAY_URL_INVALID` | 500 | no | The configured IPFS gateway is not a usable http(s) URL |
+| `BM-CONFIG-0014` | `NETWORK_MISMATCH` | 500 | no | The configured network and RPC endpoint do not agree |
 
 ### `ui` — Client-side failures a component or boundary caught
 

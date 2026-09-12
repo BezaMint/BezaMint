@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { refreshIndexer, getIndexedEvents } from '@/lib/server/indexer';
 import { simulateRead, addressScVal, u64ScVal } from '@/lib/server/contractReader';
-import { ApiError, normalizeError } from '@/lib/server/errors';
+import { apiError, normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
 import { CONTRACT_IDS } from '@/services';
 import { TtlCache, SHORT_CACHE_CONTROL } from '@/lib/server/cache';
@@ -48,11 +48,7 @@ export async function GET(request: NextRequest) {
       );
     }
     if (!SEARCH_TYPES.includes(type)) {
-      throw new ApiError(
-        'BAD_REQUEST',
-        'type must be one of: all, nfts, collections, creators',
-        400,
-      );
+      throw apiError('FILTER_INVALID', `type must be one of: ${SEARCH_TYPES.join(', ')}`);
     }
 
     await refreshIndexer();

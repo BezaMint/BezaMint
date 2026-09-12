@@ -77,17 +77,38 @@ contract deployed ahead of the web app. The numeric `code` is reported either
 way, which is what a caller needs to look the failure up in
 [`docs/error-codes.md`](error-codes.md).
 
-| Code             | HTTP | Meaning                                                                |
-| ---------------- | ---- | ---------------------------------------------------------------------- |
-| `BAD_REQUEST`    | 400  | Invalid or missing input; the message names the offending parameter.   |
-| `UNAUTHORIZED`   | 401  | A mutating request carried no usable credential.                       |
-| `FORBIDDEN`      | 403  | A mutating request came from an origin that is not allowed to make it. |
-| `NOT_FOUND`      | 404  | The requested resource does not exist.                                 |
-| `RATE_LIMITED`   | 429  | Per-IP limit exceeded. See `Retry-After`.                              |
-| `CONTRACT_ERROR` | 422  | A Soroban call failed (panic, auth failure, bad contract state).       |
-| `NETWORK_ERROR`  | 502  | An upstream (Horizon, RPC, gateway) refused or failed the request.     |
-| `TIMEOUT`        | 504  | An upstream did not answer within the handler's deadline.              |
-| `INTERNAL`       | 500  | Unclassified failure. The message is generic by design.                |
+| Code                            | HTTP | Meaning                                                                |
+| ------------------------------- | ---- | ---------------------------------------------------------------------- |
+| `BAD_REQUEST`                   | 400  | Invalid input that no more specific code covers.                       |
+| `ADDRESS_MALFORMED`             | 400  | A supplied address is not a Stellar account id.                        |
+| `ID_NOT_POSITIVE_INTEGER`       | 400  | An identifier parameter is not a positive integer.                     |
+| `FILTER_INVALID`                | 400  | A filter parameter carries a value this endpoint does not implement.   |
+| `UNAUTHORIZED`                  | 401  | A mutating request carried no usable credential.                       |
+| `FORBIDDEN`                     | 403  | A mutating request came from an origin that is not allowed to make it. |
+| `NOT_FOUND`                     | 404  | The requested resource does not exist.                                 |
+| `CONTENT_NOT_FOUND`             | 404  | The document behind a URI does not exist at any gateway.               |
+| `UPLOAD_EMPTY_FILE`             | 400  | An uploaded file has no content.                                       |
+| `UPLOAD_FILE_MISSING`           | 400  | The multipart body carries no `file` field.                            |
+| `UPLOAD_FILE_TOO_LARGE`         | 413  | The uploaded file exceeds the 5 MiB limit.                             |
+| `UPLOAD_MEDIA_TYPE_NOT_ALLOWED` | 415  | The uploaded file's media type is not accepted.                        |
+| `RATE_LIMITED`                  | 429  | Per-IP limit exceeded. See `Retry-After`.                              |
+| `CONTRACT_ERROR`                | 422  | A Soroban call failed (panic, auth failure, bad contract state).       |
+| `CONTRACT_NOT_CONFIGURED`       | 503  | A contract id this route needs is not set in the deployment.           |
+| `CONTRACT_RESULT_EMPTY`         | 502  | A contract read returned no value to decode.                           |
+| `HISTORY_UNAVAILABLE`           | 502  | The account's history could not be loaded — not that it is empty.      |
+| `WALLET_BALANCE_UNAVAILABLE`    | 502  | The account could not be read, so no balance can be reported.          |
+| `DOCUMENT_NOT_JSON`             | 502  | The document behind a URI is not JSON.                                 |
+| `DOCUMENT_SCHEMA_INVALID`       | 422  | The document does not match the metadata schema.                       |
+| `DOCUMENT_TOO_LARGE`            | 413  | The document exceeds the accepted size.                                |
+| `NETWORK_ERROR`                 | 502  | An upstream (Horizon, RPC, gateway) refused or failed the request.     |
+| `TIMEOUT`                       | 504  | An upstream did not answer within the handler's deadline.              |
+| `INTERNAL`                      | 500  | Unclassified failure. The message is generic by design.                |
+
+This is the part of the catalogue a caller of these routes will meet, not the
+whole of it: all 253 codes, including the 78 the contracts raise, are in
+[`docs/error-codes.md`](error-codes.md). The HTTP status of a code comes from the
+catalogue entry rather than from the call site, so an answer here matches the
+published status for that code by construction.
 
 ### Authorizing a mutating request
 
@@ -337,8 +358,10 @@ Enrichment fields are `null` when the contract read failed for that token, so on
 bad read does not fail the whole page. `metadataUri` is returned as a URI; fetch
 the JSON through `/api/ipfs/metadata`.
 
-Errors: `503 CONTRACT_ERROR` when the NFT or Collection contract ID is unset;
-`400 BAD_REQUEST` for a malformed `creator` or `collectionId`.
+Errors: `503 CONTRACT_NOT_CONFIGURED` when the NFT or Collection contract ID is
+unset; `400 ADDRESS_MALFORMED` for a malformed `creator`;
+`400 ID_NOT_POSITIVE_INTEGER` for a `collectionId` that is not a positive
+integer.
 
 ### `GET /api/collections`
 
@@ -354,12 +377,12 @@ filter in the client.
 
 ### `GET /api/creators`
 
-| Parameter  | Required | Notes                                       |
-| ---------- | -------- | ------------------------------------------- |
-| `q`        | no       | Case-insensitive match on the display name. |
-| `verified` | no       | `true` returns only verified creators.      |
-| `limit`    | no       | See pagination.                             |
-| `offset`   | no       | See pagination.                             |
+| Parameter  | Required | Notes                                                                                                                                    |
+| ---------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `q`        | no       | Case-insensitive match on the display name.                                                                                              |
+| `verified` | no       | `true` returns only verified creators, `false` only unverified. Any other value is `400 FILTER_INVALID` rather than being read as unset. |
+| `limit`    | no       | See pagination.                                                                                                                          |
+| `offset`   | no       | See pagination.                                                                                                                          |
 
 Items expose `address`, `displayName`, `bio`, `avatarUri`, `bannerUri`,
 `socialLinks`, `isVerified`, `createdAt` and `updatedAt`.
@@ -368,11 +391,11 @@ Items expose `address`, `displayName`, `bio`, `avatarUri`, `bannerUri`,
 
 Full-text search across the indexer.
 
-| Parameter | Required | Default | Notes                                                                 |
-| --------- | -------- | ------- | --------------------------------------------------------------------- |
-| `q`       | yes      | —       | Fewer than 2 characters returns an empty result rather than an error. |
-| `type`    | no       | `all`   | One of `all`, `nfts`, `collections`, `creators`.                      |
-| `limit`   | no       | 10      | Maximum 20.                                                           |
+| Parameter | Required | Default | Notes                                                                                   |
+| --------- | -------- | ------- | --------------------------------------------------------------------------------------- |
+| `q`       | yes      | —       | Fewer than 2 characters returns an empty result rather than an error.                   |
+| `type`    | no       | `all`   | One of `all`, `nfts`, `collections`, `creators`; anything else is `400 FILTER_INVALID`. |
+| `limit`   | no       | 10      | Maximum 20.                                                                             |
 
 ```json
 {
@@ -470,9 +493,11 @@ request; unknown top-level keys are accepted, since a content-addressed document
 may have been written by any minter, and the remaining fields the UI reads are
 type-checked when present. A document that fails validation returns `422`.
 
-Errors: `400` for a missing or unsupported `uri`; `404` when the document does not
-exist; `502` when the gateway fails; `413` when the document exceeds 256 KiB;
-`422` when the document is not JSON or fails schema validation.
+Errors: `400 URI_REQUIRED` for a missing `uri`; `400 URI_SCHEME_UNSUPPORTED` for
+a URI that is neither `ipfs://` nor `http(s)://`; `404 CONTENT_NOT_FOUND` when no
+gateway holds the document; `502 NETWORK_ERROR` when every gateway failed;
+`413 DOCUMENT_TOO_LARGE` above 256 KiB; `502 DOCUMENT_NOT_JSON` when the document
+is not JSON; `422 DOCUMENT_SCHEMA_INVALID` when it fails the document schema.
 
 ### `POST /api/ipfs/upload`
 
@@ -509,8 +534,12 @@ bytes that were uploaded, and `integrity.method` says how that was established:
 
 A mismatch is logged as a warning rather than failing the request.
 
-Errors: `400` for invalid JSON or metadata, `413` when the body is too large,
-`429` when rate limited.
+Errors: `400 JSON_BODY_MALFORMED` when the body is not parseable JSON;
+`400 JSON_BODY_NOT_OBJECT` when it is JSON but not an object; `422
+DOCUMENT_SCHEMA_INVALID` when it fails the request schema; `400 NAME_REQUIRED`
+when `name` is absent; `413 DOCUMENT_TOO_LARGE` above 1 MiB; `429 RATE_LIMITED`;
+`503 PINATA_NOT_CONFIGURED` only from the related `upload-file` route, since this
+one falls back to a placeholder URI instead.
 
 ### `GET /api/ipfs/upload`
 
@@ -533,9 +562,12 @@ Pins a raster image via `multipart/form-data` with a `file` field.
 }
 ```
 
-Returns `503` when Pinata is not configured (there is no useful fallback for an
-image), `400` when the `file` field is missing or empty, `413` above the size
-limit, and `415` for a disallowed type.
+Errors: `503 PINATA_NOT_CONFIGURED` when Pinata is unset (there is no useful
+fallback for an image); `400 UPLOAD_FILE_MISSING` when the `file` field is
+absent; `400 UPLOAD_EMPTY_FILE` when it has no content;
+`413 UPLOAD_FILE_TOO_LARGE` above 5 MiB; `415 UPLOAD_MEDIA_TYPE_NOT_ALLOWED` for a
+disallowed type. Every one of these is the standard envelope with a code, which
+this route used to answer with a flat `{ error: string }`.
 
 ---
 
@@ -543,9 +575,6 @@ limit, and `415` for a disallowed type.
 
 Recorded here rather than left for an integrator to discover:
 
-- `/api/ipfs/upload` and `/api/ipfs/upload-file` return a flat `{ error: string }`
-  body for some validation failures instead of the `{ error: { code, message } }`
-  envelope. The code is still available from the HTTP status.
 - `X-RateLimit-Reset` carries **seconds until reset**, not the Unix timestamp the
   name implies in some conventions.
 - The rate limiter is per instance and in memory, so limits multiply under

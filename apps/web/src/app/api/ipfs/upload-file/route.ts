@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPinataClient, isIpfsAvailable } from '@/lib/pinata';
 import { validateFile, rateLimitUpload } from '@/lib/server/uploadGuard';
-import { normalizeError } from '@/lib/server/errors';
+import { apiError, normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
 import { assertValidCid, verifyPinnedContent } from '@/lib/server/verifyPin';
 import { ipfsGatewayUrl } from '@/lib/ipfsGateway';
@@ -26,7 +26,9 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file');
 
     if (!(file instanceof File)) {
-      return NextResponse.json({ error: 'A file field is required' }, { status: 400 });
+      const missing = apiError('UPLOAD_FILE_MISSING');
+      timer.done(missing.status, { error: missing.code });
+      return NextResponse.json(missing.toJson(), { status: missing.status });
     }
 
     const validationError = validateFile(file);
@@ -36,10 +38,9 @@ export async function POST(request: NextRequest) {
     }
 
     if (!isIpfsAvailable()) {
-      return NextResponse.json(
-        { error: 'IPFS is not configured (set PINATA_JWT)' },
-        { status: 503 },
-      );
+      const unconfigured = apiError('PINATA_NOT_CONFIGURED');
+      timer.done(unconfigured.status, { error: unconfigured.code });
+      return NextResponse.json(unconfigured.toJson(), { status: unconfigured.status });
     }
 
     const pinata = getPinataClient()!;
@@ -66,9 +67,12 @@ export async function POST(request: NextRequest) {
       integrity,
     });
   } catch (error: unknown) {
-    const apiError = normalizeError(error);
-    logger.warn('image upload failed', { requestId, error: apiError.message });
-    timer.done(apiError.status, { error: apiError.code });
-    return NextResponse.json({ error: apiError.message }, { status: apiError.status });
+    const failure = normalizeError(error);
+    logger.warn('image upload failed', { requestId, error: failure.message });
+    timer.done(failure.status, { error: failure.code });
+    // The envelope, not a bare message: this catch-all was the one path in the
+    // app that answered with prose alone, so a client that had just been given a
+    // typed rejection for a bad media type got an untyped one for a pin failure.
+    return NextResponse.json(failure.toJson(), { status: failure.status });
   }
 }

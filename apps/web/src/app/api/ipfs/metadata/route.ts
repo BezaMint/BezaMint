@@ -8,7 +8,7 @@
  * schema validation (so the UI can degrade gracefully).
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { ApiError, normalizeError } from '@/lib/server/errors';
+import { ApiError, apiError, normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
 import { fetchWithTimeout } from '@/lib/server/http';
 import { getIpfsGateways } from '@/lib/ipfsGateway';
@@ -53,12 +53,12 @@ export async function GET(request: NextRequest) {
   try {
     const uri = request.nextUrl.searchParams.get('uri')?.trim();
     if (!uri) {
-      throw new ApiError('BAD_REQUEST', 'uri query parameter is required', 400);
+      throw apiError('URI_REQUIRED', 'uri query parameter is required');
     }
 
     const fetchUrls = resolveFetchUrls(uri);
     if (fetchUrls.length === 0) {
-      throw new ApiError('BAD_REQUEST', 'uri must be an ipfs:// or http(s) URL', 400);
+      throw apiError('URI_SCHEME_UNSUPPORTED', 'uri must be an ipfs:// or http(s) URL');
     }
 
     const data = await metadataCache.getOrSet(`metadata:${uri}`, async () => {
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
           throw new ApiError('NETWORK_ERROR', `Gateway responded ${failedStatus}`, 502);
         }
         if (sawNotFound) {
-          throw new ApiError('NOT_FOUND', 'Metadata document not found', 404);
+          throw apiError('CONTENT_NOT_FOUND', 'Metadata document not found');
         }
         throw new ApiError(
           'NETWORK_ERROR',
@@ -107,19 +107,19 @@ export async function GET(request: NextRequest) {
 
       const contentType = response.headers.get('content-type') ?? '';
       if (!contentType.includes('json')) {
-        throw new ApiError('BAD_REQUEST', 'Metadata document is not JSON', 422);
+        throw apiError('DOCUMENT_NOT_JSON', 'Metadata document is not JSON');
       }
 
       const text = await response.text();
       if (text.length > MAX_DOCUMENT_BYTES) {
-        throw new ApiError('BAD_REQUEST', 'Metadata document too large', 413);
+        throw apiError('DOCUMENT_TOO_LARGE', 'Metadata document too large');
       }
 
       let document: unknown;
       try {
         document = JSON.parse(text);
       } catch {
-        throw new ApiError('BAD_REQUEST', 'Metadata document is invalid JSON', 422);
+        throw apiError('DOCUMENT_NOT_JSON', 'Metadata document is invalid JSON');
       }
 
       // The document pinned to IPFS is not the request that produced it: it
@@ -127,10 +127,9 @@ export async function GET(request: NextRequest) {
       // request schema rejected every document this app had written.
       const issues = validateAgainstSchema(NFT_METADATA_DOCUMENT_SCHEMA, document);
       if (issues.length > 0) {
-        throw new ApiError(
-          'BAD_REQUEST',
+        throw apiError(
+          'DOCUMENT_SCHEMA_INVALID',
           `Metadata fails validation: ${formatIssues(issues)}`,
-          422,
         );
       }
 

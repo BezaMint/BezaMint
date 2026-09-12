@@ -83,6 +83,17 @@ export const ERROR_ROWS = {
     ['TOKEN_ALREADY_IN_COLLECTION', 409, 'The token already belongs to a collection'],
     ['CONTRACT_NOT_CONFIGURED', 503, 'A required contract id is not configured'],
     ['INDEXER_UNAVAILABLE', 503, 'The indexer has not produced a usable snapshot yet', true],
+    // A contract read that succeeded but carried no return value. Distinct from
+    // `CONTRACT_ERROR`: the host raised nothing, so the caller has no contract
+    // code to decode and the cause is on our side or in the deployed wasm.
+    ['CONTRACT_RESULT_EMPTY', 502, 'A contract read returned no value'],
+    // The account's operation history could not be loaded at all, as opposed to
+    // being empty. The two were the same response, which reported an outage as
+    // "you have no transactions".
+    ['HISTORY_UNAVAILABLE', 502, 'The account history could not be loaded', true],
+    // The balance read is the other half of the same flattening: an upstream
+    // failure answered `0 XLM, unfunded` instead of an error.
+    ['WALLET_BALANCE_UNAVAILABLE', 502, 'The account balance could not be loaded', true],
   ],
 
   // ── auth: who the caller is, and what they may do ─────────────────────
@@ -114,6 +125,20 @@ export const ERROR_ROWS = {
     ['URL_MALFORMED', 400, 'Not a usable absolute URL'],
     ['JSON_BODY_REQUIRED', 400, 'A JSON request body is required'],
     ['JSON_BODY_MALFORMED', 400, 'The request body is not valid JSON'],
+    // Valid JSON of the wrong shape -- an array or a bare scalar where an object
+    // is required. Previously the same `BAD_REQUEST` as unparseable JSON, which
+    // sent a caller looking for a syntax error that was not there.
+    ['JSON_BODY_NOT_OBJECT', 400, 'The JSON request body is not an object'],
+    ['URI_REQUIRED', 400, 'A uri parameter is required'],
+    ['URI_SCHEME_UNSUPPORTED', 400, 'The URI scheme is not one this endpoint resolves'],
+    // An identifier that addresses a record: a collection or token id. The
+    // contract rejects the same value, but only after a simulated call, and the
+    // caller cannot tell a malformed id from a missing record in that answer.
+    ['ID_NOT_POSITIVE_INTEGER', 400, 'The identifier must be a positive integer'],
+    // A filter parameter whose value is not one the endpoint implements. An
+    // unknown value used to be read as "not set", so `verified=yes` silently
+    // returned unverified creators alongside verified ones.
+    ['FILTER_INVALID', 400, 'A filter parameter has a value this endpoint does not implement'],
   ],
 
   // ── wallet: the browser wallet refused or could not answer ────────────
@@ -138,13 +163,12 @@ export const ERROR_ROWS = {
     ['TX_INCLUSION_MISSING', 502, 'The transaction was submitted but never included', true],
     ['TX_SIGNING_FAILED', 0, 'The wallet could not sign the transaction'],
     ['TX_XDR_MALFORMED', 400, 'The transaction envelope is not valid base64 XDR'],
+    // A resource-fee shortfall is deliberately not its own code: `categorizeError`
+    // folds "insufficient fee" into this one, because the fix a user can act on --
+    // get more XLM -- is the same. `TX_RESOURCE_BUDGET_INSUFFICIENT` was deleted
+    // once `check-error-codes.py` learned to see wrapped rows and reported it as
+    // unreachable, which it had been since that decision was made.
     ['TX_FEE_UNPAYABLE', 400, 'The source account cannot pay the transaction fee'],
-    [
-      'TX_RESOURCE_BUDGET_INSUFFICIENT',
-      409,
-      'The declared resource budget is below what the call needs',
-      true,
-    ],
   ],
 
   // ── ipfs: pinning and gateway reads ──────────────────────────────────
@@ -168,6 +192,13 @@ export const ERROR_ROWS = {
     ['CID_DIGEST_MISMATCH', 502, 'The CID digest does not match the bytes it names'],
     ['PIN_NOT_PROPAGATED', 409, 'The pin succeeded but the content is not reachable yet', true],
     ['GATEWAY_FALLBACK_EXHAUSTED', 502, 'Every configured gateway was tried and refused', true],
+    // The file-upload route answered these with a bare prose body and no code at
+    // all, so a client could not branch on "too big" versus "wrong type"
+    // without matching on the sentence.
+    ['UPLOAD_FILE_MISSING', 400, 'The request carries no file field'],
+    ['UPLOAD_EMPTY_FILE', 400, 'The uploaded file is empty'],
+    ['UPLOAD_FILE_TOO_LARGE', 413, 'The uploaded file is larger than the accepted limit'],
+    ['UPLOAD_MEDIA_TYPE_NOT_ALLOWED', 415, 'That media type is not accepted for uploads'],
   ],
 
   // ── metadata: resolving and validating a metadata document ───────────

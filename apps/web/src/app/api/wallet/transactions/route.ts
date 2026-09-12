@@ -8,9 +8,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Horizon } from '@stellar/stellar-sdk';
 import { getHorizonServer } from '@/services/stellar';
-import { ApiError, normalizeError } from '@/lib/server/errors';
+import { apiError, normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
 import { withTimeout } from '@/lib/server/http';
+import { isAccountMissing } from '@/lib/server/horizon';
 import { TtlCache, SHORT_CACHE_CONTROL } from '@/lib/server/cache';
 import { requireStellarAddress } from '@/lib/server/validation';
 
@@ -66,16 +67,23 @@ async function loadHistory(
 ): Promise<TransactionPayload> {
   const server = getHorizonServer();
 
-  // Funded accounts: full operation history. Unfunded accounts: empty list.
-  let accountExists = true;
+  // A 404 from Horizon means the account has never been funded, which is a
+  // normal state for a wallet that has not received anything yet, so it answers
+  // with an empty history. Any other failure -- an outage, a timeout, a rejected
+  // request -- is not that, and used to be treated as one: every Horizon failure
+  // produced "no transactions", so an outage was indistinguishable from an
+  // empty account.
   try {
     await withTimeout(server.loadAccount(address), 8_000, 'Horizon account lookup timed out');
-  } catch {
-    accountExists = false;
-  }
-
-  if (!accountExists) {
-    return { operations: [], cursor: null };
+  } catch (err) {
+    if (isAccountMissing(err)) {
+      return { operations: [], cursor: null };
+    }
+    logger.warn('Horizon account lookup failed', {
+      error: err instanceof Error ? err.message : String(err),
+      address,
+    });
+    throw apiError('HISTORY_UNAVAILABLE', 'Could not load this account from Horizon');
   }
   try {
     const request = server.operations().forAccount(address).order('desc').limit(limit);
@@ -87,7 +95,7 @@ async function loadHistory(
       error: err instanceof Error ? err.message : String(err),
       address,
     });
-    throw new ApiError('NETWORK_ERROR', 'Failed to load transaction history', 502);
+    throw apiError('NETWORK_ERROR', 'Failed to load transaction history');
   }
 }
 

@@ -16,20 +16,33 @@ function makeFile(name: string, type: string, size: number): File {
   return new File([new Uint8Array(size)], name, { type });
 }
 
+/**
+ * A rejection has to name the rule it broke, in the same envelope every other
+ * route returns. These three answered with `{ error: "prose" }` and no code.
+ */
+async function errorCode(response: Response | null): Promise<string | undefined> {
+  if (!response) return undefined;
+  const body = (await response.json()) as { error?: { code?: string } };
+  return body.error?.code;
+}
+
 describe('validateFile', () => {
-  it('rejects empty files', () => {
+  it('rejects empty files', async () => {
     const res = validateFile(makeFile('a.png', 'image/png', 0));
     expect(res?.status).toBe(400);
+    expect(await errorCode(res)).toBe('UPLOAD_EMPTY_FILE');
   });
 
-  it('rejects oversized files with 413', () => {
+  it('rejects oversized files with 413', async () => {
     const res = validateFile(makeFile('a.png', 'image/png', MAX_FILE_SIZE + 1));
     expect(res?.status).toBe(413);
+    expect(await errorCode(res)).toBe('UPLOAD_FILE_TOO_LARGE');
   });
 
-  it('rejects disallowed mime types with 415', () => {
+  it('rejects disallowed mime types with 415', async () => {
     const res = validateFile(makeFile('a.exe', 'application/x-msdownload', 100));
     expect(res?.status).toBe(415);
+    expect(await errorCode(res)).toBe('UPLOAD_MEDIA_TYPE_NOT_ALLOWED');
   });
 
   it('accepts valid image files within the limit', () => {

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { xdr } from '@stellar/stellar-sdk';
+import { CONTRACT_ERROR_CODE_COUNT } from '@/lib/contractErrors';
 import {
   classifyProtocolError,
   ERROR_CODES,
@@ -164,5 +167,64 @@ describe('the condition tables only name codes that exist', () => {
     for (const code of Object.values(INDEXER_FAILURE_CODES)) {
       expect(ERROR_CODE_BY_NAME[code]?.domain).toBe('indexer');
     }
+  });
+});
+
+describe('the README counts what the catalogue contains', () => {
+  /**
+   * The README's per-domain table had drifted 41 codes away from the catalogue
+   * without anyone noticing, because the numbers were typed by hand in two
+   * places. `docs/error-codes.md` is generated and cannot drift; the README is
+   * the page people read first, so it is checked against the same source here.
+   */
+  const readme = readFileSync(join(process.cwd(), '..', '..', 'README.md'), 'utf8');
+
+  // The error-handling section only, so a table elsewhere in the README cannot
+  // be counted as if it were part of the catalogue.
+  const section = readme.slice(
+    readme.indexOf('The catalogue is'),
+    readme.indexOf('Two properties are enforced'),
+  );
+
+  // Contract codes are generated from the Rust enums into a file this package
+  // does not import, so they are counted from that file's own exported total.
+  const counts = new Map<string, number>();
+  for (const code of ERROR_CODES) {
+    counts.set(code.domain, (counts.get(code.domain) ?? 0) + 1);
+  }
+  counts.set('contract', CONTRACT_ERROR_CODE_COUNT);
+
+  it('states the catalogue size', () => {
+    const total = [...counts.values()].reduce((sum, n) => sum + n, 0);
+    expect(readme).toContain(`The catalogue is **${total} codes**`);
+  });
+
+  it('agrees with every per-domain count in its table', () => {
+    // Rows look like `| `ipfs` | 23 | Pinning and gateway reads |`. Parsed by
+    // cell rather than by regex so the assertion does not depend on the table's
+    // column widths, which prettier sets.
+    const stated = new Map<string, number>();
+    for (const line of section.split('\n')) {
+      if (!line.startsWith('| `')) continue;
+      const cells = line.split('|').map((cell) => cell.trim());
+      const domain = cells[1]?.replace(/`/g, '');
+      if (domain && counts.has(domain)) {
+        stated.set(domain, Number(cells[2]));
+      }
+    }
+
+    expect(stated.size, 'the README table is missing a domain row').toBe(counts.size);
+    for (const [domain, expected] of counts) {
+      expect(stated.get(domain), `${domain} count disagrees with the catalogue`).toBe(expected);
+    }
+  });
+
+  it('sums its table to the total it states', () => {
+    const rows = [...section.matchAll(/^\|\s*`(\w+)`\s*\|\s*(\d+)\s*\|/gm)];
+    const summed = rows.reduce((sum, row) => sum + Number(row[2]), 0);
+    const stated = /The catalogue is \*\*(\d+) codes\*\*/.exec(section);
+
+    expect(stated).not.toBeNull();
+    expect(summed, 'the table and the stated total disagree').toBe(Number(stated![1]));
   });
 });

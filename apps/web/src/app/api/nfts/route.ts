@@ -10,10 +10,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { refreshIndexer, getIndexedEvents } from '@/lib/server/indexer';
 import { parsePagination } from '@/lib/server/pagination';
 import { simulateRead, u64ScVal } from '@/lib/server/contractReader';
-import { ApiError, normalizeError } from '@/lib/server/errors';
+import { apiError, normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
 import { TtlCache, SHORT_CACHE_CONTROL } from '@/lib/server/cache';
-import { isValidStellarAddress } from '@/lib/server/validation';
+import { optionalStellarAddress } from '@/lib/server/validation';
 import { CONTRACT_IDS } from '@/services';
 
 export const dynamic = 'force-dynamic';
@@ -38,19 +38,16 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const { limit, offset } = parsePagination(searchParams);
-    const creator = searchParams.get('creator')?.trim();
+    const creator = optionalStellarAddress(searchParams, 'creator');
     const collectionIdRaw = searchParams.get('collectionId')?.trim();
 
-    if (creator && !isValidStellarAddress(creator)) {
-      throw new ApiError('BAD_REQUEST', 'creator must be a valid Stellar address', 400);
-    }
-    if (collectionIdRaw && !/^\d+$/.test(collectionIdRaw)) {
-      throw new ApiError('BAD_REQUEST', 'collectionId must be a positive integer', 400);
+    if (collectionIdRaw && !/^[1-9]\d*$/.test(collectionIdRaw)) {
+      throw apiError('ID_NOT_POSITIVE_INTEGER', 'collectionId must be a positive integer');
     }
     const collectionId = collectionIdRaw ? Number(collectionIdRaw) : undefined;
 
     if (!CONTRACT_IDS.nft || !CONTRACT_IDS.collection) {
-      throw new ApiError('CONTRACT_ERROR', 'NFT or collection contract not configured', 503);
+      throw apiError('CONTRACT_NOT_CONFIGURED', 'NFT or collection contract not configured');
     }
 
     await refreshIndexer();
