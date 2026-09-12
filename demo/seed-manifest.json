@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-09-12T07:13:39.388Z",
+  "generatedAt": "2026-09-12T11:30:29.722Z",
   "network": "testnet",
   "explorer": "https://stellar.expert/explorer/testnet",
   "contracts": {
-    "factory": "CCDPJDAXU467HI7SJ7PJWXSMCWUFEGS47DD4PELTRJCCTM6FTBDTU2HJ",
-    "collection": "CCDDBJMP3E7AQFAO5RTQ6YJJEZQYSAD5QIOHJT75PYCO2A5FQKSNY4LH",
-    "nft": "CDP2SWXDYGPNI4LKM7CSASSTWDXLHHS3USCNDUAFTJD3TZKFM6O4TOGQ"
+    "factory": "CBQ4RZXR4WWH27MB3A4FSJL6NEDOABQGC67HGCM7YLZVRDTQSPFZFBKT",
+    "collection": "CCPZUT7MPFRCLLSBL64B7M5JNFKAERSTKV6QMIRMWVLLOGH5CWXT5NWX",
+    "nft": "CDIRLCUX6BWD2K27GZ3P533X5YIAWDXCWQNXGNFPDRK6ATITEAOB62D3"
   },
   "tokensBefore": 0,
   "tokensAfter": 18,
@@ -15,8 +15,8 @@
       "collectionId": 1,
       "royaltyBasisPoints": 250,
       "metadataUri": "https://raw.githubusercontent.com/BezaMint/BezaMint/main/demo/metadata/collections/01-stellar-drift.json",
-      "createTx": "80fd81907a39d861b82cc191d0297f44e076899f52a70cf717ed380709f618fd",
-      "mintTx": "944606e8297ab3472265be8848de6cec1ec05cd8a20d0d4301f1df7a7eab6fd7",
+      "createTx": "be3f6ec4650fe0d179cb45edf433317ea36ac443e0bf2b361166c1f48160f0eb",
+      "mintTx": "1b8cbd401fc4fba1aa845ee22448d5d807658eed7d25c38e717c4866b393fdea",
       "tokenIds": [
         1,
         2,
@@ -31,8 +31,8 @@
       "collectionId": 2,
       "royaltyBasisPoints": 500,
       "metadataUri": "https://raw.githubusercontent.com/BezaMint/BezaMint/main/demo/metadata/collections/02-soroban-signals.json",
-      "createTx": "91404525e8c77c520985d20c404258c07643444734bb4017efd8a970d0189dcf",
-      "mintTx": "2656b2b02a4016393ba1376b5119ce717a2a2d71f274a126fc046f658c118c41",
+      "createTx": "6c5112f98730d2194b6d9cf56ffac180d4706e7e8d7b7bfacdb6b05ca597cf2d",
+      "mintTx": "8543bb9b8bc4599286777a0854cae4037b1ebe59cdf536221d3e601b00b3f7b9",
       "tokenIds": [
         7,
         8,
@@ -47,8 +47,8 @@
       "collectionId": 3,
       "royaltyBasisPoints": 750,
       "metadataUri": "https://raw.githubusercontent.com/BezaMint/BezaMint/main/demo/metadata/collections/03-testnet-terrain.json",
-      "createTx": "ca15a19b87f69c72738856a857842cc454609a2599104357afce2c8ac42d5bcb",
-      "mintTx": "4a7522d15bfba2472b3de1aa3106840021f22913c9342ef7171c8d7c4a128c6e",
+      "createTx": "e98cda39a9b9ea280deec61dce584e6c4f4a344093e250912d3f06b3cd5cc7f1",
+      "mintTx": "53270f7791bcec5ef64faa74b7ca202dc1e2aed90d63ca83e455ef22fa212884",
       "tokenIds": [
         13,
         14,

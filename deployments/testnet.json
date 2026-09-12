@@ -4,42 +4,42 @@
   "rpcUrl": "https://soroban-testnet.stellar.org",
   "horizonUrl": "https://horizon-testnet.stellar.org",
   "explorer": "https://stellar.expert/explorer/testnet",
-  "deployedAt": "2026-09-12T07:12:47Z",
-  "verifiedAt": "2026-09-12T07:13:02Z",
-  "sourceCommit": "8b9cddd7556f90c81e8f1df4d8f175a426de0826",
+  "deployedAt": "2026-09-12T11:27:57Z",
+  "verifiedAt": "2026-09-12T11:28:22Z",
+  "sourceCommit": "1cd0c093af57da3e5df9e7ee1b224faf85bc95b6",
   "deployer": {
     "address": "GDDTJU3ON5QFT7UZIERA4S4OITCDKZUPXS6GI7HC6OPCBDYVVP3UMRQF",
     "fundedVia": "friendbot"
   },
   "contracts": {
     "nft": {
-      "id": "CDP2SWXDYGPNI4LKM7CSASSTWDXLHHS3USCNDUAFTJD3TZKFM6O4TOGQ",
-      "wasmHash": "d385fde08b739abfb15416d61346f20a3b4fd3ecbb637a78e1ee249926d7a575",
-      "createdAt": "2026-09-12T07:12:07Z"
+      "id": "CDIRLCUX6BWD2K27GZ3P533X5YIAWDXCWQNXGNFPDRK6ATITEAOB62D3",
+      "wasmHash": "994bed3857f6dcc4b0b7aba00a71515bac29a84aec3fc24eb77a50f9eba044e3",
+      "createdAt": "2026-09-12T11:27:32Z"
     },
     "collection": {
-      "id": "CCDDBJMP3E7AQFAO5RTQ6YJJEZQYSAD5QIOHJT75PYCO2A5FQKSNY4LH",
-      "wasmHash": "8daeedca3412c9b1303365aa623a24cd2533f94fb8590d003e5ed2ddd06eaed6",
-      "createdAt": "2026-09-12T07:12:17Z"
+      "id": "CCPZUT7MPFRCLLSBL64B7M5JNFKAERSTKV6QMIRMWVLLOGH5CWXT5NWX",
+      "wasmHash": "decae884b8f73381ed5bf9f65dbaa2288624a9f046252dcda6c01df533b7dacf",
+      "createdAt": "2026-09-12T11:27:37Z"
     },
     "royalty": {
-      "id": "CC4VHZG7LIMM2VE5JVFTROJTQVVGKIIGQ5MM6ZSYVODJPAMHLZ77FDXP",
-      "wasmHash": "2659025ccc9a464f902349d8a8b2d9b90134f1e87b818061c57d995b904b0ffa",
-      "createdAt": "2026-09-12T07:12:27Z"
+      "id": "CCEIF2JCQDCKFOEMVX2AJZRFTKT6HTTQ2JLPSVDE4RLXJ5IDFZAB3Q5O",
+      "wasmHash": "10c992e7e2a27cb6eb6965c48f0d9beb3983c582055144c55b616f405f35bdb0",
+      "createdAt": "2026-09-12T11:27:42Z"
     },
     "creator": {
-      "id": "CCCE3BFJKJQ6VZDHEYGRI7QA6Z4LAJQLRD4DHKZWURTINCPA2RWZQIBA",
-      "wasmHash": "566be59de05d043845c3adc8d292c063871c83fc848061832c0eb2d44f98a17c",
-      "createdAt": "2026-09-12T07:12:37Z"
+      "id": "CDVZ2AJ67TZLMNAEL7HNNEQZD4F65GGNID5CHOPSYUJ4K6YBIS63M3ZA",
+      "wasmHash": "74c0b457fb911172c3a0ff4b5f4cf02b106f13e8428c2b4d9bf70edfc582cfc8",
+      "createdAt": "2026-09-12T11:27:47Z"
     },
     "factory": {
-      "id": "CCDPJDAXU467HI7SJ7PJWXSMCWUFEGS47DD4PELTRJCCTM6FTBDTU2HJ",
-      "wasmHash": "9494848ca540f4015191b7b3f22a33f88084aa0bff55cff3b9892490a769d622",
-      "createdAt": "2026-09-12T07:12:47Z"
+      "id": "CBQ4RZXR4WWH27MB3A4FSJL6NEDOABQGC67HGCM7YLZVRDTQSPFZFBKT",
+      "wasmHash": "8dc8c704ba11d699b087d94cb4c5bdfd0841c6a3c80c20eb573bc4413aec156b",
+      "createdAt": "2026-09-12T11:27:57Z"
     }
   },
   "wiring": {
-    "royaltyAdmin": "CCDPJDAXU467HI7SJ7PJWXSMCWUFEGS47DD4PELTRJCCTM6FTBDTU2HJ",
+    "royaltyAdmin": "CBQ4RZXR4WWH27MB3A4FSJL6NEDOABQGC67HGCM7YLZVRDTQSPFZFBKT",
     "checks": [
       "nft.total_supply",
       "collection.total_collections",
