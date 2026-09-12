@@ -594,14 +594,24 @@ That is worth checking on any deployment, including the hosted one:
 curl -s https://bezamint.vercel.app/api/health | jq '{commitSha, contracts: .checks.contracts}'
 ```
 
-At the time of writing the hosted instance still names the **previous** contract
-set, so its reads and its readiness checks work while its event-derived routes
-(`/api/nfts`, the activity feed) are empty — the indexed events for that set have
-aged out of the RPC's event retention window. Repointing it is a change to the
-Vercel project's environment variables; the procedure, and what to prune while you
-are there, is in
-[`docs/deployment-runbook.md` §3.1](docs/deployment-runbook.md#31-a-hosted-deployment-keeps-its-own-copy-of-these-values).
-The `Deployment Verification` workflow reports the same gap after every production
+The hosted instance is checked the same way and reads the set in
+[`deployments/testnet.json`](deployments/testnet.json): all five contracts answer,
+`/api/nfts` lists the seeded tokens across three collections, and
+the indexer holds their events. That state is not free — it had to be configured,
+and the paragraph above is the reason it is worth re-checking rather than assumed:
+
+```bash
+SMOKE_BASE_URL=https://bezamint.vercel.app bash scripts/smoke-test.sh   # all 28 checks
+```
+
+A caveat that is easy to hit from the other direction: `NEXT_PUBLIC_APP_URL` must
+name a **publicly reachable** host. Vercel's team-scoped `*-<team>.vercel.app`
+domain and its per-deployment URLs can sit behind Vercel Authentication, so naming
+one there points the Open Graph tags and the sitemap at a page a crawler cannot
+fetch — the site works, the previews do not. Both mistakes were present here and
+both are fixed; the procedure, and what to prune while you are in the project, is
+[`docs/deployment-runbook.md` §3](docs/deployment-runbook.md#31-a-hosted-deployment-keeps-its-own-copy-of-these-values).
+`Deployment Verification` reports the gap automatically after every production
 deploy.
 
 ```bash

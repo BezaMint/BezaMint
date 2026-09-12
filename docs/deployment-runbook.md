@@ -191,16 +191,22 @@ app says so.
 To move a hosted deployment onto a new contract set:
 
 1. Update the project's environment variables: the five
-   `NEXT_PUBLIC_*_CONTRACT_ID` values from
+   `NEXT_PUBLIC_*_CONTRACT_ID` values **and** `NEXT_PUBLIC_DEPLOYER_ADDRESS` from
    [`deployments/testnet.json`](../deployments/testnet.json), plus
    `NEXT_PUBLIC_STELLAR_NETWORK`, `NEXT_PUBLIC_STELLAR_RPC_URL` and
    `NEXT_PUBLIC_STELLAR_PASSPHRASE` if the network changed.
-2. Trigger a new **build**. Editing an environment variable does not rebuild an
+2. Check `NEXT_PUBLIC_APP_URL` names a **publicly reachable** host. It is used for
+   Open Graph URLs, the sitemap and placeholder metadata URIs, and Vercel's
+   team-scoped `*-<team>.vercel.app` domain and its per-deployment URLs can sit
+   behind Vercel Authentication — a project that names one there serves a working
+   site whose previews and sitemap point at a login page. The public production
+   alias is the right value.
+3. Trigger a new **build**. Editing an environment variable does not rebuild an
    existing deployment, and because the values are inlined at build time, a rebuild
    is the only thing that changes what the bundle contains. Use "Redeploy" on
    Vercel, or push a commit.
-3. Re-seed if the contract set is new: `bash scripts/seed-testnet-activity.sh`.
-4. Verify with the smoke test from the section above, or let
+4. Re-seed if the contract set is new: `bash scripts/seed-testnet-activity.sh`.
+5. Verify with the smoke test from the section above, or let
    `.github/workflows/deployment-verify.yml` do it after the next production
    deployment.
 
@@ -208,6 +214,38 @@ To move a hosted deployment onto a new contract set:
 curl -s "$BASE_URL/api/health" | jq '{commitSha, configured: .checks.contractsConfigured, indexer: .checks.indexer.eventCount}'
 SMOKE_BASE_URL="$BASE_URL" bash scripts/smoke-test.sh   # gated: both tiers
 ```
+
+An empty `indexer.eventCount` on a deployment whose contracts all answer is the
+signature of this mistake rather than of a broken indexer.
+
+#### Doing the repoint from the API
+
+The dashboard works, but the whole procedure is scriptable with a Vercel token,
+which is how it was verified here. Editing a variable does **not** rebuild, so step
+3 is the call that makes steps 1 and 2 take effect:
+
+```bash
+PROJECT=bezamint
+# 1. read what the project currently has (ids, keys and values)
+curl -s -H "Authorization: Bearer $VERCEL_TOKEN" \
+  "https://api.vercel.com/v10/projects/$PROJECT/env?decrypt=true" \
+  | jq -r '.envs[] | "\(.key)=[targets:\(.target|join(","))] \(.value)"' | sort
+
+# 2. update one value -- $ENV_ID is the .id from the list above
+curl -s -X PATCH -H "Authorization: Bearer $VERCEL_TOKEN" \
+  -H 'Content-Type: application/json' -d '{"value":"C..."}' \
+  "https://api.vercel.com/v9/projects/$PROJECT/env/$ENV_ID"
+
+# 3. rebuild production from the current deployment, keeping its commit
+curl -s -X POST -H "Authorization: Bearer $VERCEL_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"'"$PROJECT"'","deploymentId":"dpl_...","target":"production"}' \
+  'https://api.vercel.com/v13/deployments?forceNew=1'
+```
+
+Use a token scoped to the project wherever the provider supports it, keep it out of
+the repository and the shell history, and rotate it afterwards — it can change what
+production serves.
 
 ### 3.2 Pruning stale deployments
 
