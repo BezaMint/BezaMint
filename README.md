@@ -387,14 +387,14 @@ bash scripts/deploy.sh    # Builds, optimizes, deploys, generates .env.local
 
 | Contract       | Address                                                    |
 | -------------- | ---------------------------------------------------------- |
-| **NFT**        | `CCW5JLGZQM25TDC2RKUB7OBYDNXDZSWIUP3AAXPT4F36S3D66RLUL33S` |
-| **Collection** | `CAPHMXQ2ODBKGN5YVMRFDXVAOQIFDMM36KAIE5GFWKJXPYD7ZPYH5W2Y` |
-| **Royalty**    | `CAHIKNO5ZLU6GOABKQLMPV3GEIBFG7PB2MSYR54FN7VTUGNY6H32Y3QT` |
-| **Creator**    | `CCTUT4POZK27BM3KNXKXKFNX6OFF5AJEYHEDNG4ZUC6CKHNGQOBJLRFB` |
-| **Factory**    | `CAC7WIC7OWQIKYQA7DRYRBGMHTRZW2TL7L52BYX6Q7OTX7OUMGXWBQVW` |
+| **NFT**        | `CDP2SWXDYGPNI4LKM7CSASSTWDXLHHS3USCNDUAFTJD3TZKFM6O4TOGQ` |
+| **Collection** | `CCDDBJMP3E7AQFAO5RTQ6YJJEZQYSAD5QIOHJT75PYCO2A5FQKSNY4LH` |
+| **Royalty**    | `CC4VHZG7LIMM2VE5JVFTROJTQVVGKIIGQ5MM6ZSYVODJPAMHLZ77FDXP` |
+| **Creator**    | `CCCE3BFJKJQ6VZDHEYGRI7QA6Z4LAJQLRD4DHKZWURTINCPA2RWZQIBA` |
+| **Factory**    | `CCDPJDAXU467HI7SJ7PJWXSMCWUFEGS47DD4PELTRJCCTM6FTBDTU2HJ` |
 
-> **Deployer:** [`GAYVKGVG...`](https://stellar.expert/explorer/testnet/account/GAYVKGVGVI7G5L4WPIVRPBJQAQ2GNDDOXA64IGHGJZP65RA2U4XFTEMM)
-> **Deployed:** September 11, 2026
+> **Deployer:** [`GDDTJU3O...`](https://stellar.expert/explorer/testnet/account/GDDTJU3ON5QFT7UZIERA4S4OITCDKZUPXS6GI7HC6OPCBDYVVP3UMRQF)
+> **Deployed:** September 12, 2026
 >
 > Each contract takes its admin through a **constructor**, so deployment and
 > initialization are a single transaction and there is no window in which an
@@ -440,12 +440,12 @@ visible on the contracts named above.
 
 | Activity                                  | Transaction                                                        | Explorer                                                                                                            |
 | ----------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| Create collection — **Stellar Drift**     | `9cd031f6585d50104c1d592f9997a8dd1660fe5a597e6bf6790ed315009360d4` | [View](https://stellar.expert/explorer/testnet/tx/9cd031f6585d50104c1d592f9997a8dd1660fe5a597e6bf6790ed315009360d4) |
-| **Batch mint 6 tokens** — Stellar Drift   | `dfe45c10f7b56ca843ba5f6c2ddc2b5e1784dadfd269844be8588502efc26153` | [View](https://stellar.expert/explorer/testnet/tx/dfe45c10f7b56ca843ba5f6c2ddc2b5e1784dadfd269844be8588502efc26153) |
-| Create collection — **Soroban Signals**   | `90ebb51c1c1340c91b04492aa79a9052c6d84513892aa38fed54612f99e38703` | [View](https://stellar.expert/explorer/testnet/tx/90ebb51c1c1340c91b04492aa79a9052c6d84513892aa38fed54612f99e38703) |
-| **Batch mint 6 tokens** — Soroban Signals | `6deafa86321f930f2d4553aa1a79fe22e0241c3c4734c6c05510239ce7473a83` | [View](https://stellar.expert/explorer/testnet/tx/6deafa86321f930f2d4553aa1a79fe22e0241c3c4734c6c05510239ce7473a83) |
-| Create collection — **Testnet Terrain**   | `7978bde84e96b9be0fd5e104afce7904024a70a7e6835b92a82b66538f9529ea` | [View](https://stellar.expert/explorer/testnet/tx/7978bde84e96b9be0fd5e104afce7904024a70a7e6835b92a82b66538f9529ea) |
-| **Batch mint 6 tokens** — Testnet Terrain | `289631a6d206440b0dfe31393421c3f0b6d95437dd3cc45bfb54f9fcb08607e6` | [View](https://stellar.expert/explorer/testnet/tx/289631a6d206440b0dfe31393421c3f0b6d95437dd3cc45bfb54f9fcb08607e6) |
+| Create collection — **Stellar Drift**     | `80fd81907a39d861b82cc191d0297f44e076899f52a70cf717ed380709f618fd` | [View](https://stellar.expert/explorer/testnet/tx/80fd81907a39d861b82cc191d0297f44e076899f52a70cf717ed380709f618fd) |
+| **Batch mint 6 tokens** — Stellar Drift   | `944606e8297ab3472265be8848de6cec1ec05cd8a20d0d4301f1df7a7eab6fd7` | [View](https://stellar.expert/explorer/testnet/tx/944606e8297ab3472265be8848de6cec1ec05cd8a20d0d4301f1df7a7eab6fd7) |
+| Create collection — **Soroban Signals**   | `91404525e8c77c520985d20c404258c07643444734bb4017efd8a970d0189dcf` | [View](https://stellar.expert/explorer/testnet/tx/91404525e8c77c520985d20c404258c07643444734bb4017efd8a970d0189dcf) |
+| **Batch mint 6 tokens** — Soroban Signals | `2656b2b02a4016393ba1376b5119ce717a2a2d71f274a126fc046f658c118c41` | [View](https://stellar.expert/explorer/testnet/tx/2656b2b02a4016393ba1376b5119ce717a2a2d71f274a126fc046f658c118c41) |
+| Create collection — **Testnet Terrain**   | `ca15a19b87f69c72738856a857842cc454609a2599104357afce2c8ac42d5bcb` | [View](https://stellar.expert/explorer/testnet/tx/ca15a19b87f69c72738856a857842cc454609a2599104357afce2c8ac42d5bcb) |
+| **Batch mint 6 tokens** — Testnet Terrain | `4a7522d15bfba2472b3de1aa3106840021f22913c9342ef7171c8d7c4a128c6e` | [View](https://stellar.expert/explorer/testnet/tx/4a7522d15bfba2472b3de1aa3106840021f22913c9342ef7171c8d7c4a128c6e) |
 
 Two details worth checking on those links. Each **batch mint is one transaction
 for six tokens**, not six — that is the Factory's atomic `mint_batch_with_royalty`
@@ -622,11 +622,11 @@ walks through a fresh deploy, verifying it, seeding it and hosting the frontend.
 NEXT_PUBLIC_STELLAR_NETWORK=testnet
 NEXT_PUBLIC_STELLAR_RPC_URL=https://soroban-testnet.stellar.org
 NEXT_PUBLIC_STELLAR_PASSPHRASE=Test SDF Network ; September 2015
-NEXT_PUBLIC_NFT_CONTRACT_ID=CCW5JLGZQM25TDC2RKUB7OBYDNXDZSWIUP3AAXPT4F36S3D66RLUL33S
-NEXT_PUBLIC_COLLECTION_CONTRACT_ID=CAPHMXQ2ODBKGN5YVMRFDXVAOQIFDMM36KAIE5GFWKJXPYD7ZPYH5W2Y
-NEXT_PUBLIC_ROYALTY_CONTRACT_ID=CAHIKNO5ZLU6GOABKQLMPV3GEIBFG7PB2MSYR54FN7VTUGNY6H32Y3QT
-NEXT_PUBLIC_CREATOR_CONTRACT_ID=CCTUT4POZK27BM3KNXKXKFNX6OFF5AJEYHEDNG4ZUC6CKHNGQOBJLRFB
-NEXT_PUBLIC_FACTORY_CONTRACT_ID=CAC7WIC7OWQIKYQA7DRYRBGMHTRZW2TL7L52BYX6Q7OTX7OUMGXWBQVW
+NEXT_PUBLIC_NFT_CONTRACT_ID=CDP2SWXDYGPNI4LKM7CSASSTWDXLHHS3USCNDUAFTJD3TZKFM6O4TOGQ
+NEXT_PUBLIC_COLLECTION_CONTRACT_ID=CCDDBJMP3E7AQFAO5RTQ6YJJEZQYSAD5QIOHJT75PYCO2A5FQKSNY4LH
+NEXT_PUBLIC_ROYALTY_CONTRACT_ID=CC4VHZG7LIMM2VE5JVFTROJTQVVGKIIGQ5MM6ZSYVODJPAMHLZ77FDXP
+NEXT_PUBLIC_CREATOR_CONTRACT_ID=CCCE3BFJKJQ6VZDHEYGRI7QA6Z4LAJQLRD4DHKZWURTINCPA2RWZQIBA
+NEXT_PUBLIC_FACTORY_CONTRACT_ID=CCDPJDAXU467HI7SJ7PJWXSMCWUFEGS47DD4PELTRJCCTM6FTBDTU2HJ
 NEXT_PUBLIC_EXPLORER_URL=https://stellar.expert/explorer/testnet
 ```
 
