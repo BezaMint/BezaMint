@@ -21,6 +21,17 @@ jobs:
     # below removes the build on a hit; this is the ceiling for a cold miss.
     timeout-minutes: 20
 
+    # The repository's default workflow permissions are read-only, and
+    # `rustsec/audit-check` fails its step without these: it creates a check run
+    # to annotate the result and files an issue when advisories are found, and
+    # with only read access it dies on "Resource not accessible by integration"
+    # after the audit itself has already passed. Scoped to the job, so no other
+    # workflow gains write access.
+    permissions:
+      contents: read
+      checks: write
+      issues: write
+
     steps:
       - uses: actions/checkout@v5
 
