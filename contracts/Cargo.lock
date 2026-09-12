@@ -181,6 +181,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
+name = "bezamint-benchmarks"
+version = "0.1.0"
+dependencies = [
+ "bezamint-collection",
+ "bezamint-creator",
+ "bezamint-nft",
+ "bezamint-royalty",
+ "ed25519-dalek",
+ "soroban-sdk",
+]
+
+[[package]]
 name = "bezamint-collection"
 version = "0.1.0"
 dependencies = [
@@ -200,6 +212,7 @@ dependencies = [
 name = "bezamint-factory"
 version = "0.1.0"
 dependencies = [
+ "bezamint-benchmarks",
  "bezamint-collection",
  "bezamint-creator",
  "bezamint-nft",

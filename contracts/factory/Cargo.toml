@@ -5,6 +5,11 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 
+# `cdylib` only, on purpose. Adding `rlib` so that `contracts/benchmarks` could
+# depend on this crate made the deployed Wasm blob grow from 16,085 to 27,752
+# bytes -- 72% on a contract whose size every deployer pays for. The benchmark
+# measurements for this contract therefore live in `src/bench.rs` as a unit test
+# and reuse the harness through a dev-dependency instead.
 [lib]
 crate-type = ["cdylib"]
 
@@ -18,3 +23,6 @@ bezamint-nft = { path = "../nft" }
 bezamint-royalty = { path = "../royalty" }
 bezamint-collection = { path = "../collection" }
 bezamint-creator = { path = "../creator" }
+# Shared measurement harness and the four-contract setup. Dev-only, so it never
+# reaches the deployed artifact.
+bezamint-benchmarks = { path = "../benchmarks" }

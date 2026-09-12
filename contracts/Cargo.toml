@@ -6,6 +6,9 @@ members = [
   "royalty",
   "creator",
   "factory",
+  # Test-only: measures the resource cost of the other members. Produces no
+  # deployable artifact.
+  "benchmarks",
 ]
 
 [workspace.package]

@@ -1,0 +1,37 @@
+[package]
+name = "bezamint-benchmarks"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Resource and fee measurements for the BezaMint Soroban contracts"
+publish = false
+
+# Test-only crate: it exists to measure the contracts, not to be deployed, so it
+# deliberately produces no cdylib and contributes no wasm artifact.
+[lib]
+crate-type = ["rlib"]
+
+# The harness runs the real contracts inside the host test environment, and
+# `soroban-sdk/testutils` refuses to compile for wasm at all. Scoping these to
+# non-wasm targets keeps this crate in the workspace -- so `cargo test -p
+# bezamint-benchmarks` and one shared lockfile keep working -- while
+# `cargo build --workspace --target wasm32-unknown-unknown` compiles it to an
+# empty rlib instead of failing the whole build.
+#
+# `target_arch`, not `target_family`: Cargo's evaluator for target-specific
+# dependencies understands the former and silently ignores the latter, which
+# looks exactly like this block working right up until the wasm build dies.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# `testutils` is not a test-only feature here: the measurement harness *is* the
+# library, and it needs the host environment to run contracts at all.
+soroban-sdk = { workspace = true, features = ["testutils"] }
+bezamint-nft = { path = "../nft" }
+bezamint-collection = { path = "../collection" }
+bezamint-royalty = { path = "../royalty" }
+bezamint-creator = { path = "../creator" }
+
+[dev-dependencies]
+# Declared to keep the test build unified on rand_core 0.6; see the note in the
+# workspace manifest.
+ed25519-dalek.workspace = true

@@ -368,7 +368,7 @@ pnpm dev                  # Starts at http://localhost:3000
 # Build all five contracts
 pnpm run contract:build
 
-# Run the full contract test suite (196 tests across 5 crates)
+# Run the full contract test suite (198 tests across 5 crates)
 pnpm run contract:test
 
 # Deploy to Stellar Testnet
@@ -482,13 +482,13 @@ BezaMint implements defense-in-depth across the entire stack:
 
 | Suite           | Framework      | Tests   | Status             |
 | --------------- | -------------- | ------- | ------------------ |
-| Smart Contracts | Rust `#[test]` | 196     | ✅ 196/196 passing |
+| Smart Contracts | Rust `#[test]` | 198     | ✅ 198/198 passing |
 | Frontend        | Vitest         | 412     | ✅ 412/412 passing |
 | **Total**       |                | **608** | **All passing**    |
 
 ```bash
 pnpm test                # Frontend: 412/412 passing (63 files)
-pnpm run contract:test   # Contracts: 196 tests across 5 crates
+pnpm run contract:test   # Contracts: 198 tests across 5 crates
 ```
 
 Counts are the totals those two commands report on this tree; nothing generates
@@ -548,7 +548,7 @@ A 2-minute walkthrough covering all major features — landing, dashboard, colle
 
 ## ✅ Production Readiness Checklist
 
-- [x] Smart contract tests (196/196 passing)
+- [x] Smart contract tests (198/198 passing)
 - [x] Frontend tests (412/412 passing)
 - [x] End-to-end smoke test against a live deployment
 - [x] Security headers (HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
@@ -749,7 +749,7 @@ Contributions are welcome! BezaMint uses conventional commits (`.commitlintrc.js
 - `pnpm lint` — ESLint
 - `pnpm test` — Vitest (412 tests)
 - `pnpm --filter @bezamint/web run test:coverage` — coverage, with a ratcheted floor
-- `cd contracts && cargo test` — Rust (196 tests), plus clippy, rustfmt and the rustdoc gate
+- `cd contracts && cargo test` — Rust (198 tests), plus clippy, rustfmt and the rustdoc gate
 - `cd contracts && cargo build --release --target wasm32-unknown-unknown` — wasm size budgets and the contract ABI snapshot
 - `pnpm build` — production build, plus the client bundle budget
 

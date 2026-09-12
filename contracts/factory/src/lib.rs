@@ -731,3 +731,9 @@ impl BezaMintFactory {
 
 #[cfg(test)]
 mod test;
+
+// Resource and fee measurements. A unit-test module rather than an integration
+// test because this crate is a `cdylib` and nothing outside it can link against
+// the contract; see its header for why that is not worth changing.
+#[cfg(test)]
+mod bench;

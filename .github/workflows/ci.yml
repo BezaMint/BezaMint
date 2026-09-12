@@ -160,6 +160,15 @@ jobs:
       - name: Check the error catalog matches the contracts
         run: python3 scripts/generate-error-catalog.py
 
+      # docs/resource-costs.md is generated from the benchmark suite. The suite
+      # itself ran with the tests above and carries the per-entry-point budgets,
+      # which is what catches a hot path getting more expensive. What no other
+      # check catches is an entry point that exists but is missing from the
+      # table: a reader would then conclude it is free of the costs the table
+      # exists to expose.
+      - name: Check the resource cost table covers every measured entry point
+        run: python3 scripts/bench-contract-resources.py
+
   frontend-build:
     name: Frontend Build
     runs-on: ubuntu-latest
