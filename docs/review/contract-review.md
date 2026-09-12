@@ -279,18 +279,54 @@ payment the same number.
 
 ## Remediation log
 
-Each row lands as its own commit; this table is the index.
+Each row lands as its own commit; this table is the index. "Closed, no change"
+means the finding was real but its proposed remedy did not survive measurement —
+the reason is recorded in [what the measurements changed](#what-the-measurements-changed)
+rather than left to be re-derived.
 
-| Finding                   | Tracker   | Status | Commit |
-| ------------------------- | --------- | ------ | ------ |
-| C2 creator attribution    | —         |        |        |
-| C3 resource figures       | #193      |        |        |
-| C5 `starts_with` cost     | #152      |        |        |
-| C6 run-time symbols       | —         |        |        |
-| C7 migration event        | #151      |        |        |
-| C1 collection membership  | #22       |        |        |
-| C9 auto-registration name | —         |        |        |
-| C4 settlement             | #25, #202 |        |        |
+| Finding                   | Tracker   | Status                                       | Commit    |
+| ------------------------- | --------- | -------------------------------------------- | --------- |
+| C3 resource figures       | #193      | fixed — harness, published tables, CI gate   | `851dc90` |
+| C1 collection membership  | #22       | fixed — cap made reachable, guard tested     | `9e2e5af` |
+| C7 migration event        | #151      | fixed — `Migrated(from, to)` in all five     | `ece6861` |
+| C8 `add_nft` existence    | —         | documented — boundary recorded at the entry  | this pass |
+| C9 auto-registration name | —         | fixed in the app — `update_profile` fallback | this pass |
+| C5 `starts_with` cost     | #152      | closed, no change — remedy not implementable | —         |
+| C6 run-time symbols       | —         | closed, no change — measured as no effect    | —         |
+| C2 creator attribution    | —         | open                                         | —         |
+| C4 settlement             | #25, #202 | open                                         | —         |
+
+## What the measurements changed
+
+The benchmark in `contracts/benchmarks` was built to find the expensive paths.
+It also found that two of this review's own recommendations were wrong, which is
+worth recording, because both were plausible from reading the source and both
+would have cost a refactor.
+
+**Soroban's fee is rent, and rent is entry count and bytes, not work.** Across
+the measured entry points, rent is 97–99% of the fee. A CPU instruction costs
+0.0025 stroops (25 stroops per 10,000), while one ledger entry read costs 6,250
+and one write costs 10,000. So the O(n) rewrites that C1 and the per-owner index
+were written to avoid are, at the fee level, invisible: `collection.add_nft` at
+129 members spends 425,516 instructions — 1,064 stroops — against a rent bill of
+5,800,055. The lever is the number and size of the entries a call leaves behind,
+and the sparse per-index design the NFT contract already uses is the right
+shape. What C1 actually needed was the cap fix, not a layout change.
+
+**C5's remedy is not implementable.** The finding said to compare only the bytes
+that can matter "without allocating". Soroban's `String` exposes exactly one way
+to read its bytes — `copy_into_slice`, which panics unless the destination slice
+is the string's _entire_ length — and `String` has no `to_bytes`, no `slice`, and
+no `starts_with`. A buffer sized to the string is therefore unavoidable, and the
+only remaining cost is zeroing it. At 512 bytes that is ~8,000 instructions
+across the 16 checks in one `set_social_links` call, out of 141,677: 0.02% of
+that call's fee. Recorded, not changed.
+
+**C6 was measurably neutral.** Replacing `Symbol::new` with `symbol_short!` in
+the Factory's inner loop changed `mint_batch_with_royalty(25)` by exactly zero
+instructions (23,102,805 before and after). The macro still constructs the symbol
+through the host at run time; only the source got longer. Reverted rather than
+committed with an unearned justification.
 
 ## Repudiated
 

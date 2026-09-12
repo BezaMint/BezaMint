@@ -483,6 +483,17 @@ impl BezaMintCollection {
     /// favour of the stored admin, which misled callers into believing their
     /// own address authorized the call. The parameter is gone; ownership of the
     /// collection is the authority.
+    ///
+    /// Known boundary: the id is validated for uniqueness but not for
+    /// existence. This contract holds no pointer to the NFT contract, so a
+    /// direct caller who owns a collection can attach ids that were never
+    /// minted, and those ids then appear in [`Self::get_nfts_in_collection`]
+    /// and count toward `nft_count`. Enforcing existence would mean a
+    /// cross-contract call on every membership write, which would put the cost
+    /// of a defensive check on the platform's own mint path; the Factory always
+    /// passes an id it just received from a mint, so the platform flow is
+    /// unaffected. A consumer that renders membership should treat a token that
+    /// fails `owner_of` as absent rather than assuming the network rejected it.
     pub fn add_nft(env: Env, collection_id: u64, token_id: u64) {
         assert_version(&env);
         let mut data: CollectionData = env

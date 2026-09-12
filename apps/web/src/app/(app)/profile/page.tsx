@@ -74,10 +74,28 @@ export default function ProfilePage() {
       };
 
       // Register or update the on-chain profile.
+      //
+      // The on-chain read above is the primary source of truth, but it can fail
+      // transiently and the catch treats that as "no profile". A creator who
+      // created a collection first was auto-registered by the Factory with a
+      // placeholder name, and `register` refuses an existing profile with
+      // `AlreadyRegistered`, so a lookup failure would turn a profile save into
+      // a revert for exactly the users who did the most. Fall back to
+      // `update_profile`, and keep the original error if that fails too.
       const isNew = !profile;
-      const txXdr = isNew
-        ? await registerCreator(address, input)
-        : await updateCreatorProfile(address, input);
+      let txXdr: string;
+      try {
+        txXdr = isNew
+          ? await registerCreator(address, input)
+          : await updateCreatorProfile(address, input);
+      } catch (error) {
+        if (!isNew) throw error;
+        try {
+          txXdr = await updateCreatorProfile(address, input);
+        } catch {
+          throw error;
+        }
+      }
       const result = await signAndSubmit(txXdr);
       if (!result.txHash) throw new Error('Profile submission failed');
 
