@@ -1,0 +1,163 @@
+name: Deployment Verification
+
+# Vercel deploys `main` through its GitHub App, so a push reaches production
+# without this repository's CI being involved: ci.yml proves the code is good,
+# nothing proved the thing that went live is serving it. That is the gap this
+# workflow closes.
+#
+# It runs after a production deployment reports success, waits for the
+# production alias to answer, asserts that the alias is serving the commit that
+# triggered the deploy, and then runs the same end-to-end smoke test
+# `docs/deployment-runbook.md` documents.
+#
+# Why the smoke test runs with SMOKE_REQUIRE_SEEDED=0
+# ---------------------------------------------------
+# The smoke test has two tiers. The readiness tier -- liveness, readiness, RPC
+# reachable, all five contracts wired, input validation -- is about the code
+# that was deployed, and it gates here. The data tier -- indexed events,
+# non-empty list routes -- is about the *environment* that code was pointed at:
+# it depends on which contract ids the Vercel project has configured and on
+# whether that contract set is seeded, neither of which is visible from this
+# repository or changeable by CI. Failing the run on it would mean a check that
+# is red for a reason the log cannot fix, and a check that is always red stops
+# being read. It is reported as a warning in the job summary instead.
+#
+# Manual runs use the same path, so a deployment can be re-verified without
+# pushing anything.
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Base URL to verify (defaults to the production alias)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  # One verification per deployment: a newer deploy supersedes an older check.
+  group: deployment-verify-${{ github.event.deployment.sha || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify the live deployment
+    # A successful production deployment, or an explicit manual run. Preview
+    # deployments are per-pull-request and are not what the README advertises,
+    # so they are deliberately out of scope.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+      github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # Only `node` and `curl` are needed: the smoke test asserts on JSON bodies
+      # with node rather than jq or grep, and never installs a dependency.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Resolve the target URL
+        id: target
+        env:
+          INPUT_BASE_URL: ${{ inputs.base_url }}
+        run: |
+          # The production alias, not the immutable deployment URL: Vercel
+          # Deployment Protection can require a session on the per-deployment
+          # hostname, while the alias is the public surface the README links to.
+          url="${INPUT_BASE_URL:-https://bezamint.vercel.app}"
+          url="${url%/}"
+          echo "base_url=$url" >> "$GITHUB_OUTPUT"
+          echo "SMOKE_BASE_URL=$url" >> "$GITHUB_ENV"
+          {
+            echo "### Deployment verification"
+            echo ""
+            echo "- Target: $url"
+            echo "- Expected commit: \`${{ github.event.deployment.sha || 'n/a (manual run)' }}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # A deploy is not visible at the alias the moment the deployment reports
+      # success, so wait for the readiness probe before asserting anything.
+      - name: Wait for the deployment to answer
+        run: |
+          for attempt in $(seq 1 20); do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "$SMOKE_BASE_URL/api/health/live" || true)"
+            if [ "$code" = "200" ]; then
+              echo "✅ $SMOKE_BASE_URL answered 200 after $attempt attempt(s)"
+              exit 0
+            fi
+            echo "   attempt $attempt: HTTP ${code:-none}"
+            sleep 15
+          done
+          echo "::error::$SMOKE_BASE_URL/api/health/live did not return 200 within 5 minutes"
+          exit 1
+
+      # The property that makes "the deployment is current" checkable rather
+      # than assumed: /api/health reports the commit it was built from, which
+      # Vercel supplies as VERCEL_GIT_COMMIT_SHA. A mismatch means the alias is
+      # still serving the previous build.
+      - name: Assert the alias serves the deployed commit
+        if: github.event_name == 'deployment_status'
+        env:
+          EXPECTED_SHA: ${{ github.event.deployment.sha }}
+        run: |
+          for attempt in $(seq 1 20); do
+            actual="$(
+              curl -sS --max-time 30 "$SMOKE_BASE_URL/api/health" |
+                node -e 'let s="";process.stdin.on("data",(c)=>s+=c).on("end",()=>{try{process.stdout.write(String(JSON.parse(s).commitSha||""))}catch{process.stdout.write("")}})'
+            )"
+            if [ "$actual" = "$EXPECTED_SHA" ]; then
+              echo "✅ $SMOKE_BASE_URL is serving $EXPECTED_SHA"
+              echo "- Served commit: \`$EXPECTED_SHA\` (matches)" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            echo "   attempt $attempt: serving '${actual:-unknown}', expected '$EXPECTED_SHA'"
+            sleep 15
+          done
+          echo "::error::$SMOKE_BASE_URL is serving '${actual:-unknown}', not the deployed '$EXPECTED_SHA'"
+          exit 1
+
+      - name: Smoke test the deployment
+        env:
+          SMOKE_REQUIRE_SEEDED: '0'
+        run: |
+          set +e
+          bash scripts/smoke-test.sh | tee /tmp/smoke.log
+          status="${PIPESTATUS[0]}"
+          {
+            echo ""
+            echo "<details><summary>Smoke test output</summary>"
+            echo ""
+            echo '```'
+            cat /tmp/smoke.log
+            echo '```'
+            echo ""
+            echo "</details>"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      # The run is green either way; this states what the run did and did not
+      # prove, so a green check is not read as more than it is.
+      - name: Summarise what was verified
+        if: always()
+        run: |
+          {
+            echo ""
+            echo "**Verified:** liveness, readiness, RPC reachability, all five"
+            echo "contracts wired, configuration surface, search, and that malformed"
+            echo "input is rejected with 4xx rather than a crash."
+            echo ""
+            echo "**Not gated:** indexed events and non-empty list routes. Those depend"
+            echo "on the contract ids configured in the Vercel project and on that"
+            echo "contract set being seeded, which CI cannot inspect. A warning above"
+            echo "means the deployment is readable but its feed is empty — repoint the"
+            echo "project's \`NEXT_PUBLIC_*_CONTRACT_ID\` values at the contract set in"
+            echo "\`deployments/testnet.json\` and re-seed it."
+          } >> "$GITHUB_STEP_SUMMARY"

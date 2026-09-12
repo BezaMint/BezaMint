@@ -564,11 +564,16 @@ A 2-minute walkthrough covering all major features — landing, dashboard, colle
 
 ## 🌐 Deployment
 
-| Environment   | Status                                                  |
-| ------------- | ------------------------------------------------------- |
-| **Contracts** | 5/5 live on Stellar Testnet, wired, verified and seeded |
-| **Frontend**  | https://bezamint.vercel.app — auto-deployed from `main` |
-| **CI/CD**     | 3 GitHub Actions workflows (CI, Release, Security)      |
+| Environment   | Status                                                                      |
+| ------------- | --------------------------------------------------------------------------- |
+| **Contracts** | 5/5 live on Stellar Testnet, wired, verified and seeded                     |
+| **Frontend**  | https://bezamint.vercel.app — auto-deployed from `main` on every push       |
+| **CI/CD**     | 4 GitHub Actions workflows (CI, Deployment Verification, Release, Security) |
+
+The frontend deployment is automatic: the Vercel GitHub App watches `main` and
+builds a production deployment on every push, with pull requests getting their own
+preview URL. No workflow in this repository has to trigger it, which is exactly why
+the verification above exists — nothing else would notice a deploy that half-succeeded.
 
 The deployed addresses, the wasm hash of each contract and the commit the wasm was
 built from are published in [`deployments/testnet.json`](deployments/testnet.json)
@@ -596,11 +601,21 @@ walks through a fresh deploy, verifying it, seeding it and hosting the frontend.
 
 ## ⚙️ CI/CD Pipeline
 
-| Workflow     | Trigger              | Jobs                                                                       |
-| ------------ | -------------------- | -------------------------------------------------------------------------- |
-| **CI**       | Push to `main`, PRs  | Contract Tests · Lint & Format · Frontend Tests · Frontend Build           |
-| **Release**  | Git tags (`v*.*.*`)  | Build contracts → Upload wasm artifacts → GitHub Release                   |
-| **Security** | Weekly + dep changes | `pnpm audit --audit-level=high` and `rustsec/audit-check` on the contracts |
+| Workflow                    | Trigger                   | Jobs                                                                                |
+| --------------------------- | ------------------------- | ----------------------------------------------------------------------------------- |
+| **CI**                      | Push to `main`, PRs       | Contract Tests · Lint & Format · Frontend Tests · Frontend Build                    |
+| **Deployment Verification** | A production deploy lands | Assert the alias serves the deployed commit, then smoke test the live app over HTTP |
+| **Release**                 | Git tags (`v*.*.*`)       | Build contracts → Upload wasm artifacts → GitHub Release                            |
+| **Security**                | Weekly + dep changes      | `pnpm audit --audit-level=high` and `rustsec/audit-check` on the contracts          |
+
+`CI` proves the code is good; it does not prove the thing that went live is
+serving it. Vercel deploys `main` through its GitHub App, so a push reaches
+production without this repository's CI being involved — `Deployment Verification`
+is what closes that loop. On every successful production deployment it waits for
+the alias to answer, asserts that `/api/health` reports the very commit that was
+deployed (Vercel supplies it as `VERCEL_GIT_COMMIT_SHA`), and then runs
+[`scripts/smoke-test.sh`](scripts/smoke-test.sh) against the live app. It can also
+be run by hand from the Actions tab against any URL.
 
 ---
 

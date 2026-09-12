@@ -121,11 +121,32 @@ that the indexer has ingested events, and that `/api/nfts`, `/api/collections`,
 fields the UI renders -- plus that a bad `creator` is rejected with `400` rather
 than crashing. It exits non-zero and lists the failed checks.
 
+The assertions fall into two tiers, because they have different remedies. The
+**readiness tier** is about the code that was deployed. The **data tier** is about
+the environment that code was pointed at: it only holds on a `seeded` deployment,
+and it depends on the contract ids the host has configured rather than on anything
+in this repository. `SMOKE_REQUIRE_SEEDED=1` (the default) gates on both.
+`SMOKE_REQUIRE_SEEDED=0` gates on the readiness tier alone and reports the data
+tier as warnings, which is what the automated check needs: it is the same script,
+run against a deployment whose environment CI cannot inspect.
+
 Run it against a **seeded** deployment. Seeding is a separate step:
 
 ```bash
 bash scripts/seed-testnet-activity.sh   # creates demo collections and tokens
 ```
+
+### 2.2 Automating it
+
+`.github/workflows/deployment-verify.yml` runs on every successful production
+deployment, and by hand from the Actions tab against any URL. It waits for the
+production alias to answer, asserts that `/api/health` reports the commit that was
+deployed, and then runs the smoke test above with `SMOKE_REQUIRE_SEEDED=0`.
+
+That workflow exists because Vercel deploys `main` through its GitHub App, so a
+push reaches production without `ci.yml` being involved. Without it, a deployment
+that builds but cannot reach the RPC, or that is still serving the previous build
+behind the alias, would be noticed only by a user.
 
 The two scripts are not redundant with the unit suite, and the reason is worth
 recording. The unit tests mock both the RPC and the contract reader, which is the

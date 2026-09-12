@@ -25,16 +25,36 @@
 #   SMOKE_BASE_URL=https://my-deployment bash scripts/smoke-test.sh
 #
 # Exit code is non-zero if any expectation fails.
+#
+# Two tiers
+# ---------
+# The script asserts two different kinds of thing, and they have different
+# remedies. The readiness tier -- liveness, readiness, RPC reachable, all five
+# contracts wired, input validation -- is about the code that was deployed. The
+# data tier -- a positive supply, indexed events, non-empty list routes -- is
+# about the *environment* that code was pointed at: it only holds on a seeded
+# deployment, and it depends on the contract ids the host has configured rather
+# than on anything in this repository.
+#
+# SMOKE_REQUIRE_SEEDED=1 (the default) gates on both, which is what a local run
+# against a seeded deployment wants. SMOKE_REQUIRE_SEEDED=0 gates on the
+# readiness tier alone and reports the data tier as warnings, so an automated
+# check against a deployment whose environment CI cannot inspect reports the
+# gap loudly without going permanently red -- a check that always fails is a
+# check nobody reads.
 # ─────────────────────────────────────────────────────────────
 
 set -uo pipefail
 
 BASE_URL="${SMOKE_BASE_URL:-http://localhost:3000}"
 BASE_URL="${BASE_URL%/}"
+REQUIRE_SEEDED="${SMOKE_REQUIRE_SEEDED:-1}"
 
 PASSED=0
 FAILED=0
 FAILURES=()
+WARNED=0
+WARNINGS=()
 
 # `body` and `status` are set by `request`.
 body=""
@@ -70,6 +90,23 @@ check() {
 check_status() {
   local label="$1" expected="$2"
   check "$label (HTTP $status)" "$([ "$status" = "$expected" ] && echo 1 || echo 0)"
+}
+
+# Assert something that is only true of a seeded deployment. Downgraded to a
+# warning when SMOKE_REQUIRE_SEEDED=0, so the readiness tier can still gate.
+check_data() {
+  local label="$1"
+  local condition="$2"
+  if [ "$REQUIRE_SEEDED" = "1" ]; then
+    check "$label" "$condition"
+  elif [ "$condition" = "1" ]; then
+    PASSED=$((PASSED + 1))
+    printf '  \033[32m✓\033[0m %s\n' "$label"
+  else
+    WARNED=$((WARNED + 1))
+    WARNINGS+=("$label")
+    printf '  \033[33m!\033[0m %s \033[33m(data tier: not gated)\033[0m\n' "$label"
+  fi
 }
 
 # Query the JSON body with a node expression that must evaluate truthy.
@@ -131,15 +168,15 @@ check "config names the network" "$(json_ok 'typeof data.data.network === "strin
 echo "stats"
 request "/api/stats"
 check_status "GET /api/stats" "200"
-check "NFT supply is a positive number" "$(json_ok 'typeof data.data.nftSupply === "number" && data.data.nftSupply > 0')"
-check "collection count is a positive number" "$(json_ok 'typeof data.data.collections === "number" && data.data.collections > 0')"
-check "indexer has ingested events" "$(json_ok 'data.data.indexer.eventCount > 0')"
-check "recent mints were observed" "$(json_ok 'data.data.recentMints.count > 0')"
+check_data "NFT supply is a positive number" "$(json_ok 'typeof data.data.nftSupply === "number" && data.data.nftSupply > 0')"
+check_data "collection count is a positive number" "$(json_ok 'typeof data.data.collections === "number" && data.data.collections > 0')"
+check_data "indexer has ingested events" "$(json_ok 'data.data.indexer.eventCount > 0')"
+check_data "recent mints were observed" "$(json_ok 'data.data.recentMints.count > 0')"
 
 echo "tokens"
 request "/api/nfts?limit=3"
 check_status "GET /api/nfts" "200"
-check "tokens are listed" "$(json_ok 'Array.isArray(data.data) && data.data.length > 0')"
+check_data "tokens are listed" "$(json_ok 'Array.isArray(data.data) && data.data.length > 0')"
 check "tokens carry the fields the UI renders" "$(json_ok '
   data.data.every((n) =>
     typeof n.tokenId === "number" &&
@@ -151,7 +188,7 @@ check "tokens carry the fields the UI renders" "$(json_ok '
 echo "collections"
 request "/api/collections?limit=3"
 check_status "GET /api/collections" "200"
-check "collections are listed" "$(json_ok 'Array.isArray(data.data) && data.data.length > 0')"
+check_data "collections are listed" "$(json_ok 'Array.isArray(data.data) && data.data.length > 0')"
 check "collections carry the fields the UI renders" "$(json_ok '
   data.data.every((c) =>
     typeof c.id === "number" &&
@@ -183,6 +220,16 @@ check_status "GET /api/pagination-ish (unknown route)" "404"
 
 # ── Result ───────────────────────────────────────────────────
 echo ""
+if [ "$WARNED" -gt 0 ]; then
+  echo -e "\033[33m$WARNED data-tier check(s) not satisfied\033[0m"
+  for warning in "${WARNINGS[@]}"; do
+    echo "  - $warning"
+  done
+  echo "  (expected on a deployment that is unseeded, or whose configured"
+  echo "   contract set has aged out of the RPC's event retention window)"
+  echo ""
+fi
+
 if [ "$FAILED" -gt 0 ]; then
   echo -e "\033[31m$FAILED failed\033[0m, $PASSED passed"
   echo ""
