@@ -5,21 +5,43 @@
  * we want confidence it actually refers to the bytes we sent. This module
  * provides:
  *
- *  1. `assertValidCid` — strict structural check that the returned string
- *     is a real CIDv1 (dag-pb, sha2-256, base32) rather than a truncated
- *     or corrupted value.
+ *  1. `assertValidCid` — structural check that the returned string really is
+ *     a CIDv1 in base32 whose multihash identifies a sha2-256 digest of the
+ *     pinned object, rather than a truncated or corrupted value.
  *  2. `verifyPinnedContent` — best-effort round-trip: fetch the pinned
  *     object from the configured gateway and compare its sha256 to the
  *     uploaded bytes. Propagation can lag behind the upload response, so
  *     mismatches are reported, not thrown.
+ *
+ * Why the accepted codecs matter
+ * ------------------------------
+ * An earlier version accepted only dag-pb (0x70). Pinata's public file upload
+ * returns *raw* (0x55) CIDs, so that check rejected the CID of every upload
+ * that had in fact already been pinned — the pin succeeded, the response was a
+ * 500, and the pinned bytes were orphaned on IPFS with no record pointing at
+ * them. Nothing caught it because the upload routes return the `beza://`
+ * fallback before reaching this check whenever PINATA_JWT is unset.
  */
 
 import { createHash } from 'node:crypto';
 import { logger } from './logger';
 import { fetchWithTimeout } from './http';
 
-// CIDv1 = 0x01, dag-pb codec = 0x70, sha2-256 multihash = 0x12, digest 32 bytes.
-const EXPECTED_PREFIX = [0x01, 0x70, 0x12, 0x20];
+// A CIDv1 in base32 decodes to a fixed 36 bytes for a sha2-256 dag-pb or raw
+// object: 1 version + 1 codec + 1 multihash code + 1 digest length + 32 digest.
+const CIDV1 = 0x01;
+const MULTIHASH_SHA2_256 = 0x12;
+const SHA2_256_LENGTH = 0x20;
+const SHA2_256_DIGEST_BYTES = 32;
+const CID_BYTES = 4 + SHA2_256_DIGEST_BYTES;
+
+// Codecs that legitimately represent a file we just pinned:
+//   0x55 raw    — what Pinata returns for a file upload. The digest *is* the
+//                 sha256 of the file's bytes, so it is offline-checkable.
+//   0x70 dag-pb — a UnixFS DAG, returned when the object was pinned as a DAG.
+const CODEC_RAW = 0x55;
+const CODEC_DAG_PB = 0x70;
+const ACCEPTED_CODECS = new Set([CODEC_RAW, CODEC_DAG_PB]);
 
 const BASE32_ALPHABET = 'abcdefghijklmnopqrstuvwxyz234567';
 
@@ -43,8 +65,9 @@ function base32Decode(input: string): number[] | null {
 }
 
 /**
- * Strictly validate that `cid` is a well-formed CIDv1 dag-pb sha2-256
- * string. Returns the 32-byte digest on success, throws otherwise.
+ * Validate that `cid` is a well-formed CIDv1 in base32 identifying a sha2-256
+ * digest of a raw or dag-pb object. Returns the 32-byte digest, throws
+ * otherwise.
  */
 export function assertValidCid(cid: string): Uint8Array {
   if (typeof cid !== 'string' || cid.length === 0) {
@@ -58,16 +81,29 @@ export function assertValidCid(cid: string): Uint8Array {
   if (!bytes) {
     throw new Error('CID is not valid base32');
   }
-  if (bytes.length < EXPECTED_PREFIX.length + 32) {
-    throw new Error('CID is too short to be a sha2-256 dag-pb CID');
+  if (bytes.length !== CID_BYTES) {
+    throw new Error(`CID is ${bytes.length} bytes, expected ${CID_BYTES} for a sha2-256 CIDv1`);
   }
-  for (let i = 0; i < EXPECTED_PREFIX.length; i++) {
-    if (bytes[i] !== EXPECTED_PREFIX[i]) {
-      throw new Error('CID does not match expected dag-pb sha2-256 encoding');
-    }
+  // The length check above makes these four defined; naming them keeps the
+  // comparisons readable and satisfies noUncheckedIndexedAccess.
+  const version = bytes[0] ?? 0;
+  const codec = bytes[1] ?? 0;
+  const multihashCode = bytes[2] ?? 0;
+  const digestLength = bytes[3] ?? 0;
+
+  if (version !== CIDV1) {
+    throw new Error(`CID is version ${version}, expected 1`);
+  }
+  if (!ACCEPTED_CODECS.has(codec)) {
+    throw new Error(
+      `CID uses codec 0x${codec.toString(16)}, which does not represent the uploaded bytes`,
+    );
+  }
+  if (multihashCode !== MULTIHASH_SHA2_256 || digestLength !== SHA2_256_LENGTH) {
+    throw new Error('CID multihash is not a 32-byte sha2-256 digest');
   }
 
-  return Uint8Array.from(bytes.slice(EXPECTED_PREFIX.length, EXPECTED_PREFIX.length + 32));
+  return Uint8Array.from(bytes.slice(4, CID_BYTES));
 }
 
 function sha256Hex(buffer: Buffer | Uint8Array): string {
