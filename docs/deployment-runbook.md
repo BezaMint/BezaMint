@@ -247,7 +247,48 @@ Use a token scoped to the project wherever the provider supports it, keep it out
 the repository and the shell history, and rotate it afterwards — it can change what
 production serves.
 
-### 3.2 Pruning stale deployments
+### 3.2 IPFS variables
+
+Three variables decide whether the hosted instance pins and reads metadata. Only
+the first is a secret:
+
+| Variable                     | Secret | What it does                                                       |
+| ---------------------------- | ------ | ------------------------------------------------------------------ |
+| `PINATA_JWT`                 | yes    | Enables pinning. Unset, uploads return a `beza://` placeholder.    |
+| `NEXT_PUBLIC_PINATA_GATEWAY` | no     | Gateway the browser reads through; ships in the client bundle.     |
+| `API_WRITE_KEY`              | yes    | Required by non-browser callers; see `apps/web/src/middleware.ts`. |
+
+Scope the Pinata key to `pinFileToIPFS` + `pinJSONToIPFS` only. The upload route
+is reachable from any visitor of a public deployment, and a minted
+`metadata_uri` cannot be rewritten, so a placeholder URI written today is
+permanent for that token. Creating, and later rotating, the key is
+[`docs/pinata-key-rotation.md`](pinata-key-rotation.md).
+
+Changing either variable does not rebuild anything: `PINATA_JWT` is read at
+request time, but `NEXT_PUBLIC_PINATA_GATEWAY` is inlined, so it needs the same
+redeploy as a contract repoint (3.1).
+
+Verify the pinning path end to end rather than trusting the warning being gone:
+
+```bash
+# 1. configured?          {"available":true}
+curl -s https://bezamint.vercel.app/api/ipfs/upload
+
+# 2. a real pin, from the app's own origin. Expect fallback false, a CID, and
+#    integrity {"verified":true,"method":"cid-digest"} -- in about a second. A
+#    gateway-verified result instead would mean the CID is not raw.
+curl -s -X POST https://bezamint.vercel.app/api/ipfs/upload \
+  -H 'content-type: application/json' -H 'Origin: https://bezamint.vercel.app' \
+  -d '{"name":"runbook check"}'
+
+# 3. it reads back through the proxy, using the CID from step 2
+curl -s 'https://bezamint.vercel.app/api/ipfs/metadata?uri=ipfs://<cid>'
+```
+
+Step 2 is the one that catches a stale key: a revoked or wrongly scoped JWT pins
+nothing and surfaces as a 5xx, not as a fallback.
+
+### 3.3 Pruning stale deployments
 
 A platform accumulates a deployment per push. Those are immutable build records
 with their own URLs; pruning them is housekeeping and does not touch the

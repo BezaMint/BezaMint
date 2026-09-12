@@ -601,8 +601,30 @@ the indexer holds their events. That state is not free — it had to be configur
 and the paragraph above is the reason it is worth re-checking rather than assumed:
 
 ```bash
-SMOKE_BASE_URL=https://bezamint.vercel.app bash scripts/smoke-test.sh   # all 28 checks
+SMOKE_BASE_URL=https://bezamint.vercel.app bash scripts/smoke-test.sh   # all 30 checks
 ```
+
+IPFS is configured on the hosted instance too, so the pinning path is a working
+feature there rather than a fallback: `POST /api/ipfs/upload` returns a real CID,
+the CID's own digest proves it identifies the uploaded bytes, and the metadata
+proxy reads that document back. Two properties of public gateways are worth
+knowing before reading that check's output, because both look like faults and are
+not:
+
+- **The health probe can report `status: 429`.** Every public gateway measured
+  (`ipfs.io`, `dweb.link`, `w3s.link`, `nftstorage.link`) rate-limits datacenter
+  egress, so the probe treats _a response_ as reachability and a throttle as a
+  note. Gating readiness on a third party's rate limiter flapped a healthy deploy.
+- **Server-side reads step over a refusing gateway.** `getIpfsGateways()` always
+  ends with the pinning provider's gateway — the one host that answers from a
+  datacenter — so the metadata proxy falls back rather than returning `502`.
+
+Reads a visitor makes happen in their browser, against `NEXT_PUBLIC_PINATA_GATEWAY`,
+which is why that default is the fast gateway and not the reliable one. The
+measurements behind both choices are in `apps/web/src/lib/ipfsGateway.ts`.
+
+Add `SMOKE_IPFS_UPLOAD=1` to pin a real document and assert a CID comes back; it is
+opt-in because a passing run spends pinning quota.
 
 A caveat that is easy to hit from the other direction: `NEXT_PUBLIC_APP_URL` must
 name a **publicly reachable** host. Vercel's team-scoped `*-<team>.vercel.app`
