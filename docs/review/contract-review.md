@@ -2,7 +2,7 @@
 
 Scope: the five Soroban contracts in `contracts/` — `nft`, `collection`,
 `royalty`, `creator`, `factory` — reviewed against the deployed testnet set,
-the tracker in [`ISSUES.md`](../ISSUES.md), and the first review round in
+the tracker in [`ISSUES.md`](../../ISSUES.md), and the first review round in
 [`critical-review.md`](critical-review.md).
 
 Method: every source file read end to end; the full suite, `clippy -D warnings`,

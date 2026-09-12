@@ -24,7 +24,13 @@
   <img src="https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs" alt="Next.js" />
   <img src="https://img.shields.io/badge/Soroban_SDK-22.0.11-7b3fe4" alt="Soroban SDK" />
   <img src="https://img.shields.io/badge/Stellar-Testnet-24a563?logo=stellar" alt="Stellar" />
-  <img src="https://img.shields.io/badge/tests-608_passing-success" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-701_passing-success" alt="Tests" />
+  <a href="docs/resource-costs.md">
+    <img src="https://img.shields.io/badge/gas-measured_per_entry_point-orange" alt="Gas benchmarks" />
+  </a>
+  <a href="docs/error-codes.md">
+    <img src="https://img.shields.io/badge/error_codes-240-blueviolet" alt="Error codes" />
+  </a>
   <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="Version" />
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome" />
 </p>
@@ -73,19 +79,22 @@
 
 ## 📚 Documentation
 
-| Document                                                           | Covers                                                                                 |
-| ------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| [`docs/architecture.md`](docs/architecture.md)                     | How the five contracts compose, the trust boundaries and the off-chain layer.          |
-| [`docs/api-reference.md`](docs/api-reference.md)                   | Every `/api/*` route, its parameters, response shapes, error codes and rate limits.    |
-| [`contracts/README.md`](contracts/README.md)                       | The authoritative contract interface reference and the deploy procedure.               |
-| [`docs/indexer-schema.md`](docs/indexer-schema.md)                 | How emitted events map onto indexed records.                                           |
-| [`docs/error-codes.md`](docs/error-codes.md)                       | Every contract error code, what raises it and what it means (generated).               |     | [`docs/deployment-runbook.md`](docs/deployment-runbook.md) | Deploying, verifying, upgrading, rolling back, and hosting the frontend. |
-| [`deployments/testnet.json`](deployments/testnet.json)             | The published address registry: contract ids, wasm hashes, deployer and source commit. |
-| [`docs/mainnet-readiness.md`](docs/mainnet-readiness.md)           | What must be true before mainnet, beyond what tests can prove.                         |
-| [`docs/review/critical-review.md`](docs/review/critical-review.md) | An adversarial review of the repository and the findings it produced.                  |
-| [`docs/faq.md`](docs/faq.md)                                       | Answers and troubleshooting: wallets, funding, upload limits, error codes.             |
-| [`docs/glossary.md`](docs/glossary.md)                             | Stellar and Soroban vocabulary used across the code and docs.                          |
-| [`ISSUES.md`](ISSUES.md)                                           | The current contributor backlog, verified against the tree.                            |
+| Document                                                           | Covers                                                                                               |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| [`docs/architecture.md`](docs/architecture.md)                     | How the five contracts compose, the trust boundaries and the off-chain layer.                        |
+| [`docs/api-reference.md`](docs/api-reference.md)                   | Every `/api/*` route, its parameters, response shapes, error codes and rate limits.                  |
+| [`contracts/README.md`](contracts/README.md)                       | The authoritative contract interface reference and the deploy procedure.                             |
+| [`docs/indexer-schema.md`](docs/indexer-schema.md)                 | How emitted events map onto indexed records.                                                         |
+| [`docs/error-codes.md`](docs/error-codes.md)                       | All 240 error codes — contract, Stellar protocol and application — and what raises each (generated). |
+| [`docs/resource-costs.md`](docs/resource-costs.md)                 | What every entry point costs, measured, with the budgets CI enforces (generated).                    |
+| [`docs/review/contract-review.md`](docs/review/contract-review.md) | The second contract review: findings, what measurement changed, and what was disproved.              |
+| [`docs/deployment-runbook.md`](docs/deployment-runbook.md)         | Deploying, verifying, upgrading, rolling back, and hosting the frontend.                             |
+| [`deployments/testnet.json`](deployments/testnet.json)             | The published address registry: contract ids, wasm hashes, deployer and source commit.               |
+| [`docs/mainnet-readiness.md`](docs/mainnet-readiness.md)           | What must be true before mainnet, beyond what tests can prove.                                       |
+| [`docs/review/critical-review.md`](docs/review/critical-review.md) | An adversarial review of the repository and the findings it produced.                                |
+| [`docs/faq.md`](docs/faq.md)                                       | Answers and troubleshooting: wallets, funding, upload limits, error codes.                           |
+| [`docs/glossary.md`](docs/glossary.md)                             | Stellar and Soroban vocabulary used across the code and docs.                                        |
+| [`ISSUES.md`](ISSUES.md)                                           | The current contributor backlog, verified against the tree.                                          |
 
 ---
 
@@ -368,7 +377,7 @@ pnpm dev                  # Starts at http://localhost:3000
 # Build all five contracts
 pnpm run contract:build
 
-# Run the full contract test suite (207 tests across 5 crates)
+# Run the full contract test suite (216 tests across 5 crates)
 pnpm run contract:test
 
 # Deploy to Stellar Testnet
@@ -394,7 +403,11 @@ bash scripts/deploy.sh    # Builds, optimizes, deploys, generates .env.local
 | **Factory**    | `CBQ4RZXR4WWH27MB3A4FSJL6NEDOABQGC67HGCM7YLZVRDTQSPFZFBKT` |
 
 > **Deployer:** [`GDDTJU3O...`](https://stellar.expert/explorer/testnet/account/GDDTJU3ON5QFT7UZIERA4S4OITCDKZUPXS6GI7HC6OPCBDYVVP3UMRQF)
-> **Deployed:** September 12, 2026
+> **Deployed:** September 12, 2026, from commit `1cd0c093af57da3e5df9e7ee1b224faf85bc95b6`
+> **Registry:** [`deployments/testnet.json`](deployments/testnet.json) — the ids above,
+> their wasm hashes read back from the chain, and the commit they were built from.
+> `pnpm run deploy:record:check` fails when the registry, this table and the seed
+> manifest disagree about the same deployment.
 >
 > Each contract takes its admin through a **constructor**, so deployment and
 > initialization are a single transaction and there is no window in which an
@@ -460,21 +473,43 @@ events it triggers, which is the cross-contract call the Factory is there to mak
 
 ---
 
-## 🛡 Error Handling Matrix
+## 🛡 Error Handling
 
-BezaMint implements defense-in-depth across the entire stack:
+Every failure the system can produce or surface has one immutable identifier, so
+nothing is recovered by matching on a sentence. The catalogue is **240 codes**
+across twelve domains — see [`docs/error-codes.md`](docs/error-codes.md) for the
+full table, which is generated from the same sources that raise the codes.
 
-| Error Category             | Frontend Handling                                      | Contract Handling                  |
-| -------------------------- | ------------------------------------------------------ | ---------------------------------- |
-| Wallet not installed       | `isFreighterInstalled()` check with clear CTA          | N/A (client-side)                  |
-| Connection rejected        | "Wallet access was denied" toast                       | N/A (client-side)                  |
-| Wallet disconnected        | `onAccountChanged` listener, auto-cleanup              | N/A (client-side)                  |
-| Insufficient balance       | `checkBalance()` pre-flight before every TX            | N/A (client-side)                  |
-| Invalid transaction        | Try/catch with descriptive message                     | Soroban revert with error message  |
-| Contract execution failure | `waitForTransaction` FAILED status → user-friendly msg | `panic!` with descriptive strings  |
-| Network failure            | Catch on all RPC/Horizon calls, graceful degradation   | N/A (network layer)                |
-| User cancelled transaction | "Transaction was cancelled by user" notification       | N/A (client-side)                  |
-| Invalid user input         | Form-level validation with field-level error messages  | `assert!` guards on all public fns |
+| Domain        | Codes | Raised by                                                                          |
+| ------------- | ----: | ---------------------------------------------------------------------------------- |
+| `contract`    |    78 | The five Soroban contracts, from their `#[contracterror]` enums                    |
+| `protocol`    |    43 | Stellar's own result codes, classified in `packages/shared/src/errors/protocol.ts` |
+| `api`         |    30 | API routes and the shared request helpers                                          |
+| `validation`  |    26 | Every input rule, in `packages/shared` and on the server                           |
+| `ipfs`        |    19 | Pinning and gateway reads                                                          |
+| `indexer`     |    14 | Reading the chain into a snapshot                                                  |
+| `config`      |    13 | A deployment or build that is misconfigured                                        |
+| `transaction` |    13 | Building, signing, submitting and confirming                                       |
+| `wallet`      |    12 | A refusal at the Freighter boundary                                                |
+| `auth`        |    13 | Who the caller is, and what they may do                                            |
+| `metadata`    |    12 | Resolving and validating a metadata document                                       |
+| `ui`          |     8 | A client failure a component or boundary caught                                    |
+
+Two properties are enforced in CI rather than asserted in prose:
+
+- **Every declared code has a call site.** `scripts/check-error-codes.py` fails
+  when one does not, which is what stops the catalogue being inflated with
+  failures nothing can raise.
+- **The protocol table covers the protocol.** `errors.test.ts` walks the SDK's
+  `TransactionResultCode`, `OperationResultCode`, `InvokeHostFunctionResultCode`
+  and `PaymentResultCode` enums and fails if a member is neither classified nor
+  explicitly ignored, so a protocol upgrade cannot silently degrade a diagnosis.
+
+Three behaviours changed when the codes became specific, each fixing a real
+misreport: a Horizon `tx_bad_seq` is now a retryable 409 instead of a 500, an
+`op_underfunded` is attributed to the operation rather than the generic
+`tx_failed`, and a refused contract authorization answers 403 instead of a
+generic 422.
 
 ---
 
@@ -482,13 +517,13 @@ BezaMint implements defense-in-depth across the entire stack:
 
 | Suite           | Framework      | Tests   | Status             |
 | --------------- | -------------- | ------- | ------------------ |
-| Smart Contracts | Rust `#[test]` | 207     | ✅ 207/207 passing |
-| Frontend        | Vitest         | 412     | ✅ 412/412 passing |
-| **Total**       |                | **608** | **All passing**    |
+| Smart Contracts | Rust `#[test]` | 216     | ✅ 216/216 passing |
+| Frontend        | Vitest         | 485     | ✅ 485/485 passing |
+| **Total**       |                | **701** | **All passing**    |
 
 ```bash
-pnpm test                # Frontend: 412/412 passing (63 files)
-pnpm run contract:test   # Contracts: 207 tests across 5 crates
+pnpm test                # Frontend: 485/485 passing (67 files)
+pnpm run contract:test   # Contracts: 216 tests across 5 crates
 ```
 
 Counts are the totals those two commands report on this tree; nothing generates
@@ -496,11 +531,12 @@ them, so a suite that grows has to update them.
 
 | Contract crate        | Tests |
 | --------------------- | ----- |
-| `bezamint-nft`        | 57    |
-| `bezamint-collection` | 38    |
-| `bezamint-royalty`    | 46    |
+| `bezamint-nft`        | 60    |
+| `bezamint-collection` | 40    |
+| `bezamint-royalty`    | 53    |
 | `bezamint-creator`    | 28    |
-| `bezamint-factory`    | 27    |
+| `bezamint-factory`    | 30    |
+| `bezamint-benchmarks` | 5     |
 
 Beyond the unit suites, CI enforces the things tests cannot state on their own:
 `cargo fmt` and `clippy -D warnings`, a rustdoc warning gate, per-contract wasm
@@ -534,7 +570,7 @@ Captured from the app running against the testnet deployment listed above.
 | **Mint Form Filled**           | ![Form](screenshots/audit-11-tx-form-filled-desktop.png)        | –                                                              |
 | **CI/CD Pipeline**             | ![CI](screenshots/audit-12-ci-pipeline.png)                     | –                                                              |
 
-> **21 screenshots** — 11 unique views spanning all pages, wallet states, CI, and test evidence.
+> **22 screenshots** — 11 unique views spanning all pages, wallet states, CI, and test evidence.
 
 ---
 
@@ -548,8 +584,8 @@ A 2-minute walkthrough covering all major features — landing, dashboard, colle
 
 ## ✅ Production Readiness Checklist
 
-- [x] Smart contract tests (207/207 passing)
-- [x] Frontend tests (412/412 passing)
+- [x] Smart contract tests (216/216 passing)
+- [x] Frontend tests (485/485 passing)
 - [x] End-to-end smoke test against a live deployment
 - [x] Security headers (HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
 - [x] CI/CD pipeline (4 workflows)
@@ -747,9 +783,9 @@ Contributions are welcome! BezaMint uses conventional commits (`.commitlintrc.js
 
 - `pnpm format:check` — Prettier formatting
 - `pnpm lint` — ESLint
-- `pnpm test` — Vitest (412 tests)
+- `pnpm test` — Vitest (485 tests)
 - `pnpm --filter @bezamint/web run test:coverage` — coverage, with a ratcheted floor
-- `cd contracts && cargo test` — Rust (207 tests), plus clippy, rustfmt and the rustdoc gate
+- `cd contracts && cargo test` — Rust (216 tests), plus clippy, rustfmt and the rustdoc gate
 - `cd contracts && cargo build --release --target wasm32-unknown-unknown` — wasm size budgets and the contract ABI snapshot
 - `pnpm build` — production build, plus the client bundle budget
 
