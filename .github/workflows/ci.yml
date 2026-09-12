@@ -145,8 +145,11 @@ jobs:
       # contracts' Rust error enums. A code changed in Rust but not regenerated
       # would leave the docs and the client disagreeing about what #N means, so
       # the drift has to fail here rather than ship.
+      # The npm script is `pnpm run contract:errors:check`; this job has no pnpm
+      # (it is the Rust-only job), so it invokes the generator directly. The same
+      # check runs through the script wherever pnpm is set up.
       - name: Check the error catalog matches the contracts
-        run: pnpm run contract:errors:check
+        run: python3 scripts/generate-error-catalog.py
 
   frontend-build:
     name: Frontend Build
