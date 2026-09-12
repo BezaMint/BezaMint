@@ -149,9 +149,13 @@ It is bounded and per-instance; durable storage is tracked in `ISSUES.md`.
 **Cursor** — the paging token Soroban RPC returns for events and Horizon returns for
 operations. The indexer and `/api/wallet/transactions` advance with it.
 
-**Ledger window / retention** — Soroban RPC retains a bounded ledger range (roughly
-17,280 ledgers, about 24 hours). A query with a `startLedger` outside it is
-rejected, which is why a cold start clamps to `latest − lookback`.
+**Ledger window / retention** — Soroban RPC retains a bounded ledger range;
+`getHealth().ledgerRetentionWindow` reports roughly 120,960 ledgers (about 7 days).
+Events are retained for far less than that — measured at roughly 10,500 ledgers — and
+a `startLedger` outside the event window is **not** rejected: it returns zero events,
+which is indistinguishable from a quiet network. That silent empty result is why the
+indexer clamps its lookback to 10,000 ledgers instead of trusting the ledger-retention
+figure.
 
 **Horizon** — Stellar's REST API for accounts, balances and operation history. The
 wallet endpoints use it; contract reads use Soroban RPC instead.

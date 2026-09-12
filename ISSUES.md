@@ -1,6 +1,6 @@
 # BezaMint — Contributor Backlog
 
-97 open issues, every one verified against the current tree. Each entry names the
+96 open issues, every one verified against the current tree. Each entry names the
 problem, the evidence that it is real, and acceptance criteria a reviewer can check
 objectively. Every entry here corresponds to an open issue in the tracker, and every
 issue in the tracker corresponds to an entry here — the two are kept in step
@@ -21,10 +21,11 @@ implemented, one adding a second module duplicating `apps/web/src/lib/explorer.t
 adding a `CONTRIBUTING.md` that already existed. Those issues were closed and the tracker
 was reduced to the work that was genuinely open.
 
-It has since been grown back to 100, and now stands at **97**. The admin-rotation work
-closed #133 and #134, the error-catalog work closed #138 and #139, and #209 — the
+It has since been grown back to 100, and now stands at **96**. The admin-rotation work
+closed #133 and #134, the error-catalog work closed #138 and #139, #209 — the
 `Security` workflow, which had been failing on every run without ever reaching its
-audit — was closed once the check was verified green. That count is only defensible
+audit — was closed once the check was verified green, and the testnet redeploy closed
+#161 by making `.env.example` describe the lookback the indexer actually uses. That count is only defensible
 because every new entry was checked against the tree first and carries the command or
 file that demonstrates the gap. An entry whose evidence no longer holds should be
 closed, not rewritten — the five closed above went the moment the fix shipped, rather
@@ -943,17 +944,6 @@ If the admin key is lost, there is no written procedure — and as the admin-rot
 - [ ] A written, step-by-step recovery procedure.
 - [ ] Rehearsed at least once, with the rehearsal recorded.
 - [ ] Cross-linked from the incident-response runbook.
-
-### 161. [backend] `.env.example` documents a lookback and clamp that contradict the code
-
-**Problem.**
-The example env file states the RPC retains ~17,280 ledgers and that values are clamped to 17,000, and sets `INDEXER_LOOKBACK_LEDGERS=17000`. The code clamps to 10,000, and 17,000 is exactly the value the review established as the cause of a permanently empty event feed. Following the documentation reintroduces the bug it documents.
-**Evidence.**
-`.env.example` lines 59-63 versus `DEFAULT_LOOKBACK_LEDGERS = 10_000` at `indexer.ts:93`.
-**Acceptance criteria.**
-
-- [ ] The example value and the comment match the code.
-- [ ] The comment states the measured event-retention figure rather than the `getHealth` ledger-retention figure.
 
 ### 189. [documentation] No threat model
 

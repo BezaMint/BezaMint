@@ -213,9 +213,14 @@ by **variant name** — a position-independent match that survives enum reorderi
 See [`indexer-schema.md`](./indexer-schema.md) for the full event list and the
 mapping into the server-side store.
 
-The indexer polls Soroban RPC within its ~17,280-ledger retention window, starting at
-`latestLedger − lookback` on a cold start and advancing by cursor afterwards, and
-keeps the most recent 500 events in memory. Two consequences worth stating plainly:
+The indexer polls Soroban RPC starting at `latestLedger − lookback` on a cold start and
+advancing by cursor afterwards, and keeps the most recent 500 events in memory. The
+lookback is bounded because the RPC's **event** retention is much shorter than its
+**ledger** retention, and the two figures are easy to confuse: `getHealth()` reports a
+`ledgerRetentionWindow` of ~120,960 ledgers (~7 days), while events were measurably
+served only from the most recent ~10,500 ledgers. A request from further back returns
+an empty page rather than an error, which is why the lookback is clamped to 10,000.
+Two consequences worth stating plainly:
 
 - It is a **recent-activity** feed, not a full history. A durable backfill (a real
   store, cursor checkpoints across restarts) is the next step for scale.
