@@ -487,7 +487,7 @@ impl BezaMintCollection {
     /// Known boundary: the id is validated for uniqueness but not for
     /// existence. This contract holds no pointer to the NFT contract, so a
     /// direct caller who owns a collection can attach ids that were never
-    /// minted, and those ids then appear in [`Self::get_nfts_in_collection`]
+    /// minted, and those ids then appear in `get_nfts_in_collection`
     /// and count toward `nft_count`. Enforcing existence would mean a
     /// cross-contract call on every membership write, which would put the cost
     /// of a defensive check on the platform's own mint path; the Factory always

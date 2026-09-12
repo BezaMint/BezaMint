@@ -597,7 +597,7 @@ impl BezaMintRoyalty {
     /// authorizes the whole invocation, which is what lets the asset contract's
     /// own `transfer` check succeed for each leg.
     ///
-    /// This is the entry point the contract was missing. [`Self::quote_royalty`]
+    /// This is the entry point the contract was missing. `quote_royalty`
     /// computed exact per-recipient amounts and then handed the obligation to a
     /// marketplace that did not exist, which left the platform's promise to
     /// creators enforced by nothing.
