@@ -303,7 +303,9 @@ fn test_integration_mint_with_royalty() {
                 MockAuthInvoke {
                     contract: &nft.address,
                     fn_name: "mint",
-                    args: (user.clone(), 1u64, metadata.clone()).into_val(&env),
+                    // `creator` first: the Factory attributes the token to its
+                    // caller, and the recipient is the same address here.
+                    args: (user.clone(), user.clone(), 1u64, metadata.clone()).into_val(&env),
                     sub_invokes: &[],
                 },
                 MockAuthInvoke {
@@ -399,6 +401,39 @@ fn test_mint_batch_mints_every_uri() {
         assert_eq!(collection.get_collection_for_nft(&id), 1);
         assert_eq!(royalty.get_royalty(&id, &false).basis_points, 500);
     }
+}
+
+/// The token is attributed to the Factory's caller, not to the address that
+/// receives it, and the Royalty contract is told the same address. Minting to a
+/// third party is the case that separates the two, and it is the case the
+/// platform hits on a gift or a primary sale -- the moment the creator field
+/// starts being shown to a collector.
+#[test]
+fn test_mint_attributes_to_the_caller_not_the_recipient() {
+    let env = Env::default();
+    // The recipient is not the caller of the root invocation, so its
+    // `require_auth` inside `nft.mint` is non-root authorization. Plain
+    // `mock_all_auths` is deliberately stricter than the network and rejects
+    // that shape; a real gift transaction carries the recipient's signature as
+    // an entry on the `mint` sub-invocation, which is what this enables.
+    env.mock_all_auths_allowing_non_root_auth();
+    let admin = Address::generate(&env);
+    let caller = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let (factory, nft, collection, royalty) = batch_fixture(&env, &admin);
+
+    collection.create_collection(&caller, &String::from_str(&env, "ipfs://collection"));
+    let metadata = String::from_str(&env, "ipfs://gift/1");
+
+    let token_id = factory.mint_with_royalty(&caller, &recipient, &1, &metadata, &500);
+
+    assert_eq!(nft.owner_of(&token_id), recipient);
+    assert_eq!(nft.token_data(&token_id).creator, caller);
+    // The royalty terms, which are keyed by creator, must name the same address
+    // `token_data` just reported.
+    let royalty_config = royalty.get_royalty(&token_id, &false);
+    assert_eq!(royalty_config.creator, caller);
+    assert_eq!(royalty_config.basis_points, 500);
 }
 
 /// A failure part-way through a batch must roll the entire invocation back: no

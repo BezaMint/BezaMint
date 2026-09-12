@@ -1,5 +1,5 @@
 use soroban_sdk::{
-    testutils::{Address as _, Events, Ledger},
+    testutils::{Address as _, Events, Ledger, MockAuth, MockAuthInvoke},
     xdr::{self, ContractDataDurability, LedgerKey},
     Address, Env, IntoVal, String, Symbol, TryFromVal,
 };
@@ -52,6 +52,7 @@ fn ttl_of(env: &Env, contract_id: &Address, data_key: &xdr::ScVal) -> Option<u32
 fn mint_one(client: &BezaMintNftClient, to: &Address, collection_id: u64) -> u64 {
     client.mint(
         to,
+        to,
         &collection_id,
         &String::from_str(&client.env, "ipfs://meta/1"),
     )
@@ -101,7 +102,7 @@ fn test_mutation_is_rejected_when_the_stored_version_differs() {
 
     let to = Address::generate(&env);
     let uri = String::from_str(&env, "ipfs://meta/1");
-    assert!(client.try_mint(&to, &0, &uri).is_err());
+    assert!(client.try_mint(&to, &to, &0, &uri).is_err());
 }
 
 /// `migrate` is the only path that repairs a mismatch, so it must require the
@@ -136,7 +137,7 @@ fn test_migrate_is_version_checked_and_repairs_a_mismatch() {
 
     let to = Address::generate(&env);
     let uri = String::from_str(&env, "ipfs://meta/1");
-    assert_eq!(client.mint(&to, &0, &uri), 1);
+    assert_eq!(client.mint(&to, &to, &0, &uri), 1);
 }
 
 /// Without the admin's authorization, a mismatched version cannot be repaired by
@@ -590,12 +591,113 @@ fn test_mint_multiple_tokens() {
 
     let t1 = mint_one(&client, &user, 0);
     let t2 = mint_one(&client, &user, 0);
-    let t3 = client.mint(&user, &2, &String::from_str(&env, "ipfs://meta/3"));
+    let t3 = client.mint(&user, &user, &2, &String::from_str(&env, "ipfs://meta/3"));
     assert_eq!(t1, 1);
     assert_eq!(t2, 2);
     assert_eq!(t3, 3);
     assert_eq!(client.total_supply(), 3);
     assert_eq!(client.balance_of(&user), 3);
+}
+
+/// `token_data.creator` is the address that minted the token, and it stays
+/// distinct from the recipient. Before this was an explicit parameter it
+/// recorded `to`, so a gift or a primary sale recorded the buyer as the creator
+/// while the Royalty contract recorded the minter -- two answers for one token.
+#[test]
+fn test_mint_attributes_the_token_to_the_creator_not_the_recipient() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
+    let client = BezaMintNftClient::new(&env, &contract_id);
+
+    let token_id = client.mint(
+        &creator,
+        &recipient,
+        &0,
+        &String::from_str(&env, "ipfs://gift/1"),
+    );
+
+    let data = client.token_data(&token_id);
+    assert_eq!(data.creator, creator);
+    assert_eq!(client.owner_of(&token_id), recipient);
+    assert_eq!(client.balance_of(&creator), 0);
+    assert_eq!(client.balance_of(&recipient), 1);
+}
+
+/// Attribution cannot be claimed on someone else's behalf: with only the
+/// recipient's authorization in the tree, a mint that names a different
+/// creator must be rejected. This is the check that makes an explicit creator
+/// parameter worth its ABI change.
+#[test]
+#[should_panic]
+fn test_mint_rejects_a_creator_that_did_not_authorize() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let recipient = Address::generate(&env);
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
+    let client = BezaMintNftClient::new(&env, &contract_id);
+
+    // Only the recipient authorizes -- never the creator the call names.
+    env.mock_auths(&[MockAuth {
+        address: &recipient,
+        invoke: &MockAuthInvoke {
+            contract: &contract_id,
+            fn_name: "mint",
+            args: (
+                creator.clone(),
+                recipient.clone(),
+                0u64,
+                String::from_str(&env, "ipfs://stolen/1"),
+            )
+                .into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+
+    client.mint(
+        &creator,
+        &recipient,
+        &0,
+        &String::from_str(&env, "ipfs://stolen/1"),
+    );
+}
+
+/// The common case is a self-mint where creator and recipient are the same
+/// address. That address must be asked to authorize exactly once: the host
+/// rejects a second `require_auth` for an address that already authorized the
+/// frame with `Error(Auth, ExistingValue)`, so an unguarded second call would
+/// make every self-mint fail while every other test still passed.
+#[test]
+fn test_self_mint_asks_for_one_authorization() {
+    let env = Env::default();
+    let admin = Address::generate(&env);
+    let user = Address::generate(&env);
+    let contract_id = env.register(BezaMintNft, (admin.clone(),));
+    let client = BezaMintNftClient::new(&env, &contract_id);
+
+    env.mock_auths(&[MockAuth {
+        address: &user,
+        invoke: &MockAuthInvoke {
+            contract: &contract_id,
+            fn_name: "mint",
+            args: (
+                user.clone(),
+                user.clone(),
+                0u64,
+                String::from_str(&env, "ipfs://self/1"),
+            )
+                .into_val(&env),
+            sub_invokes: &[],
+        },
+    }]);
+
+    let token_id = client.mint(&user, &user, &0, &String::from_str(&env, "ipfs://self/1"));
+    assert_eq!(client.owner_of(&token_id), user);
+    assert_eq!(client.token_data(&token_id).creator, user);
 }
 
 #[test]
@@ -728,7 +830,12 @@ fn test_token_data_stores_correct_info() {
     let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let client = BezaMintNftClient::new(&env, &contract_id);
 
-    let token_id = client.mint(&user, &5, &String::from_str(&env, "ipfs://col-5/nft-1"));
+    let token_id = client.mint(
+        &user,
+        &user,
+        &5,
+        &String::from_str(&env, "ipfs://col-5/nft-1"),
+    );
     let data = client.token_data(&token_id);
     assert_eq!(data.token_id, 1);
     assert_eq!(data.collection_id, 5);
@@ -742,7 +849,7 @@ fn test_mint_emits_event() {
     let admin = Address::generate(&env);
     let to = Address::generate(&env);
     let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
-    let token_id = contract.mint(&to, &0, &String::from_str(&env, "ipfs://test"));
+    let token_id = contract.mint(&to, &to, &0, &String::from_str(&env, "ipfs://test"));
     assert_eq!(token_id, 1);
 }
 
@@ -754,7 +861,7 @@ fn test_transfer_emits_event() {
     let alice = Address::generate(&env);
     let bob = Address::generate(&env);
     let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
-    contract.mint(&alice, &0, &String::from_str(&env, "ipfs://test"));
+    contract.mint(&alice, &alice, &0, &String::from_str(&env, "ipfs://test"));
     contract.transfer(&alice, &bob, &1);
     let new_owner = contract.owner_of(&1);
     assert_eq!(new_owner, bob);
@@ -767,9 +874,9 @@ fn test_balance_of_multiple_tokens() {
     let admin = Address::generate(&env);
     let alice = Address::generate(&env);
     let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
-    contract.mint(&alice, &0, &String::from_str(&env, "ipfs://1"));
-    contract.mint(&alice, &0, &String::from_str(&env, "ipfs://2"));
-    contract.mint(&alice, &0, &String::from_str(&env, "ipfs://3"));
+    contract.mint(&alice, &alice, &0, &String::from_str(&env, "ipfs://1"));
+    contract.mint(&alice, &alice, &0, &String::from_str(&env, "ipfs://2"));
+    contract.mint(&alice, &alice, &0, &String::from_str(&env, "ipfs://3"));
     assert_eq!(contract.balance_of(&alice), 3);
 }
 
@@ -782,7 +889,7 @@ fn test_mint_requires_recipient_auth() {
     let user = Address::generate(&env);
     let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     // Only the admin's initialize is authorized; the mint must be rejected.
-    contract.mint(&user, &0, &String::from_str(&env, "ipfs://meta"));
+    contract.mint(&user, &user, &0, &String::from_str(&env, "ipfs://meta"));
 }
 
 #[test]
@@ -794,7 +901,7 @@ fn test_mint_rejects_empty_metadata() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
-    contract.mint(&user, &0, &String::from_str(&env, ""));
+    contract.mint(&user, &user, &0, &String::from_str(&env, ""));
 }
 
 #[test]
@@ -807,7 +914,7 @@ fn test_mint_rejects_oversized_metadata() {
     let user = Address::generate(&env);
     let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     let long_uri = "x".repeat(513);
-    contract.mint(&user, &0, &String::from_str(&env, &long_uri));
+    contract.mint(&user, &user, &0, &String::from_str(&env, &long_uri));
 }
 
 /// The 512-character limit is inclusive, so both neighbours of the boundary
@@ -828,7 +935,7 @@ fn test_mint_accepts_boundary_metadata_lengths() {
         let mut bytes = b"ipfs://".to_vec();
         bytes.extend(core::iter::repeat_n(b'x', extra));
         let uri = String::from_bytes(&env, &bytes);
-        let token_id = contract.mint(&user, &0, &uri);
+        let token_id = contract.mint(&user, &user, &0, &uri);
         assert_eq!(
             contract.token_data(&token_id).metadata_uri.len(),
             (7 + extra) as u32
@@ -847,7 +954,12 @@ fn test_mint_rejects_javascript_uri() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
-    contract.mint(&user, &0, &String::from_str(&env, "javascript:alert(1)"));
+    contract.mint(
+        &user,
+        &user,
+        &0,
+        &String::from_str(&env, "javascript:alert(1)"),
+    );
 }
 
 #[test]
@@ -860,6 +972,7 @@ fn test_mint_rejects_data_uri() {
     let user = Address::generate(&env);
     let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     contract.mint(
+        &user,
         &user,
         &0,
         &String::from_str(&env, "data:text/html,<script>1</script>"),
@@ -874,6 +987,7 @@ fn test_mint_accepts_http_uri() {
     let user = Address::generate(&env);
     let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
     contract.mint(
+        &user,
         &user,
         &0,
         &String::from_str(&env, "https://cdn.example.com/1.json"),
@@ -893,7 +1007,7 @@ fn test_mint_rejects_zero_address() {
         &env,
         "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
     );
-    contract.mint(&zero, &0, &String::from_str(&env, "ipfs://meta"));
+    contract.mint(&zero, &zero, &0, &String::from_str(&env, "ipfs://meta"));
 }
 
 #[test]
@@ -903,7 +1017,7 @@ fn test_burn_event_emission() {
     let admin = Address::generate(&env);
     let user = Address::generate(&env);
     let contract = BezaMintNftClient::new(&env, &env.register(BezaMintNft, (admin.clone(),)));
-    contract.mint(&user, &0, &String::from_str(&env, "ipfs://burn"));
+    contract.mint(&user, &user, &0, &String::from_str(&env, "ipfs://burn"));
     contract.burn(&1);
     assert_eq!(contract.total_supply(), 1);
 }
@@ -920,7 +1034,7 @@ fn test_events_cover_mint_transfer_approve_burn() {
     let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let contract = BezaMintNftClient::new(&env, &contract_id);
 
-    contract.mint(&alice, &0, &String::from_str(&env, "ipfs://events"));
+    contract.mint(&alice, &alice, &0, &String::from_str(&env, "ipfs://events"));
     assert_single_nft_event(&env, &contract_id, NftEvent::Minted(1, alice.clone()));
 
     contract.approve(&bob, &1);
@@ -957,7 +1071,7 @@ fn test_mint_extends_persistent_ttl() {
     let user = Address::generate(&env);
     let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let contract = BezaMintNftClient::new(&env, &contract_id);
-    contract.mint(&user, &0, &String::from_str(&env, "ipfs://ttl"));
+    contract.mint(&user, &user, &0, &String::from_str(&env, "ipfs://ttl"));
     let contract_addr: xdr::ScAddress = contract_id.clone().into();
     let storage = env.as_contract(&contract_id, || {
         env.host().with_mut_storage(|s| Ok(s.map.clone())).unwrap()
@@ -1001,7 +1115,7 @@ fn test_transfer_refreshes_owner_ttl() {
     let bob = Address::generate(&env);
     let contract_id = env.register(BezaMintNft, (admin.clone(),));
     let contract = BezaMintNftClient::new(&env, &contract_id);
-    contract.mint(&alice, &0, &String::from_str(&env, "ipfs://ttl"));
+    contract.mint(&alice, &alice, &0, &String::from_str(&env, "ipfs://ttl"));
 
     let owner_val: soroban_sdk::Val = crate::NftKey::Owner(1).into_val(&env);
     let owner_key: xdr::ScVal = xdr::ScVal::try_from_val(&env, &owner_val).unwrap();

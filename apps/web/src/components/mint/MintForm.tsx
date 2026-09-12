@@ -178,8 +178,9 @@ export default function MintForm() {
         });
         const collectionId = form.collectionId ? Number(form.collectionId) : 0;
 
-        // Step 2: Build the minting transaction
-        const txXdr = await mintNft(address!, address!, collectionId, metadataUri);
+        // Step 2: Build the minting transaction. The connected wallet is both
+        // the creator (what `token_data.creator` records) and the recipient.
+        const txXdr = await mintNft(address!, address!, address!, collectionId, metadataUri);
 
         // Guard against a mid-flow wallet disconnect
         if (!isConnected || !address) {

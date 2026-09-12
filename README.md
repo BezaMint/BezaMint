@@ -232,7 +232,7 @@ sequenceDiagram
 
 ## 🧠 Smart Contract Reference
 
-Five `#![no_std]` Soroban contracts, initialized through a Soroban `__constructor` so admin setup happens atomically inside contract creation rather than in a later, publicly callable transaction. Authorization is per-function, not uniform: `mint` is recipient-gated, transfers and burns are owner-gated, royalty configuration is admin-gated (the Factory, in production), verification is admin-gated, and every collection mutation is gated on the collection's creator.
+Five `#![no_std]` Soroban contracts, initialized through a Soroban `__constructor` so admin setup happens atomically inside contract creation rather than in a later, publicly callable transaction. Authorization is per-function, not uniform: `mint` is creator- and recipient-gated (the address recorded as the creator must consent, so attribution cannot be claimed on someone else's behalf), transfers and burns are owner-gated, royalty configuration is admin-gated (the Factory, in production), verification is admin-gated, and every collection mutation is gated on the collection's creator.
 
 **[`contracts/README.md`](contracts/README.md) is the authoritative interface reference** — the argument list, authorization requirement, storage model and pagination limits of every public function. The summaries below are a map of the surface area, not the contract itself.
 

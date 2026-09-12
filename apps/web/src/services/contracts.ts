@@ -80,17 +80,31 @@ function categorizeError(err: unknown): TxError {
 
 // ─────────────────────── NFT Contract ───────────────────────
 
+/**
+ * Mint an NFT directly on the NFT contract.
+ *
+ * `creatorAddress` is the address the token is attributed to and the address
+ * the Royalty contract will treat as the creator; it must sign, and it is not
+ * required to be `toAddress`. `toAddress` receives the token and must sign as
+ * well, which is what lets one account mint for another.
+ *
+ * For the platform's own flow prefer `mintWithRoyalty`, which also links the
+ * token to its collection and records royalty terms atomically.
+ */
 export async function mintNft(
   sourceAddress: string,
+  creatorAddress: string,
   toAddress: string,
   collectionId: number,
   metadataUri: string,
 ) {
+  const creatorScVal = new Address(creatorAddress).toScVal();
   const toScVal = new Address(toAddress).toScVal();
   const collectionScVal = xdr.ScVal.scvU64(new xdr.Uint64(collectionId));
   const metadataScVal = xdr.ScVal.scvString(metadataUri);
 
   const { tx } = await buildContractTransaction(sourceAddress, CONTRACT_IDS.nft, 'mint', [
+    creatorScVal,
     toScVal,
     collectionScVal,
     metadataScVal,

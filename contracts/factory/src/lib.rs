@@ -540,9 +540,15 @@ impl BezaMintFactory {
     ) -> u64 {
         let (nft_addr, collection_addr, royalty_addr) = contracts;
 
-        // Cross-contract call 1: mint the NFT.
+        // Cross-contract call 1: mint the NFT. The caller is passed as the
+        // token's creator, not the recipient: the two differ whenever a batch is
+        // minted to an address other than the minter, and `token_data` must
+        // name the same creator `configure_royalty` records below. The caller
+        // already authorized this invocation, so the NFT contract's
+        // `creator.require_auth()` adds no signature to the flow.
         let mint_args = soroban_sdk::vec![
             env,
+            caller.clone().into_val(env),
             to.clone().into_val(env),
             collection_id.into_val(env),
             metadata_uri.into_val(env),

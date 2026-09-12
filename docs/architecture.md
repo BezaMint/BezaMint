@@ -56,17 +56,26 @@ State lives in typed keys (`NftKey`) rather than string keys: `Owner(token_id)`,
 `balance_of` a single read and `tokens_of_owner` paginated, instead of a scan to
 `total_supply`.
 
+`mint(creator, to, collection_id, metadata_uri)` records `creator` in
+`NftData.creator` — the minter, not the recipient. The two are separate
+parameters because a gift or a primary sale makes them different addresses, and
+the Royalty contract records the creator independently, so a single field for
+both made `token_data` and the royalty terms disagree about the same token.
+`creator` must authorize, so attribution cannot be claimed on someone else's
+behalf. The Factory passes its own caller, who already authorizes the top-level
+call, so the platform flow gains no signature.
+
 Authorization:
 
-| Function                           | Who must authorize                          |
-| ---------------------------------- | ------------------------------------------- |
-| `mint`                             | the recipient (`to`)                        |
-| `transfer`                         | the current owner (`from`)                  |
-| `transfer_from`                    | the approved spender, with a valid approval |
-| `approve` / `set_approval_for_all` | the token owner                             |
-| `burn`                             | the token owner                             |
-| `set_admin`                        | the contract admin                          |
-| `upgrade`                          | the contract admin                          |
+| Function                           | Who must authorize                                                          |
+| ---------------------------------- | --------------------------------------------------------------------------- |
+| `mint`                             | the creator (recorded) and the recipient (`to`), once each when they differ |
+| `transfer`                         | the current owner (`from`)                                                  |
+| `transfer_from`                    | the approved spender, with a valid approval                                 |
+| `approve` / `set_approval_for_all` | the token owner                                                             |
+| `burn`                             | the token owner                                                             |
+| `set_admin`                        | the contract admin                                                          |
+| `upgrade`                          | the contract admin                                                          |
 
 Approvals follow ERC-721 semantics (`getApproved` / `isApprovedForAll`), and a
 transfer invalidates the previous owner's per-token approval so an old operator

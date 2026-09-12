@@ -65,8 +65,10 @@ fn nft_entry_points() {
     let token = h.seed_mint(COLLECTION_ID);
     assert_eq!(token, 1);
 
+    // The platform's shape: the caller is both the creator and the recipient,
+    // so the two `require_auth` calls resolve to one address.
     let (mint, token_id) = measure(&h.env, "nft.mint", || {
-        h.nft().mint(&h.user, &COLLECTION_ID, &h.uri())
+        h.nft().mint(&h.user, &h.user, &COLLECTION_ID, &h.uri())
     });
     assert_eq!(token_id, 2);
     within(
@@ -130,7 +132,7 @@ fn nft_entry_points() {
     // 65 tokens owned by one address: the page read is a bounded 64 gets plus
     // the TTL bumps, which is the shape a wallet gallery actually performs.
     for _ in 0..63 {
-        h.nft().mint(&h.user, &COLLECTION_ID, &h.uri());
+        h.nft().mint(&h.user, &h.user, &COLLECTION_ID, &h.uri());
     }
     let (page, tokens) = measure(&h.env, "nft.tokens_of_owner (page of 64)", || {
         h.nft().tokens_of_owner(&h.user, &0, &64)

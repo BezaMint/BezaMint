@@ -293,8 +293,30 @@ rather than left to be re-derived.
 | C9 auto-registration name | —         | fixed in the app — `update_profile` fallback | this pass |
 | C5 `starts_with` cost     | #152      | closed, no change — remedy not implementable | —         |
 | C6 run-time symbols       | —         | closed, no change — measured as no effect    | —         |
-| C2 creator attribution    | —         | open                                         | —         |
+| C2 creator attribution    | —         | fixed — explicit `creator`, both authorize   | this pass |
 | C4 settlement             | #25, #202 | open                                         | —         |
+
+### C2 remediation note
+
+`mint` now takes `creator` ahead of `to` and records it, with
+`creator.require_auth()`. That is an interface change, so the committed ABI
+snapshot moves with it and the frontend (`mintNft`) gains the parameter.
+
+One thing only the implementation showed: **the host rejects a second
+`require_auth` for an address that already authorized the current frame**
+(`Error(Auth, ExistingValue)`). The common self-mint — creator and recipient the
+same address — would therefore have failed with an unguarded pair of calls,
+while every other test still passed. The recipient's check is now skipped when
+the two addresses match, and `test_self_mint_asks_for_one_authorization` pins
+that behaviour.
+
+A gift mint (recipient differs from creator) also showed why the recipient's
+check is non-root authorization: the recipient is not the caller of the root
+invocation, so a test that models it must use
+`mock_all_auths_allowing_non_root_auth`. This is a test-harness strictness
+setting rather than a contract change — plain `mock_all_auths` is deliberately
+stricter than the network, and a wallet-signed gift produces exactly the auth
+entry it rejects.
 
 ## What the measurements changed
 

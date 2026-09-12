@@ -225,7 +225,8 @@ impl Harness {
 
     /// Mint a token straight on the NFT contract, outside any measurement.
     pub fn seed_mint(&self, collection: u64) -> u64 {
-        self.nft().mint(&self.user, &collection, &self.uri())
+        self.nft()
+            .mint(&self.user, &self.user, &collection, &self.uri())
     }
 
     /// Create collection 1 for `user`, outside any measurement.

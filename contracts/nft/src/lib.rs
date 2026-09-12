@@ -404,21 +404,53 @@ impl BezaMintNft {
         emit_nft(&env, NftEvent::AdminChanged(new_admin));
     }
 
-    /// Mint a new NFT to `to` and return its token id. Recipient-gated: `to`
-    /// must authorize. The metadata URI must be a non-empty https/http/ipfs
-    /// URL of at most [`MAX_METADATA_URI_LEN`] chars. In the platform flow this
-    /// is called by the Factory, which then links the token to its collection
-    /// and configures its royalty.
-    pub fn mint(env: Env, to: Address, collection_id: u64, metadata_uri: String) -> u64 {
+    /// Mint a new NFT to `to`, attributed to `creator`, and return its token
+    /// id.
+    ///
+    /// Both addresses must authorize:
+    ///
+    /// - `creator` is who [`NftData::creator`] records, and it is the address
+    ///   the Royalty contract is told is the creator, so the two records agree.
+    ///   It is an explicit parameter, and it authorizes, because a caller must
+    ///   not be able to attribute a token to an address that never consented —
+    ///   attribution is the field a collector checks on a sold work.
+    /// - `to` is the recipient, which is what makes the mint usable through the
+    ///   Factory: any user can mint, provided the recipient signs.
+    ///
+    /// In the platform flow the Factory passes its own caller as `creator`
+    /// (that address already authorizes the top-level Factory invocation, so no
+    /// flow gains a signature) and attributes the token to them rather than to
+    /// whoever happens to receive it.
+    ///
+    /// The metadata URI must be a non-empty https/http/ipfs URL of at most
+    /// [`MAX_METADATA_URI_LEN`] chars. The Factory then links the token to its
+    /// collection and configures its royalty.
+    pub fn mint(
+        env: Env,
+        creator: Address,
+        to: Address,
+        collection_id: u64,
+        metadata_uri: String,
+    ) -> u64 {
         assert_version(&env);
         // Verify the contract has been initialized before use.
         env.storage()
             .instance()
             .get::<NftKey, Address>(&NftKey::Admin)
             .unwrap_or_else(|| panic_with_error!(&env, NftError::NotInitialized));
+        // Attributor-gated: the recorded creator authorizes, so a token cannot
+        // be attributed to an address that did not consent to it.
+        creator.require_auth();
         // Recipient-gated: the recipient authorizes the mint so any user can
         // mint through the Factory instead of requiring the contract admin.
-        to.require_auth();
+        //
+        // Guarded, because the host rejects a second `require_auth` for an
+        // address that already authorized the current frame with
+        // `Error(Auth, ExistingValue)` -- so the common self-mint (creator ==
+        // recipient) has to ask once, not twice.
+        if to != creator {
+            to.require_auth();
+        }
 
         if metadata_uri.is_empty() {
             panic_with_error!(&env, NftError::MetadataUriEmpty);
@@ -436,6 +468,7 @@ impl BezaMintNft {
             panic_with_error!(&env, NftError::MetadataUriSchemeInvalid);
         }
         Self::assert_not_zero(&env, &to);
+        Self::assert_not_zero(&env, &creator);
 
         let counter: u64 = env.storage().instance().get(&NftKey::Counter).unwrap_or(0);
         if counter >= MAX_SUPPLY {
@@ -446,7 +479,12 @@ impl BezaMintNft {
 
         let data = NftData {
             token_id,
-            creator: to.clone(),
+            // The minter, not the recipient. These differ as soon as a token is
+            // minted to someone else (a gift, or a primary sale), and the
+            // Royalty contract records `creator` separately — so recording the
+            // recipient here made `token_data` and the royalty config disagree
+            // about the same token on every path that separates them.
+            creator: creator.clone(),
             collection_id,
             metadata_uri,
             minted_at: ledger.timestamp(),
