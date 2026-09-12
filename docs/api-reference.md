@@ -462,13 +462,23 @@ Pins a metadata JSON document.
   "ipfsUri": "ipfs://bafy...",
   "gatewayUrl": "https://ipfs.io/ipfs/bafy...",
   "fallback": false,
-  "integrity": { "verified": true }
+  "integrity": { "verified": true, "method": "cid-digest", "attempts": 0 }
 }
 ```
 
-`integrity.verified` reports whether the pinned bytes were re-fetched and hashed
-to the returned CID; a mismatch is logged as a warning rather than failing the
-request, because the pin itself succeeded.
+`integrity.verified` reports whether the returned CID refers to exactly the
+bytes that were uploaded, and `integrity.method` says how that was established:
+
+- `cid-digest` — **the normal path.** Pinata returns a raw CIDv1, whose
+  multihash digest _is_ the sha256 of the content, so the check is a local
+  comparison of that digest against the uploaded bytes. It is exact, costs no
+  network round trip, and cannot be defeated by propagation lag.
+- `gateway` — used for dag-pb CIDs, whose digest covers a DAG node rather than
+  the file. The object is fetched through the configured gateway and hashed,
+  retrying on `404` while the pin propagates. This path is best-effort: a
+  failure is reported rather than thrown, because the pin itself succeeded.
+
+A mismatch is logged as a warning rather than failing the request.
 
 Errors: `400` for invalid JSON or metadata, `413` when the body is too large,
 `429` when rate limited.
@@ -490,7 +500,7 @@ Pins a raster image via `multipart/form-data` with a `file` field.
   "cid": "bafy...",
   "ipfsUri": "ipfs://bafy...",
   "gatewayUrl": "https://ipfs.io/ipfs/bafy...",
-  "integrity": { "verified": true }
+  "integrity": { "verified": true, "method": "cid-digest", "attempts": 0 }
 }
 ```
 

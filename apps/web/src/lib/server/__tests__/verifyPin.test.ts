@@ -109,6 +109,36 @@ describe('assertValidCid', () => {
 });
 
 describe('verifyPinnedContent', () => {
+  it('proves a raw CID from its digest alone, without touching a gateway', async () => {
+    // What Pinata actually returns. The digest in a raw CID is the sha256 of
+    // the content, so the check is local: exact, instant, and immune to the
+    // propagation delay that made the gateway path report false failures.
+    const content = 'pinned-bytes';
+    const { cid } = makeCid(content, 0x55);
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await verifyPinnedContent(cid, Buffer.from(content));
+
+    expect(result.verified).toBe(true);
+    expect(result.method).toBe('cid-digest');
+    expect(result.attempts).toBe(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a raw CID whose digest is not the uploaded bytes', async () => {
+    const { cid } = makeCid('what-was-pinned', 0x55);
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await verifyPinnedContent(cid, Buffer.from('what-we-sent'));
+
+    expect(result.verified).toBe(false);
+    expect(result.method).toBe('cid-digest');
+    expect(result.error).toMatch(/digest/);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it('verifies when the gateway serves identical bytes', async () => {
     const content = 'pinned-data';
     const { cid } = makeCid(content);
@@ -123,6 +153,7 @@ describe('verifyPinnedContent', () => {
     );
     const result = await verifyPinnedContent(cid, Buffer.from(content));
     expect(result.verified).toBe(true);
+    expect(result.method).toBe('gateway');
   });
 
   it('reports a mismatch when the gateway serves different bytes', async () => {

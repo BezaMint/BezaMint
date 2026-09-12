@@ -8,10 +8,11 @@
  *  1. `assertValidCid` — structural check that the returned string really is
  *     a CIDv1 in base32 whose multihash identifies a sha2-256 digest of the
  *     pinned object, rather than a truncated or corrupted value.
- *  2. `verifyPinnedContent` — best-effort round-trip: fetch the pinned
- *     object from the configured gateway and compare its sha256 to the
- *     uploaded bytes. Propagation can lag behind the upload response, so
- *     mismatches are reported, not thrown.
+ *  2. `verifyPinnedContent` — does the CID refer to the bytes we sent? For a
+ *     raw CID the multihash digest is the sha256 of the content, so this is a
+ *     local comparison that cannot race propagation. dag-pb CIDs fall back to
+ *     a gateway round trip, which is best-effort: mismatches are reported, not
+ *     thrown, because propagation can lag behind the upload response.
  *
  * Why the accepted codecs matter
  * ------------------------------
@@ -65,12 +66,16 @@ function base32Decode(input: string): number[] | null {
   return out;
 }
 
+export interface ParsedCid {
+  codec: number;
+  digest: Uint8Array;
+}
+
 /**
- * Validate that `cid` is a well-formed CIDv1 in base32 identifying a sha2-256
- * digest of a raw or dag-pb object. Returns the 32-byte digest, throws
- * otherwise.
+ * Parse and validate a CIDv1 in base32 identifying a sha2-256 digest of a raw
+ * or dag-pb object. Returns its codec and 32-byte digest, throws otherwise.
  */
-export function assertValidCid(cid: string): Uint8Array {
+function parseCid(cid: string): ParsedCid {
   if (typeof cid !== 'string' || cid.length === 0) {
     throw new Error('Pinata returned an empty CID');
   }
@@ -104,7 +109,16 @@ export function assertValidCid(cid: string): Uint8Array {
     throw new Error('CID multihash is not a 32-byte sha2-256 digest');
   }
 
-  return Uint8Array.from(bytes.slice(4, CID_BYTES));
+  return { codec, digest: Uint8Array.from(bytes.slice(4, CID_BYTES)) };
+}
+
+/**
+ * Validate that `cid` is a well-formed CIDv1 in base32 identifying a sha2-256
+ * digest of a raw or dag-pb object. Returns the 32-byte digest, throws
+ * otherwise.
+ */
+export function assertValidCid(cid: string): Uint8Array {
+  return parseCid(cid).digest;
 }
 
 function sha256Hex(buffer: Buffer | Uint8Array): string {
@@ -114,22 +128,57 @@ function sha256Hex(buffer: Buffer | Uint8Array): string {
 export interface ContentVerification {
   verified: boolean;
   attempts: number;
+  /** How the check reached its answer; see `verifyPinnedContent`. */
+  method: 'cid-digest' | 'gateway';
   error?: string;
 }
 
 /**
- * Fetch the pinned object from the gateway and compare its digest to the
- * uploaded bytes. Best-effort: pinning can take a moment to propagate, so
- * a transient 404 is retried a couple of times and a persistent failure
- * is reported rather than thrown.
+ * Verify that a pinned CID identifies exactly the bytes we uploaded.
+ *
+ * Two methods, and the first is the one that matters. For a raw CID the
+ * multihash digest *is* the sha256 of the content, so comparing it to the
+ * uploaded bytes is a local hash comparison: it proves the CID refers to these
+ * bytes, trusts no gateway, costs nothing, and cannot race content
+ * propagation. Pinata's file upload returns raw CIDs, so this is the normal
+ * path.
+ *
+ * A dag-pb CID hashes a DAG node rather than the file, so its digest cannot be
+ * compared directly; those fall back to fetching through the gateway.
+ *
+ * The gateway fallback is best-effort by design and reports rather than
+ * throws, but it is a race: a freshly pinned object may not be fetchable from a
+ * public gateway for seconds, and public gateways tend to hang rather than
+ * answer 404, so an unreachable object burns the whole timeout on every
+ * attempt. That is why it is not the primary check.
  */
 export async function verifyPinnedContent(
   cid: string,
   uploadedBytes: Buffer | Uint8Array,
   maxAttempts = 3,
 ): Promise<ContentVerification> {
-  const gateway = getIpfsGateway();
+  const { codec, digest } = parseCid(cid);
   const expected = sha256Hex(uploadedBytes);
+
+  if (codec === CODEC_RAW) {
+    const fromCid = Buffer.from(digest).toString('hex');
+    if (fromCid === expected) {
+      return { verified: true, attempts: 0, method: 'cid-digest' };
+    }
+    logger.error('pinned CID digest does not match uploaded bytes', {
+      cid,
+      expected,
+      fromCid,
+    });
+    return {
+      verified: false,
+      attempts: 0,
+      method: 'cid-digest',
+      error: 'CID digest does not match the uploaded bytes',
+    };
+  }
+
+  const gateway = getIpfsGateway();
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
@@ -146,6 +195,7 @@ export async function verifyPinnedContent(
         return {
           verified: false,
           attempts: attempt,
+          method: 'gateway',
           error: `gateway responded ${response.status}`,
         };
       }
@@ -156,15 +206,17 @@ export async function verifyPinnedContent(
         return {
           verified: false,
           attempts: attempt,
+          method: 'gateway',
           error: 'pinned content digest does not match uploaded bytes',
         };
       }
-      return { verified: true, attempts: attempt };
+      return { verified: true, attempts: attempt, method: 'gateway' };
     } catch (err) {
       if (attempt === maxAttempts) {
         return {
           verified: false,
           attempts: attempt,
+          method: 'gateway',
           error: err instanceof Error ? err.message : 'verification fetch failed',
         };
       }
@@ -172,5 +224,10 @@ export async function verifyPinnedContent(
     }
   }
 
-  return { verified: false, attempts: maxAttempts, error: 'pin did not propagate' };
+  return {
+    verified: false,
+    attempts: maxAttempts,
+    method: 'gateway',
+    error: 'pin did not propagate',
+  };
 }
