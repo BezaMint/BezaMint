@@ -187,11 +187,17 @@ precisely.
 
 ### Are royalties paid out automatically?
 
-No, and this is deliberate rather than missing. A bare NFT transfer carries no
-payment, so there is nothing on chain for the contracts to hook. `quote_royalty`
-makes the obligation exact and verifiable; collecting it is the marketplace's
-responsibility. See [`contracts/README.md`](../contracts/README.md), and the
-settlement note in [`mainnet-readiness.md`](mainnet-readiness.md).
+Not on a bare transfer, and that part is unavoidable: a plain NFT transfer carries
+no payment, so nothing on chain says a sale happened and the contracts cannot
+collect by themselves.
+
+Once a sale _is_ being settled, the payment is on chain and in the contract.
+`pay_royalty(target_id, is_collection, asset, payer, sale_price)` takes the Stellar
+Asset Contract address of the settlement currency -- the native XLM SAC, or an
+issued asset's SAC such as USDC -- and transfers each recipient's share in the same
+invocation, so a failure in any leg reverts all of them and there is no partial
+payout to chase. `quote_royalty` is the read-only version if you only want to know
+what is owed.
 
 ---
 

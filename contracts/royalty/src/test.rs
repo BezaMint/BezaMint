@@ -711,3 +711,203 @@ fn test_set_admin_rejects_zero_address() {
     assert!(client.try_set_admin(&zero).is_err());
     assert_eq!(client.get_admin(), admin);
 }
+
+/// A settled sale moves real balance: the buyer pays the full price, and every
+/// recipient's share of the royalty lands in their own account through the
+/// Stellar Asset Contract. This is the path the contract was missing -- terms
+/// that could be quoted but never paid.
+#[test]
+fn test_pay_royalty_settles_each_recipient() {
+    use soroban_sdk::token::{StellarAssetClient, TokenClient};
+
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let contract_id = env.register(BezaMintRoyalty, (admin.clone(),));
+    let client = BezaMintRoyaltyClient::new(&env, &contract_id);
+
+    // The settlement currency is any Stellar Asset Contract. The native XLM
+    // SAC and an issued asset's SAC are the same interface, so the contract
+    // does not need to know which it was handed.
+    let sac = env.register_stellar_asset_contract_v2(admin.clone());
+    let asset = sac.address();
+    StellarAssetClient::new(&env, &asset).mint(&buyer, &10_000_000);
+
+    let mut recipients = Map::new(&env);
+    recipients.set(Address::generate(&env), 50u32);
+    recipients.set(Address::generate(&env), 50u32);
+    // 10% royalty, 50/50 split.
+    client.configure_royalty(&creator, &1u64, &1000u32, &recipients, &false);
+
+    let payouts = client.pay_royalty(&1u64, &false, &asset, &buyer, &10_000_000);
+    assert_eq!(payouts.len(), 2);
+    let total: i128 = payouts.iter().map(|p| p.amount).sum();
+    assert_eq!(total, 1_000_000);
+
+    let token = TokenClient::new(&env, &asset);
+    assert_eq!(token.balance(&buyer), 9_000_000);
+    for payout in payouts.iter() {
+        assert_eq!(token.balance(&payout.recipient), payout.amount);
+    }
+
+    // The contract keeps nothing: the assets in flight are all accounted for.
+    assert_eq!(token.balance(&contract_id), 0);
+}
+
+/// Terms with no split pay the creator the whole royalty, which is the
+/// documented default and the configuration the Factory itself writes.
+#[test]
+fn test_pay_royalty_without_a_split_pays_the_creator() {
+    use soroban_sdk::token::{StellarAssetClient, TokenClient};
+
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let contract_id = env.register(BezaMintRoyalty, (admin.clone(),));
+    let client = BezaMintRoyaltyClient::new(&env, &contract_id);
+
+    let sac = env.register_stellar_asset_contract_v2(admin.clone());
+    let asset = sac.address();
+    StellarAssetClient::new(&env, &asset).mint(&buyer, &10_000_000);
+
+    let empty: Map<Address, u32> = Map::new(&env);
+    client.configure_royalty(&creator, &1u64, &500u32, &empty, &false);
+
+    let payouts = client.pay_royalty(&1u64, &false, &asset, &buyer, &10_000_000);
+    assert_eq!(payouts.len(), 1);
+    assert_eq!(payouts.get(0).unwrap().recipient, creator);
+    assert_eq!(payouts.get(0).unwrap().amount, 500_000);
+    assert_eq!(TokenClient::new(&env, &asset).balance(&creator), 500_000);
+}
+
+/// Freezing locks the terms; it does not cancel the debt. A frozen
+/// configuration must still settle, or freezing would be a way to stop paying.
+#[test]
+fn test_pay_royalty_settles_a_frozen_config() {
+    use soroban_sdk::token::{StellarAssetClient, TokenClient};
+
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let contract_id = env.register(BezaMintRoyalty, (admin.clone(),));
+    let client = BezaMintRoyaltyClient::new(&env, &contract_id);
+
+    let sac = env.register_stellar_asset_contract_v2(admin.clone());
+    let asset = sac.address();
+    StellarAssetClient::new(&env, &asset).mint(&buyer, &1_000_000);
+
+    let empty: Map<Address, u32> = Map::new(&env);
+    client.configure_royalty(&creator, &1u64, &2500u32, &empty, &false);
+    client.freeze_royalty(&1u64, &false);
+
+    client.pay_royalty(&1u64, &false, &asset, &buyer, &1_000_000);
+    assert_eq!(TokenClient::new(&env, &asset).balance(&creator), 250_000);
+}
+
+/// A price of zero would settle a sale that moves nothing: the transaction fee
+/// would buy no transfer, and the emitted event would claim a payment.
+#[test]
+fn test_pay_royalty_rejects_a_non_positive_price() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let contract_id = env.register(BezaMintRoyalty, (admin.clone(),));
+    let client = BezaMintRoyaltyClient::new(&env, &contract_id);
+
+    let sac = env.register_stellar_asset_contract_v2(admin.clone());
+    let asset = sac.address();
+
+    let empty: Map<Address, u32> = Map::new(&env);
+    client.configure_royalty(&creator, &1u64, &500u32, &empty, &false);
+
+    assert!(client
+        .try_pay_royalty(&1u64, &false, &asset, &buyer, &0i128)
+        .is_err());
+    assert!(client
+        .try_pay_royalty(&1u64, &false, &asset, &buyer, &-1i128)
+        .is_err());
+}
+
+/// The zero account is not a deployed contract, so a transfer to it as the
+/// *asset* fails after the payouts were computed -- a fee spent for nothing.
+#[test]
+fn test_pay_royalty_rejects_the_zero_asset() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let contract_id = env.register(BezaMintRoyalty, (admin.clone(),));
+    let client = BezaMintRoyaltyClient::new(&env, &contract_id);
+
+    let empty: Map<Address, u32> = Map::new(&env);
+    client.configure_royalty(&creator, &1u64, &500u32, &empty, &false);
+
+    let zero = Address::from_str(
+        &env,
+        "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF",
+    );
+    assert!(client
+        .try_pay_royalty(&1u64, &false, &zero, &buyer, &1_000i128)
+        .is_err());
+}
+
+/// Settlement reads the terms, so a token with no royalty configured fails
+/// before any transfer rather than paying zero and looking settled.
+#[test]
+fn test_pay_royalty_requires_terms() {
+    use soroban_sdk::token::StellarAssetClient;
+
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let contract_id = env.register(BezaMintRoyalty, (admin.clone(),));
+    let client = BezaMintRoyaltyClient::new(&env, &contract_id);
+
+    let sac = env.register_stellar_asset_contract_v2(admin.clone());
+    let asset = sac.address();
+    StellarAssetClient::new(&env, &asset).mint(&buyer, &1_000_000);
+
+    assert!(client
+        .try_pay_royalty(&7u64, &false, &asset, &buyer, &1_000_000)
+        .is_err());
+}
+
+/// The payer's authorization is what lets the asset contract's own transfer
+/// check succeed, so a payer that cannot sign cannot cause a settlement. The
+/// royalty contract must not be able to move someone else's balance.
+#[test]
+fn test_pay_royalty_requires_the_payer_to_authorize() {
+    use soroban_sdk::token::StellarAssetClient;
+
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let creator = Address::generate(&env);
+    let buyer = Address::generate(&env);
+    let contract_id = env.register(BezaMintRoyalty, (admin.clone(),));
+    let client = BezaMintRoyaltyClient::new(&env, &contract_id);
+
+    let sac = env.register_stellar_asset_contract_v2(admin.clone());
+    let asset = sac.address();
+    StellarAssetClient::new(&env, &asset).mint(&buyer, &1_000_000);
+
+    let empty: Map<Address, u32> = Map::new(&env);
+    client.configure_royalty(&creator, &1u64, &500u32, &empty, &false);
+
+    // Re-enter with no mocked auth: the buyer's signature is required and
+    // absent, so the settlement must fail.
+    env.mock_auths(&[]);
+    assert!(client
+        .try_pay_royalty(&1u64, &false, &asset, &buyer, &1_000_000)
+        .is_err());
+}

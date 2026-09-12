@@ -34,10 +34,15 @@ HARD_LIMIT=65536
 # dispatch arm and a specs entry on top of the body, and the Factory was already
 # at 95% of 16000 before the change. Measured growth was 15151 -> 16085 bytes
 # (+934). Kept at 17000 rather than higher so the gate still catches regressions.
+# bezamint_royalty: raised 34000 -> 38000 in the same commit that added
+# `pay_royalty`, the SAC settlement path. The growth is a cross-contract token
+# client plus the dispatch arm and specs entry for the new function: 31625 ->
+# 36330 bytes (+4705), measured on the optimized blob. Raised to 38000 rather
+# than higher so the gate still catches a regression.
 BUDGETS=(
   "bezamint_nft=45000"
   "bezamint_collection=40000"
-  "bezamint_royalty=34000"
+  "bezamint_royalty=38000"
   "bezamint_creator=34000"
   "bezamint_factory=17000"
 )

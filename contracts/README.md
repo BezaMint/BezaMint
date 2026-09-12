@@ -152,6 +152,7 @@ contain fewer than `limit` entries. Both paginated reads clamp `limit` to 100.
 | `set_admin`             | `new_admin`                                                                   | current admin                                |
 | `validate_basis_points` | `basis_points: u32`                                                           | none                                         |
 | `quote_royalty`         | `target_id, is_collection, sale_price: i128`                                  | none                                         |
+| `pay_royalty`           | `target_id, is_collection, asset, payer, sale_price: i128`                    | `payer`                                      |
 | `get_royalty`           | `target_id, is_collection`                                                    | none                                         |
 | `is_frozen`             | `target_id, is_collection`                                                    | none                                         |
 
@@ -164,9 +165,14 @@ rounded-to-zero share), rejects a negative price, checks the multiplication for
 overflow, and assigns the rounding remainder to the final recipient so the amounts
 sum to exactly `sale_price × basis_points ÷ 10000`.
 
-**Royalties are quoted, not collected.** A bare NFT transfer carries no payment, so
-settlement is a marketplace responsibility; `quote_royalty` is the primitive such a
-marketplace calls to determine who is owed what.
+**Settlement oracles are the marketplace's; the transfer is the contract's.**
+A bare NFT transfer carries no payment, so nothing tells the chain a sale happened
+and the contracts cannot collect on their own. `quote_royalty` answers _who is owed
+what_, and `pay_royalty` pays it: it takes the Stellar Asset Contract address of the
+settlement currency -- the native XLM SAC, or an issued asset's SAC such as USDC --
+and transfers each recipient's share from the payer in the same invocation as the
+rest of the settlement. A failed transfer reverts the whole invocation, so there is
+no partial payout to reconcile and no escrow to hold.
 
 ## Creator — `BezaMintCreator`
 

@@ -318,6 +318,18 @@ export const CONTRACT_ERRORS = {
       meaning: '`set_admin` was given the all-zero account.',
       raisedBy: ['set_admin'],
     },
+    16: {
+      code: 16,
+      variant: 'SalePriceNotPositive',
+      meaning: '`pay_royalty` was given a sale price of zero or less. Distinct from `RoyaltyError::SalePriceNegative`, which `quote_royalty` accepts as long as the price is not negative: quoting a zero sale is a harmless question, while settling one would spend a transaction to move nothing.',
+      raisedBy: ['pay_royalty'],
+    },
+    17: {
+      code: 17,
+      variant: 'AssetZeroAddress',
+      meaning: '`pay_royalty` was given the all-zero account as the settlement asset. The zero account is not a deployed contract, so the transfer would fail after the payouts were computed, with nothing to show for the fee.',
+      raisedBy: ['pay_royalty'],
+    },
   },
   creator: {
     1: {
@@ -517,8 +529,8 @@ export const CONTRACT_ERRORS = {
   },
 } as const satisfies Record<ContractName, Record<number, ContractErrorDescriptor>>;
 
-/** Total number of codes across every contract (76). */
-export const CONTRACT_ERROR_CODE_COUNT = 76;
+/** Total number of codes across every contract (78). */
+export const CONTRACT_ERROR_CODE_COUNT = 78;
 
 /**
  * Look up a code within one contract.

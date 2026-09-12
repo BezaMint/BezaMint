@@ -54,6 +54,7 @@ decision is recorded.
 - **(a)** royalties are marketplace-enforced: document the integration contract for a marketplace and state plainly that a client which ignores `quote_royalty` can bypass them; or
 - **(b)** an escrowed sale entry point is added that atomically collects the sale price and distributes the quote, with tests proving the seller receives the principal and each recipient the quoted amount.
   **Notes.** (a) is the Soroban-idiomatic answer and is what the current interface supports. (b) is what "this contract enforces royalties" would require. This is a scope decision before it is an implementation.
+  **Partial (b).** `pay_royalty(target_id, is_collection, asset, payer, sale_price)` now settles the royalty leg on chain: it transfers each recipient's quoted share through the Stellar Asset Contract named by the caller, inside one invocation, so a failure in any leg reverts all of them and no partial payout can be left behind. What is still missing for a full (b) is the seller's principal: paying it is an ordinary transfer from the same payer and this contract has no view of who the seller is, so a sale entry point that pays both legs atomically remains open. The royalty leg no longer needs a marketplace to exist before a creator can be paid.
 
 ### 28. [royalty] No per-collection royalty inheritance
 

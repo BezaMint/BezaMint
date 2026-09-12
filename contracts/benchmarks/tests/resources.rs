@@ -280,6 +280,12 @@ mod royalty_budget {
     pub const QUOTE_INSTRUCTIONS: i64 = 105_000;
     pub const UPDATE_INSTRUCTIONS: i64 = 105_000;
     pub const FREEZE_INSTRUCTIONS: i64 = 110_000;
+    // Settlement is cross-contract: ten transfers through the asset contract,
+    // each of which reads and writes the recipient's balance entry. Twelve
+    // writes is ten balances plus the asset contract's own record of the
+    // payer's; the budget leaves room for one more recipient's worth.
+    pub const PAY_INSTRUCTIONS: i64 = 1_960_000;
+    pub const PAY_WRITES: u32 = 14;
 }
 
 #[test]
@@ -345,6 +351,26 @@ fn royalty_entry_points() {
         freeze,
         royalty_budget::FREEZE_INSTRUCTIONS,
         royalty_budget::CONFIGURE_WRITES,
+    );
+
+    // Settlement is the only path that moves value, and therefore the only one
+    // whose cost includes cross-contract token transfers plus the ledger
+    // entries the asset contract's own balance writes leave behind. Measured
+    // on the 10-way split because that is the worst case the contract accepts.
+    let sac = h.env.register_stellar_asset_contract_v2(h.admin.clone());
+    let asset = sac.address();
+    soroban_sdk::token::StellarAssetClient::new(&h.env, &asset).mint(&h.other, &10_000_000);
+
+    let (pay, settlement) = measure(&h.env, "royalty.pay_royalty (10-way split)", || {
+        h.royalty()
+            .pay_royalty(&2, &false, &asset, &h.other, &10_000_000)
+    });
+    assert_eq!(settlement.len(), 10);
+    within(
+        "royalty.pay_royalty (10-way split)",
+        pay,
+        royalty_budget::PAY_INSTRUCTIONS,
+        royalty_budget::PAY_WRITES,
     );
 }
 

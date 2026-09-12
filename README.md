@@ -111,7 +111,7 @@ Create, edit, archive, and browse NFT collections with rich metadata, category t
 
 ### 💰 Royalty Configuration
 
-Per-NFT or per-collection royalty settings with basis point precision (up to 10,000 bp = 100%), multi-recipient splits, and a freeze capability to lock terms permanently — recorded and quoted by the Royalty smart contract.
+Per-NFT or per-collection royalty settings with basis point precision (up to 10,000 bp = 100%), multi-recipient splits, and a freeze capability to lock terms permanently — recorded by the Royalty smart contract, quoted by `quote_royalty`, and settled on chain by `pay_royalty`, which transfers each recipient's share through the Stellar Asset Contract of the caller's choosing in one atomic invocation.
 
 A bare NFT transfer carries no payment, so a contract cannot collect a royalty by itself. What the contract does provide is `quote_royalty`, which returns the exact per-recipient payout for a given sale price, with the rounding remainder assigned so the amounts sum precisely. Settlement is the caller's responsibility, and the marketplace integration that consumes it is on the roadmap rather than half-built here.
 
@@ -368,7 +368,7 @@ pnpm dev                  # Starts at http://localhost:3000
 # Build all five contracts
 pnpm run contract:build
 
-# Run the full contract test suite (200 tests across 5 crates)
+# Run the full contract test suite (207 tests across 5 crates)
 pnpm run contract:test
 
 # Deploy to Stellar Testnet
@@ -482,13 +482,13 @@ BezaMint implements defense-in-depth across the entire stack:
 
 | Suite           | Framework      | Tests   | Status             |
 | --------------- | -------------- | ------- | ------------------ |
-| Smart Contracts | Rust `#[test]` | 200     | ✅ 200/200 passing |
+| Smart Contracts | Rust `#[test]` | 207     | ✅ 207/207 passing |
 | Frontend        | Vitest         | 412     | ✅ 412/412 passing |
 | **Total**       |                | **608** | **All passing**    |
 
 ```bash
 pnpm test                # Frontend: 412/412 passing (63 files)
-pnpm run contract:test   # Contracts: 200 tests across 5 crates
+pnpm run contract:test   # Contracts: 207 tests across 5 crates
 ```
 
 Counts are the totals those two commands report on this tree; nothing generates
@@ -548,7 +548,7 @@ A 2-minute walkthrough covering all major features — landing, dashboard, colle
 
 ## ✅ Production Readiness Checklist
 
-- [x] Smart contract tests (200/200 passing)
+- [x] Smart contract tests (207/207 passing)
 - [x] Frontend tests (412/412 passing)
 - [x] End-to-end smoke test against a live deployment
 - [x] Security headers (HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
@@ -749,7 +749,7 @@ Contributions are welcome! BezaMint uses conventional commits (`.commitlintrc.js
 - `pnpm lint` — ESLint
 - `pnpm test` — Vitest (412 tests)
 - `pnpm --filter @bezamint/web run test:coverage` — coverage, with a ratcheted floor
-- `cd contracts && cargo test` — Rust (200 tests), plus clippy, rustfmt and the rustdoc gate
+- `cd contracts && cargo test` — Rust (207 tests), plus clippy, rustfmt and the rustdoc gate
 - `cd contracts && cargo build --release --target wasm32-unknown-unknown` — wasm size budgets and the contract ABI snapshot
 - `pnpm build` — production build, plus the client bundle budget
 

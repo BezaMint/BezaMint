@@ -98,13 +98,20 @@ rate, an optional recipient split, and a frozen flag.
 A recipient map must be empty (meaning 100% to the creator) or sum to exactly 100
 across at most 10 recipients.
 
-`quote_royalty(target_id, is_collection, sale_price)` is the settlement primitive:
-it returns the exact per-recipient payout for a sale, with the rounding remainder
-assigned to the final recipient so the amounts always sum to precisely
-`sale_price × rate ÷ 10_000`. A bare NFT transfer carries no payment, so the
-contracts cannot collect royalties themselves; **settlement is the marketplace's
-responsibility**, and `quote_royalty` is what removes the ambiguity about who is
-owed what.
+`quote_royalty(target_id, is_collection, sale_price)` returns the exact
+per-recipient payout for a sale, with the rounding remainder assigned to the final
+recipient so the amounts always sum to precisely
+`sale_price × rate ÷ 10_000`.
+
+`pay_royalty(target_id, is_collection, asset, payer, sale_price)` pays it. `asset`
+is the Stellar Asset Contract address of the settlement currency, so the same entry
+point settles in the native XLM SAC or in an issued asset's SAC (USDC, for
+instance); the payer authorizes the invocation and each recipient's share is
+transferred in it, so a failure anywhere reverts the whole settlement rather than
+leaving a partial payout behind. A bare NFT transfer still carries no payment, so
+something off chain must decide that a sale happened -- but once it has, the
+obligation is settled on chain inside one invocation instead of being left to a
+marketplace that may never exist.
 
 ### `BezaMintCreator` — creator profiles
 

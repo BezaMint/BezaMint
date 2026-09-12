@@ -131,8 +131,9 @@ someone **pins** it; this project uses **Pinata** as the pinning service.
 
 **Royalty** — a share of a secondary sale owed to the creator, expressed here in
 **basis points** (1 bp = 0.01%, so 10,000 bp = 100%). `quote_royalty` computes the
-exact per-recipient payout; settlement is a marketplace responsibility because a
-bare transfer carries no payment.
+exact per-recipient payout; `pay_royalty` settles it through the Stellar Asset
+Contract of the caller's choosing. Something off chain still has to say a sale
+happened, because a bare transfer carries no payment.
 
 ---
 

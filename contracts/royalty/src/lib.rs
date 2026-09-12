@@ -20,8 +20,8 @@
 //! State expiration is managed explicitly (same policy as the NFT contract).
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
-    BytesN, Env, Map, Vec,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short,
+    token::TokenClient, Address, BytesN, Env, Map, Vec,
 };
 
 /// The Stellar "zero" account (all-zero ed25519 public key). Soroban has no
@@ -104,6 +104,10 @@ pub enum RoyaltyEvent {
     /// values mean, so the one operation that most needs a timestamped on-chain
     /// record is the one that previously left none.
     Migrated(u32, u32),
+    /// A sale was settled: `(target_id, asset, payer, total_paid)`. Emitted once
+    /// per settlement, after every transfer succeeded, because a partial payout
+    /// cannot happen -- a failed transfer rolls the whole invocation back.
+    Paid(u64, Address, Address, i128),
 }
 
 fn emit(env: &Env, event: RoyaltyEvent) {
@@ -178,6 +182,17 @@ pub enum RoyaltyError {
     SalePriceTooLarge = 14,
     /// `set_admin` was given the all-zero account.
     AdminZeroAddress = 15,
+    /// `pay_royalty` was given a sale price of zero or less.
+    ///
+    /// Distinct from [`RoyaltyError::SalePriceNegative`], which `quote_royalty`
+    /// accepts as long as the price is not negative: quoting a zero sale is a
+    /// harmless question, while settling one would spend a transaction to move
+    /// nothing.
+    SalePriceNotPositive = 16,
+    /// `pay_royalty` was given the all-zero account as the settlement asset.
+    /// The zero account is not a deployed contract, so the transfer would fail
+    /// after the payouts were computed, with nothing to show for the fee.
+    AssetZeroAddress = 17,
 }
 
 // ─────────────────────────── Contract ───────────────────────────
@@ -569,6 +584,71 @@ impl BezaMintRoyalty {
             distributed += amount;
             payouts.push_back(RoyaltyPayout { recipient, amount });
         }
+        payouts
+    }
+
+    /// Settle a sale in a Stellar asset, paying each recipient its configured
+    /// share.
+    ///
+    /// `asset` is the Stellar Asset Contract address of the settlement
+    /// currency: the native XLM SAC (`env.register_stellar_asset_contract_v2`
+    /// on the network gives its address), or an issued asset's SAC -- USDC, for
+    /// instance -- because a token address is a token address. `payer`
+    /// authorizes the whole invocation, which is what lets the asset contract's
+    /// own `transfer` check succeed for each leg.
+    ///
+    /// This is the entry point the contract was missing. [`Self::quote_royalty`]
+    /// computed exact per-recipient amounts and then handed the obligation to a
+    /// marketplace that did not exist, which left the platform's promise to
+    /// creators enforced by nothing.
+    ///
+    /// Ordering and failure: every transfer is made inside the one invocation,
+    /// so a failure in any leg rolls all of them back. There is no partial
+    /// payout to reconcile and no escrow to hold -- the only state this function
+    /// writes is the event.
+    ///
+    /// Reentrancy: `asset` is supplied by the caller, so a hostile asset
+    /// contract could call back into this one. The royalty config is read once,
+    /// before any transfer, and the payouts that decision produced are the ones
+    /// paid, so a reentrant call cannot change what is owed or cause a second
+    /// payout of the same sale. Callers who care should pass the SAC they
+    /// expect, and can verify it from the emitted event.
+    pub fn pay_royalty(
+        env: Env,
+        target_id: u64,
+        is_collection: bool,
+        asset: Address,
+        payer: Address,
+        sale_price: i128,
+    ) -> Vec<RoyaltyPayout> {
+        assert_version(&env);
+        payer.require_auth();
+
+        if sale_price <= 0 {
+            panic_with_error!(&env, RoyaltyError::SalePriceNotPositive);
+        }
+        if asset == Address::from_str(&env, ZERO_ADDRESS) {
+            panic_with_error!(&env, RoyaltyError::AssetZeroAddress);
+        }
+
+        // Reads the config, so terms that do not exist fail here rather than
+        // after the first transfer.
+        let payouts = Self::quote_royalty(env.clone(), target_id, is_collection, sale_price);
+
+        let token = TokenClient::new(&env, &asset);
+        let mut paid: i128 = 0;
+        for payout in payouts.iter() {
+            // A zero-share recipient is impossible to configure, but a payout
+            // can round to zero on a small sale. Skipping it saves a
+            // cross-contract call and a ledger write that would move nothing.
+            if payout.amount <= 0 {
+                continue;
+            }
+            token.transfer(&payer, &payout.recipient, &payout.amount);
+            paid += payout.amount;
+        }
+
+        emit(&env, RoyaltyEvent::Paid(target_id, asset, payer, paid));
         payouts
     }
 

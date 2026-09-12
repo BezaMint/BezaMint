@@ -10,7 +10,7 @@ Every BezaMint contract raises typed numeric codes instead of formatted panic
 strings. When a contract call fails, the Soroban host reports it as
 `Error(Contract, #N)` — an integer with no name attached. This page maps each
 integer back to its variant, what it means, and which functions can raise it.
-**76 codes** are in use across the five contracts.
+**78 codes** are in use across the five contracts.
 
 ## Decoding a failure
 
@@ -42,7 +42,7 @@ by convention, but nothing enforces that across enums.
 | -------- | ---- | ----- | ----- |
 | nft | `NftError` | 15 | 1–15 |
 | collection | `CollectionError` | 14 | 1–14 |
-| royalty | `RoyaltyError` | 15 | 1–15 |
+| royalty | `RoyaltyError` | 17 | 1–17 |
 | creator | `CreatorError` | 17 | 1–17 |
 | factory | `FactoryError` | 15 | 1–15 |
 
@@ -91,7 +91,7 @@ by convention, but nothing enforces that across enums.
 
 ## `royalty` — `RoyaltyError`
 
-15 codes.
+17 codes.
 
 | Code | Variant | Raised by | Meaning |
 | ---- | ------- | --------- | ------- |
@@ -110,6 +110,8 @@ by convention, but nothing enforces that across enums.
 | 13 | `SalePriceNegative` | `quote_royalty` | `quote_royalty` was given a negative sale price. |
 | 14 | `SalePriceTooLarge` | `quote_royalty` | `sale_price * basis_points` overflowed i128. |
 | 15 | `AdminZeroAddress` | `set_admin` | `set_admin` was given the all-zero account. |
+| 16 | `SalePriceNotPositive` | `pay_royalty` | `pay_royalty` was given a sale price of zero or less. Distinct from `RoyaltyError::SalePriceNegative`, which `quote_royalty` accepts as long as the price is not negative: quoting a zero sale is a harmless question, while settling one would spend a transaction to move nothing. |
+| 17 | `AssetZeroAddress` | `pay_royalty` | `pay_royalty` was given the all-zero account as the settlement asset. The zero account is not a deployed contract, so the transfer would fail after the payouts were computed, with nothing to show for the fee. |
 
 ## `creator` — `CreatorError`
 

@@ -1,4 +1,4 @@
-import { xdr, Address, scValToNative } from '@stellar/stellar-sdk';
+import { xdr, Address, nativeToScVal, scValToNative } from '@stellar/stellar-sdk';
 import type { SocialLink } from '@bezamint/shared';
 import {
   buildContractTransaction,
@@ -521,6 +521,46 @@ export async function registerCreator(sourceAddress: string, profile: CreatorPro
     avatarScVal,
     bannerScVal,
   ]);
+
+  return tx;
+}
+
+/**
+ * Build a pay_royalty() transaction for the Royalty contract.
+ *
+ * Settles a sale: the payer signs, and the contract transfers each configured
+ * recipient its share of the royalty in the same invocation, so there is no
+ * partial payout to reconcile.
+ *
+ * `asset` is the Stellar Asset Contract address of the settlement currency. The
+ * native XLM SAC and an issued asset's SAC (USDC, for instance) are the same
+ * interface, so the caller picks the currency by address and nothing else
+ * changes. `salePrice` is in the asset's smallest unit -- stroops for XLM -- and
+ * must be positive. It is a `bigint` because an i128 has no exact representation
+ * as a JS number once the price is large, and the SDK encodes it digit by digit
+ * rather than through float arithmetic.
+ */
+export async function payRoyalty(
+  sourceAddress: string,
+  tokenId: number,
+  isCollection: boolean,
+  asset: string,
+  salePrice: bigint,
+) {
+  const args = [
+    xdr.ScVal.scvU64(new xdr.Uint64(tokenId)),
+    xdr.ScVal.scvBool(isCollection),
+    new Address(asset).toScVal(),
+    new Address(sourceAddress).toScVal(),
+    nativeToScVal(salePrice, { type: 'i128' }),
+  ];
+
+  const { tx } = await buildContractTransaction(
+    sourceAddress,
+    CONTRACT_IDS.royalty,
+    'pay_royalty',
+    args,
+  );
 
   return tx;
 }
