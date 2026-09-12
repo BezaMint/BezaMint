@@ -34,7 +34,8 @@
     "prepare": "husky",
     "contract:check": "cargo check --workspace --manifest-path contracts/Cargo.toml",
     "contract:clippy": "cargo clippy --workspace --manifest-path contracts/Cargo.toml -- -D warnings",
-    "contract:fmt": "cargo fmt --all --manifest-path contracts/Cargo.toml -- --check"
+    "contract:fmt": "cargo fmt --all --manifest-path contracts/Cargo.toml -- --check",
+    "screenshots:capture": "node scripts/capture-screenshots.mjs"
   },
   "engines": {
     "node": ">=24.0.0",

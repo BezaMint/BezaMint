@@ -555,22 +555,39 @@ invisible to them. The runbook explains what it covers and why.
 
 Captured from the app running against the testnet deployment listed above.
 
-| Feature                        | Desktop                                                         | Mobile                                                         |
-| ------------------------------ | --------------------------------------------------------------- | -------------------------------------------------------------- |
-| **Landing Page**               | ![Landing](screenshots/audit-01-landing-desktop.png)            | ![Landing](screenshots/audit-01-landing-mobile.png)            |
-| **Dashboard**                  | ![Dashboard](screenshots/audit-02-dashboard-desktop.png)        | ![Dashboard](screenshots/audit-02-dashboard-mobile.png)        |
-| **Collections**                | ![Collections](screenshots/audit-03-collections-desktop.png)    | ![Collections](screenshots/audit-03-collections-mobile.png)    |
-| **Mint NFT Form**              | ![Mint](screenshots/audit-04-mint-desktop.png)                  | ![Mint](screenshots/audit-04-mint-mobile.png)                  |
-| **Explore & Search**           | ![Explore](screenshots/audit-05-explore-desktop.png)            | ![Explore](screenshots/audit-05-explore-mobile.png)            |
-| **Ownership Verification**     | ![Verify](screenshots/audit-06-verify-desktop.png)              | ![Verify](screenshots/audit-06-verify-mobile.png)              |
-| **Settings & Contracts**       | ![Settings](screenshots/audit-07-settings-desktop.png)          | ![Settings](screenshots/audit-07-settings-mobile.png)          |
-| **Creator Profile**            | ![Profile](screenshots/audit-08-profile-desktop.png)            | ![Profile](screenshots/audit-08-profile-mobile.png)            |
-| **Wallet Options**             | ![Wallet](screenshots/audit-09-wallet-options-desktop.png)      | ![Wallet](screenshots/audit-09-wallet-options-mobile.png)      |
-| **Wallet Connected + Balance** | ![Connected](screenshots/audit-10-wallet-connected-desktop.png) | ![Connected](screenshots/audit-10-wallet-connected-mobile.png) |
-| **Mint Form Filled**           | ![Form](screenshots/audit-11-tx-form-filled-desktop.png)        | –                                                              |
-| **CI/CD Pipeline**             | ![CI](screenshots/audit-12-ci-pipeline.png)                     | –                                                              |
+| Feature                  | Desktop                                                            | Mobile                                                            |
+| ------------------------ | ------------------------------------------------------------------ | ----------------------------------------------------------------- |
+| **Landing Page**         | ![Landing](screenshots/latest/01-landing-desktop.png)              | ![Landing](screenshots/latest/01-landing-mobile.png)              |
+| **Dashboard**            | ![Dashboard](screenshots/latest/02-dashboard-desktop.png)          | ![Dashboard](screenshots/latest/02-dashboard-mobile.png)          |
+| **Collections**          | ![Collections](screenshots/latest/03-collections-desktop.png)      | ![Collections](screenshots/latest/03-collections-mobile.png)      |
+| **Collection Detail**    | ![Collection](screenshots/latest/04-collection-detail-desktop.png) | ![Collection](screenshots/latest/04-collection-detail-mobile.png) |
+| **Mint NFT Form**        | ![Mint](screenshots/latest/05-mint-desktop.png)                    | ![Mint](screenshots/latest/05-mint-mobile.png)                    |
+| **Explore**              | ![Explore](screenshots/latest/06-explore-desktop.png)              | ![Explore](screenshots/latest/06-explore-mobile.png)              |
+| **Explore — Results**    | ![Search](screenshots/latest/07-explore-search-desktop.png)        | ![Search](screenshots/latest/07-explore-search-mobile.png)        |
+| **NFT Detail**           | ![NFT](screenshots/latest/08-nft-detail-desktop.png)               | ![NFT](screenshots/latest/08-nft-detail-mobile.png)               |
+| **Ownership Verify**     | ![Verify](screenshots/latest/09-verify-desktop.png)                | ![Verify](screenshots/latest/09-verify-mobile.png)                |
+| **Creator Profile**      | ![Creator](screenshots/latest/10-creator-profile-desktop.png)      | ![Creator](screenshots/latest/10-creator-profile-mobile.png)      |
+| **Profile**              | ![Profile](screenshots/latest/11-profile-desktop.png)              | ![Profile](screenshots/latest/11-profile-mobile.png)              |
+| **Settings & Contracts** | ![Settings](screenshots/latest/12-settings-desktop.png)            | ![Settings](screenshots/latest/12-settings-mobile.png)            |
 
-> **22 screenshots** — 11 unique views spanning all pages, wallet states, CI, and test evidence.
+> **24 screenshots** — 12 views at 1440×900 and 390×844, captured from the live
+> testnet deployment at 2× scale, so the text stays legible when a viewer zooms.
+>
+> The wallet extension is stubbed for the capture (the script injects the
+> `window.stellar` API and the session the app restores on mount), which is what
+> makes the authenticated views — dashboard, profile, settings and the search
+> results — render real on-chain data instead of a connect prompt. Everything on
+> screen still comes from the deployed app and the live chain. Re-shoot with:
+>
+> ```bash
+> node scripts/capture-screenshots.mjs           # all 12 views, both viewports
+> ONLY=07-explore-search DEVICES=desktop node scripts/capture-screenshots.mjs
+> ```
+>
+> Playwright is not a project dependency; point `PLAYWRIGHT_MODULE` at an
+> installed copy if it lives outside the tree. The script fails the run when a
+> capture is not a 2xx or when two captures come out byte-identical, which is how
+> a duplicated view gets caught rather than published.
 
 ---
 
