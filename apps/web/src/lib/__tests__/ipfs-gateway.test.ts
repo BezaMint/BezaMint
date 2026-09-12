@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   DEFAULT_IPFS_GATEWAY,
+  FALLBACK_IPFS_GATEWAY,
   getIpfsGateway,
   getIpfsGateways,
   ipfsGatewayUrl,
@@ -58,18 +59,20 @@ describe('ipfsGatewayUrl', () => {
 });
 
 describe('getIpfsGateways', () => {
-  it('returns only the default when it is the configured gateway', () => {
-    vi.stubEnv('NEXT_PUBLIC_PINATA_GATEWAY', 'https://ipfs.io');
-    expect(getIpfsGateways()).toEqual(['https://ipfs.io']);
-  });
-
-  it('prefers the configured gateway and keeps the default as a fallback', () => {
+  it('prefers the configured gateway and always keeps the pinning provider behind it', () => {
+    // Public gateways answer 429 to datacenter egress, so a server-side read
+    // needs somewhere to go next that holds the content.
     vi.stubEnv('NEXT_PUBLIC_PINATA_GATEWAY', 'https://dedicated.mypinata.cloud');
-    expect(getIpfsGateways()).toEqual(['https://dedicated.mypinata.cloud', 'https://ipfs.io']);
+    expect(getIpfsGateways()).toEqual(['https://dedicated.mypinata.cloud', FALLBACK_IPFS_GATEWAY]);
   });
 
-  it('is driven by the same default as getIpfsGateway', () => {
+  it('falls back to the pinning provider when nothing is configured', () => {
     vi.stubEnv('NEXT_PUBLIC_PINATA_GATEWAY', '');
-    expect(getIpfsGateways()).toEqual([DEFAULT_IPFS_GATEWAY]);
+    expect(getIpfsGateways()).toEqual([DEFAULT_IPFS_GATEWAY, FALLBACK_IPFS_GATEWAY]);
+  });
+
+  it('does not repeat a gateway that is already the fallback', () => {
+    vi.stubEnv('NEXT_PUBLIC_PINATA_GATEWAY', FALLBACK_IPFS_GATEWAY);
+    expect(getIpfsGateways()).toEqual([FALLBACK_IPFS_GATEWAY]);
   });
 });

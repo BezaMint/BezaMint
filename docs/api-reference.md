@@ -213,7 +213,13 @@ deliberately strict: a build with any contract ID unset is reported as
   "commitSha": "abc1234",
   "checks": {
     "rpc": { "ok": true, "latencyMs": 42 },
-    "ipfs": { "configured": true, "ok": true },
+    "ipfs": {
+      "configured": true,
+      "ok": true,
+      "gateway": "https://ipfs.io",
+      "status": 200,
+      "latencyMs": 12
+    },
     "contractsConfigured": true,
     "contracts": {
       "nft": true,
@@ -239,6 +245,15 @@ deliberately strict: a build with any contract ID unset is reported as
 `commitSha` is read from `VERCEL_GIT_COMMIT_SHA`, `RENDER_GIT_COMMIT`, or
 `COMMIT_SHA`, and is `null` when none is set. `startup` lists configuration
 warnings collected at boot.
+
+`checks.ipfs.ok` means the gateway _answered_, not that it answered `2xx`. These
+are unauthenticated public endpoints, and every gateway measured except the
+pinning provider's replies `429` to datacenter egress -- this deployment's own
+gateway probe included -- while serving the same objects normally to the
+browsers that actually read them. A throttle is therefore reported (`status`,
+plus a `note`) instead of failing the probe; gating readiness on it made a
+working deployment answer `503` and flap. Only a `5xx` or a timeout, which means
+the gateway is down rather than busy, is a failure.
 
 `checks.indexer` is the progress signal for the event indexer, and is `null` when
 contracts are unconfigured. The indexer fails quietly by nature: while its poll is
@@ -434,9 +449,14 @@ returns `502 NETWORK_ERROR`; a hung Horizon returns `504 TIMEOUT`.
 Proxies and validates an NFT metadata document so browsers never hit gateway CORS
 or render unvalidated data.
 
-| Parameter | Required | Notes                                                                      |
-| --------- | -------- | -------------------------------------------------------------------------- |
-| `uri`     | yes      | `ipfs://<cid>` or an `http(s)` URL. Routed through the configured gateway. |
+| Parameter | Required | Notes                                                                       |
+| --------- | -------- | --------------------------------------------------------------------------- |
+| `uri`     | yes      | `ipfs://<cid>` or an `http(s)` URL. Routed through the configured gateways. |
+
+An `ipfs://` URI is tried against each configured gateway in order, so a gateway
+that throttles this egress IP is stepped over rather than failing the request --
+the pinning provider's gateway is always last in that list and always holds the
+content. An `http(s)` URI has one address and is fetched once.
 
 Returns `{ "data": { … } }` with `Cache-Control: public, max-age=60`. The document
 is validated against the NFT metadata schema before it is returned.

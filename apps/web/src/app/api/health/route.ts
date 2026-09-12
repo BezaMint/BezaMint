@@ -12,6 +12,12 @@ const SERVER_START_TIME = Date.now();
 
 const PROBE_TIMEOUT_MS = 5_000;
 
+// Public gateways fetch on demand, so a cold object can take seconds; the
+// pinning provider's gateway measured 3.7-6.6s from a datacenter. The gate is
+// reachability, so the probe just needs to outlast that without hanging a
+// readiness check.
+const IPFS_PROBE_TIMEOUT_MS = 10_000;
+
 /** Probe the Soroban RPC: latest ledger + latency. */
 async function probeRpc(): Promise<{
   ok: boolean;
@@ -32,8 +38,25 @@ async function probeRpc(): Promise<{
   }
 }
 
-/** Probe the Pinata gateway: HEAD the gateway root with a short timeout. */
-async function probeIpfs(): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
+/**
+ * Probe the configured IPFS gateway: HEAD a well-known object.
+ *
+ * What counts as "ok" here is a response, not a 2xx. These are unauthenticated
+ * public endpoints, and every gateway measured except the pinning provider's
+ * answers 429 to datacenter egress -- this deployment's included -- while
+ * serving the same objects normally to the browsers that actually read them.
+ * Gating readiness on that made a working deployment answer 503 and flap, so a
+ * throttle is reported as throttling rather than as an outage. Only a 5xx or a
+ * timeout, which is the gateway being down rather than busy, fails the probe.
+ */
+async function probeIpfs(): Promise<{
+  ok: boolean;
+  latencyMs: number;
+  gateway: string;
+  status: number;
+  note?: string;
+  error?: string;
+}> {
   const gateway = getIpfsGateway();
   const started = Date.now();
   try {
@@ -41,19 +64,35 @@ async function probeIpfs(): Promise<{ ok: boolean; latencyMs: number; error?: st
       `${gateway}/ipfs/QmW2WQi7j6c7UgJTarActp7tDNikE4B2qXtFCfLPdsgaTQ`,
       {
         method: 'HEAD',
-        timeoutMs: PROBE_TIMEOUT_MS,
+        timeoutMs: IPFS_PROBE_TIMEOUT_MS,
         timeoutMessage: 'gateway probe timed out',
       },
     );
+    const latencyMs = Date.now() - started;
+    if (response.status >= 500) {
+      return {
+        ok: false,
+        latencyMs,
+        gateway,
+        status: response.status,
+        error: `gateway responded ${response.status}`,
+      };
+    }
     return {
-      ok: response.ok || response.status === 404, // 404 still proves reachability
-      latencyMs: Date.now() - started,
-      error: response.ok ? undefined : `gateway responded ${response.status}`,
+      ok: true,
+      latencyMs,
+      gateway,
+      status: response.status,
+      ...(response.status === 429
+        ? { note: 'gateway is throttling this egress IP; browser reads are unaffected' }
+        : {}),
     };
   } catch (err) {
     return {
       ok: false,
       latencyMs: Date.now() - started,
+      gateway,
+      status: 0,
       error: err instanceof Error ? err.message : 'gateway unreachable',
     };
   }

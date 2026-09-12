@@ -17,6 +17,11 @@ leaks, and avoid sharing it between environments.
   agree on one host. It defaults to `https://ipfs.io`: Pinata's public gateway
   measured 3.7–6.6s per object against ~40ms for ipfs.io, and at that latency
   the health probe timed out and reported a working deployment as degraded.
+- Public gateways rate-limit datacenter egress, so a server-side read always
+  keeps `FALLBACK_IPFS_GATEWAY` (`gateway.pinata.cloud`, the provider that
+  actually holds the content) behind the configured one and steps over a
+  refusal. A throttle is reported by the health probe, not treated as an
+  outage: the reads this app serves happen in the visitor's browser.
 - The startup/health check reports `PINATA_JWT` as a warning when it is
   unset, so a missing secret is visible in `/api/health` rather than
   surfacing later as a confusing upload failure.

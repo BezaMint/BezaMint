@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ApiError, normalizeError } from '@/lib/server/errors';
 import { newRequestId, timeRequest, logger } from '@/lib/server/logger';
 import { fetchWithTimeout } from '@/lib/server/http';
-import { getIpfsGateway } from '@/lib/ipfsGateway';
+import { getIpfsGateways } from '@/lib/ipfsGateway';
 import { TtlCache } from '@/lib/server/cache';
 import {
   NFT_METADATA_SCHEMA,
@@ -25,20 +25,26 @@ const metadataCache = new TtlCache<unknown>(60_000);
 
 const MAX_DOCUMENT_BYTES = 256 * 1024;
 
-function resolveFetchUrl(uri: string): string | null {
-  const gateway = getIpfsGateway();
+/**
+ * Candidate URLs for a URI, in the order they should be tried. An `ipfs://`
+ * URI is content-addressed, so a gateway that refuses it (public gateways
+ * answer 429 to datacenter egress) can simply be stepped over; an http(s) URI
+ * has exactly one address.
+ */
+function resolveFetchUrls(uri: string): string[] {
   if (uri.startsWith('ipfs://')) {
-    return `${gateway}/ipfs/${uri.slice('ipfs://'.length)}`;
+    const path = uri.slice('ipfs://'.length);
+    return getIpfsGateways().map((gateway) => `${gateway}/ipfs/${path}`);
   }
   try {
     const parsed = new URL(uri);
     if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-      return parsed.toString();
+      return [parsed.toString()];
     }
   } catch {
-    return null;
+    return [];
   }
-  return null;
+  return [];
 }
 
 export async function GET(request: NextRequest) {
@@ -50,23 +56,53 @@ export async function GET(request: NextRequest) {
       throw new ApiError('BAD_REQUEST', 'uri query parameter is required', 400);
     }
 
-    const fetchUrl = resolveFetchUrl(uri);
-    if (!fetchUrl) {
+    const fetchUrls = resolveFetchUrls(uri);
+    if (fetchUrls.length === 0) {
       throw new ApiError('BAD_REQUEST', 'uri must be an ipfs:// or http(s) URL', 400);
     }
 
     const data = await metadataCache.getOrSet(`metadata:${uri}`, async () => {
-      const response = await fetchWithTimeout(fetchUrl, {
-        timeoutMs: 8_000,
-        timeoutMessage: 'metadata fetch timed out',
-        headers: { Accept: 'application/json' },
-      });
+      let failedStatus = 0;
+      let sawNotFound = false;
+      let lastError: unknown = null;
+      let response: Response | null = null;
 
-      if (response.status === 404) {
-        throw new ApiError('NOT_FOUND', 'Metadata document not found', 404);
+      for (const fetchUrl of fetchUrls) {
+        try {
+          const candidate = await fetchWithTimeout(fetchUrl, {
+            timeoutMs: 8_000,
+            timeoutMessage: 'metadata fetch timed out',
+            headers: { Accept: 'application/json' },
+          });
+          if (candidate.status === 404) {
+            sawNotFound = true;
+            continue;
+          }
+          if (!candidate.ok) {
+            failedStatus = candidate.status;
+            continue;
+          }
+          response = candidate;
+          break;
+        } catch (err) {
+          lastError = err;
+        }
       }
-      if (!response.ok) {
-        throw new ApiError('NETWORK_ERROR', `Gateway responded ${response.status}`, 502);
+
+      if (!response) {
+        // A gateway that answered with a real error is more informative than
+        // one that merely lacked the object, so it takes precedence.
+        if (failedStatus) {
+          throw new ApiError('NETWORK_ERROR', `Gateway responded ${failedStatus}`, 502);
+        }
+        if (sawNotFound) {
+          throw new ApiError('NOT_FOUND', 'Metadata document not found', 404);
+        }
+        throw new ApiError(
+          'NETWORK_ERROR',
+          lastError instanceof Error ? lastError.message : 'No gateway could serve the document',
+          502,
+        );
       }
 
       const contentType = response.headers.get('content-type') ?? '';

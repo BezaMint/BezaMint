@@ -19,6 +19,18 @@
 export const DEFAULT_IPFS_GATEWAY = 'https://ipfs.io';
 
 /**
+ * Gateway of last resort: the pinning provider's own gateway.
+ *
+ * Public gateways rate-limit datacenter egress. Measured from this deployment
+ * and from a CI runner, ipfs.io, dweb.link, w3s.link and nftstorage.link all
+ * answered 429 for objects that were perfectly readable from a browser, while
+ * gateway.pinata.cloud served them every time. It is slower -- 3.7-6.6s per
+ * object against ~40ms -- but it is where this app's content was just pinned,
+ * so it is the one host that can always answer.
+ */
+export const FALLBACK_IPFS_GATEWAY = 'https://gateway.pinata.cloud';
+
+/**
  * The configured gateway, without a trailing slash.
  *
  * NEXT_PUBLIC_* is inlined at build time, so this is safe to call from server
@@ -41,14 +53,11 @@ export function ipfsGatewayUrl(cidOrUri: string): string {
     .replace(/^\/+/, '')
     .replace(/^ipfs\/+/, '');
   return `${getIpfsGateway()}/ipfs/${path}`;
-}
-
-/**
+} /**
  * Gateways to try in order, deduplicated. The configured gateway comes first
- * so an operator pointing at a dedicated gateway gets it; the default is kept
- * as a fallback so one unreachable host does not make content unreadable.
+ * (so an operator pointing at a dedicated gateway gets it), then the pinning
+ * provider's, which is the one that reliably answers a datacenter request.
  */
 export function getIpfsGateways(): string[] {
-  const configured = getIpfsGateway();
-  return configured === DEFAULT_IPFS_GATEWAY ? [configured] : [configured, DEFAULT_IPFS_GATEWAY];
+  return [...new Set([getIpfsGateway(), FALLBACK_IPFS_GATEWAY])];
 }

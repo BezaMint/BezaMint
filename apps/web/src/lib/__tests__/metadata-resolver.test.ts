@@ -17,9 +17,9 @@ describe('toGatewayUrl', () => {
     expect(toGatewayUrl('ipfs://Qm123', 0)).toBe('https://ipfs.io/ipfs/Qm123');
   });
 
-  it('keeps ipfs.io as the second gateway behind a configured one', () => {
-    vi.stubEnv('NEXT_PUBLIC_PINATA_GATEWAY', 'https://dedicated.mypinata.cloud');
-    expect(toGatewayUrl('ipfs://Qm123', 1)).toBe('https://ipfs.io/ipfs/Qm123');
+  it('keeps the pinning provider as the second gateway behind a configured one', () => {
+    vi.stubEnv('NEXT_PUBLIC_PINATA_GATEWAY', 'https://ipfs.io');
+    expect(toGatewayUrl('ipfs://Qm123', 1)).toBe('https://gateway.pinata.cloud/ipfs/Qm123');
   });
 
   it('passes https URLs through unchanged', () => {

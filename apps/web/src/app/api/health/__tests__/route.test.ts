@@ -46,9 +46,11 @@ vi.mock('@/lib/server/indexer', () => ({
   getIndexerHealth: () => mockGetIndexerHealth(),
 }));
 
+const mockFetchWithTimeout = vi.fn().mockResolvedValue({ ok: true, status: 200 });
+
 vi.mock('@/lib/server/http', () => ({
   withTimeout: <T>(promise: Promise<T>) => promise,
-  fetchWithTimeout: vi.fn().mockResolvedValue({ ok: true, status: 200 }),
+  fetchWithTimeout: (...args: unknown[]) => mockFetchWithTimeout(...args),
   FetchTimeoutError: class extends Error {},
 }));
 
@@ -59,6 +61,7 @@ describe('GET /api/health', () => {
   beforeEach(() => {
     mockGetLatestLedger.mockResolvedValue({ sequence: 1234 });
     mockIsIpfsAvailable.mockReturnValue(true);
+    mockFetchWithTimeout.mockResolvedValue({ ok: true, status: 200 });
     mockRefreshIndexer.mockResolvedValue([]);
     mockGetIndexerHealth.mockReturnValue({
       eventCount: 3,
@@ -164,5 +167,43 @@ describe('GET /api/health', () => {
 
     const body = await response.json();
     expect(body.checks.ipfs.configured).toBe(false);
+  });
+
+  it('stays ready when the gateway throttles this egress IP', async () => {
+    // Public gateways answer 429 to datacenter egress while serving the same
+    // objects normally to the browsers that read them. Treating that as an
+    // outage made a working deployment answer 503 on every check.
+    mockFetchWithTimeout.mockResolvedValue({ ok: false, status: 429 });
+
+    const response = await GET();
+    expect(response.status).toBe(200);
+
+    const body = await response.json();
+    expect(body.status).toBe('healthy');
+    expect(body.checks.ipfs.ok).toBe(true);
+    expect(body.checks.ipfs.status).toBe(429);
+    expect(body.checks.ipfs.note).toMatch(/throttl/i);
+  });
+
+  it('is not ready when the gateway is down', async () => {
+    mockFetchWithTimeout.mockResolvedValue({ ok: false, status: 502 });
+
+    const response = await GET();
+    expect(response.status).toBe(503);
+
+    const body = await response.json();
+    expect(body.checks.ipfs.ok).toBe(false);
+    expect(body.checks.ipfs.error).toBe('gateway responded 502');
+  });
+
+  it('is not ready when the gateway cannot be reached at all', async () => {
+    mockFetchWithTimeout.mockRejectedValue(new Error('gateway probe timed out'));
+
+    const response = await GET();
+    expect(response.status).toBe(503);
+
+    const body = await response.json();
+    expect(body.checks.ipfs.ok).toBe(false);
+    expect(body.checks.ipfs.gateway).toBeTruthy();
   });
 });
