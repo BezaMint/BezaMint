@@ -24,7 +24,7 @@
   <img src="https://img.shields.io/badge/Next.js-15-000000?logo=nextdotjs" alt="Next.js" />
   <img src="https://img.shields.io/badge/Soroban_SDK-22.0.11-7b3fe4" alt="Soroban SDK" />
   <img src="https://img.shields.io/badge/Stellar-Testnet-24a563?logo=stellar" alt="Stellar" />
-  <img src="https://img.shields.io/badge/tests-574_passing-success" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-608_passing-success" alt="Tests" />
   <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="Version" />
   <img src="https://img.shields.io/badge/PRs-welcome-brightgreen" alt="PRs Welcome" />
 </p>
@@ -369,7 +369,7 @@ pnpm dev                  # Starts at http://localhost:3000
 # Build all five contracts
 pnpm run contract:build
 
-# Run the full contract test suite (187 tests across 5 crates)
+# Run the full contract test suite (196 tests across 5 crates)
 pnpm run contract:test
 
 # Deploy to Stellar Testnet
@@ -483,22 +483,25 @@ BezaMint implements defense-in-depth across the entire stack:
 
 | Suite           | Framework      | Tests   | Status             |
 | --------------- | -------------- | ------- | ------------------ |
-| Smart Contracts | Rust `#[test]` | 187     | ✅ 187/187 passing |
-| Frontend        | Vitest         | 387     | ✅ 387/387 passing |
-| **Total**       |                | **574** | **All passing**    |
+| Smart Contracts | Rust `#[test]` | 196     | ✅ 196/196 passing |
+| Frontend        | Vitest         | 412     | ✅ 412/412 passing |
+| **Total**       |                | **608** | **All passing**    |
 
 ```bash
-pnpm test                # Frontend: 387/387 passing (61 files)
-pnpm run contract:test   # Contracts: 187 tests across 5 crates
+pnpm test                # Frontend: 412/412 passing (63 files)
+pnpm run contract:test   # Contracts: 196 tests across 5 crates
 ```
+
+Counts are the totals those two commands report on this tree; nothing generates
+them, so a suite that grows has to update them.
 
 | Contract crate        | Tests |
 | --------------------- | ----- |
-| `bezamint-nft`        | 55    |
-| `bezamint-collection` | 36    |
-| `bezamint-royalty`    | 45    |
-| `bezamint-creator`    | 26    |
-| `bezamint-factory`    | 25    |
+| `bezamint-nft`        | 57    |
+| `bezamint-collection` | 38    |
+| `bezamint-royalty`    | 46    |
+| `bezamint-creator`    | 28    |
+| `bezamint-factory`    | 27    |
 
 Beyond the unit suites, CI enforces the things tests cannot state on their own:
 `cargo fmt` and `clippy -D warnings`, a rustdoc warning gate, per-contract wasm
@@ -546,11 +549,11 @@ A 2-minute walkthrough covering all major features — landing, dashboard, colle
 
 ## ✅ Production Readiness Checklist
 
-- [x] Smart contract tests (187/187 passing)
-- [x] Frontend tests (351/351 passing)
+- [x] Smart contract tests (196/196 passing)
+- [x] Frontend tests (412/412 passing)
 - [x] End-to-end smoke test against a live deployment
 - [x] Security headers (HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy)
-- [x] CI/CD pipeline (3 workflows)
+- [x] CI/CD pipeline (4 workflows)
 - [x] Error boundaries and graceful fallbacks
 - [x] Accessibility (skip links, ARIA labels, keyboard nav)
 - [x] TypeScript strict mode
@@ -696,9 +699,9 @@ Contributions are welcome! BezaMint uses conventional commits (`.commitlintrc.js
 
 - `pnpm format:check` — Prettier formatting
 - `pnpm lint` — ESLint
-- `pnpm test` — Vitest (263 tests)
+- `pnpm test` — Vitest (412 tests)
 - `pnpm --filter @bezamint/web run test:coverage` — coverage, with a ratcheted floor
-- `cd contracts && cargo test` — Rust (187 tests), plus clippy, rustfmt and the rustdoc gate
+- `cd contracts && cargo test` — Rust (196 tests), plus clippy, rustfmt and the rustdoc gate
 - `cd contracts && cargo build --release --target wasm32-unknown-unknown` — wasm size budgets and the contract ABI snapshot
 - `pnpm build` — production build, plus the client bundle budget
 
